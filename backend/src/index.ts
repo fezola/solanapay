@@ -11,6 +11,7 @@ import { payoutRoutes } from './routes/payouts.js';
 import { kycRoutes } from './routes/kyc.js';
 import { transactionRoutes } from './routes/transactions.js';
 import { webhookRoutes } from './routes/webhooks.js';
+import { breadWebhookRoutes } from './routes/bread-webhooks.js';
 import { adminRoutes } from './routes/admin.js';
 import { healthRoutes } from './routes/health.js';
 import { initializeServices, shutdownServices } from './services/index.js';
@@ -47,6 +48,7 @@ await fastify.register(healthRoutes, { prefix: '/health' });
 
 // Webhooks (no auth, but verify signatures)
 await fastify.register(webhookRoutes, { prefix: '/webhooks' });
+await fastify.register(breadWebhookRoutes, { prefix: '/api/webhooks' });
 
 // Public routes
 await fastify.register(authRoutes, { prefix: '/api/auth' });
@@ -94,6 +96,7 @@ const start = async () => {
     logger.info(`📊 Environment: ${env.NODE_ENV}`);
     logger.info(`🔗 Solana Network: ${env.SOLANA_NETWORK}`);
     logger.info(`🔗 Base Chain ID: ${env.BASE_CHAIN_ID}`);
+    logger.info(`🍞 Bread Integration: ${env.BREAD_ENABLED ? 'ENABLED' : 'DISABLED'}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

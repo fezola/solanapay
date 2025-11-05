@@ -40,6 +40,12 @@ const envSchema = z.object({
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
   PAYSTACK_MOCK_MODE: z.string().transform(v => v === 'true').default('false'),
 
+  // Bread Africa API
+  BREAD_API_KEY: z.string().optional(),
+  BREAD_API_URL: z.string().url().default('https://api.bread.africa'),
+  BREAD_WEBHOOK_SECRET: z.string().optional(),
+  BREAD_ENABLED: z.string().transform(v => v === 'true').default('false'),
+
   // KYC/AML (Optional for development)
   KYC_AUTO_APPROVE: z.string().transform(v => v === 'true').default('true'),
 
