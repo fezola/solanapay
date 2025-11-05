@@ -57,7 +57,7 @@ export function SettingsScreen({ userName, userEmail, onLogout, onNavigate, kycT
   ];
 
   return (
-    <div className="pb-24 bg-white min-h-screen">
+    <div className="pb-safe-nav bg-white min-h-screen">
       <div className="px-6 pt-12 pb-6">
         <motion.div
           initial={{ y: -20, opacity: 0 }}

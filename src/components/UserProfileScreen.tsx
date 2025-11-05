@@ -53,7 +53,7 @@ export function UserProfileScreen({
     .slice(0, 2);
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-white pb-safe-nav">
       {/* Header */}
       <div className="px-6 pt-12 pb-6 border-b border-gray-100">
         <div className="flex items-center gap-4 mb-6">

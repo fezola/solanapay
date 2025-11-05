@@ -113,7 +113,7 @@ export function LimitsScreen({ currentTier, limits, onUpgrade, onBack }: LimitsS
   };
 
   return (
-    <div className="pb-24 bg-white min-h-screen">
+    <div className="pb-safe-nav bg-white min-h-screen">
       <PageHeader
         title="Limits & Tier"
         description="Manage your transaction limits"

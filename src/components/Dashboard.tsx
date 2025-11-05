@@ -81,34 +81,37 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
   ];
 
   return (
-    <div className="pb-24 bg-white min-h-screen">
-      {/* Header */}
-      <div className="px-6 pt-12 pb-6">
+    <div className="pb-safe-nav bg-white min-h-screen">
+      {/* Header with Background - Only greeting and balance */}
+      <div
+        className="px-6 pt-12 pb-8 bg-cover bg-center bg-no-repeat rounded-b-3xl"
+        style={{ backgroundImage: 'url(/background.png)' }}
+      >
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           className="flex items-start justify-between mb-8"
         >
           <div>
-            <h2 className="text-gray-900 font-bold text-2xl mb-1">Hi {userName}</h2>
-            <p className="text-gray-500 text-sm">Welcome back!</p>
+            <h2 className="text-white font-bold text-2xl mb-1 drop-shadow-md" style={{ fontFamily: 'Poppins, sans-serif' }}>Hi {userName}</h2>
+            <p className="text-white font-medium text-sm drop-shadow" style={{ fontFamily: 'Poppins, sans-serif' }}>Welcome back!</p>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => onNavigate('profile')}
-              className="relative p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="relative p-2 hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
             >
-              <User className="w-6 h-6 text-gray-700" />
+              <User className="w-6 h-6 text-white drop-shadow" />
             </button>
 
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="relative p-2 hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
             >
-              <Bell className="w-6 h-6 text-gray-700" />
+              <Bell className="w-6 h-6 text-white drop-shadow" />
               {hasUnreadNotifications && (
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
               )}
             </button>
           </div>
@@ -121,7 +124,7 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
             animate={{ opacity: 1, y: 0 }}
             className="mb-6"
           >
-            <Card className="p-4 border border-gray-100">
+            <Card className="p-4 border border-white/20 bg-white/95 backdrop-blur-md">
               {notifications.length === 0 ? (
                 <div className="text-center py-8">
                   <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -149,27 +152,25 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          <h1 className="text-gray-900 mb-3" style={{ fontSize: '48px', lineHeight: '1.1' }}>
+          <h1 className="text-white font-bold mb-3 drop-shadow-lg" style={{ fontSize: '48px', lineHeight: '1.1', fontFamily: 'Poppins, sans-serif' }}>
             {displayBalance.split('.')[0]}.<span style={{ fontSize: '40px' }}>{displayBalance.split('.')[1]}</span>
           </h1>
-          
-          <button 
+
+          <button
             onClick={() => setSelectedCurrency(selectedCurrency === 'naira' ? 'usd' : 'naira')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-2 text-white hover:text-white/90 transition-colors drop-shadow"
           >
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center text-white text-xs">
+            <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-xs font-bold">
               {selectedCurrency === 'naira' ? '₦' : '$'}
             </div>
-            <span>{selectedCurrency === 'naira' ? 'NGN' : 'USD'}</span>
+            <span className="font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>{selectedCurrency === 'naira' ? 'NGN' : 'USD'}</span>
             <ChevronDown className="w-4 h-4" />
           </button>
         </motion.div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="px-6 mb-8">
-        <p className="text-gray-500 mb-4">Quick actions</p>
-
+      {/* Action Buttons - Below the background with proper spacing */}
+      <div className="px-6 mt-6 mb-6">
         <div className="flex gap-3">
           <motion.div
             initial={{ y: 20, opacity: 0 }}
@@ -179,7 +180,8 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
           >
             <Button
               onClick={() => onNavigate('wallets')}
-              className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center gap-2"
+              className="w-full h-14 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl flex items-center justify-center gap-2 shadow-lg border-0 text-base font-semibold"
+              style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               <ArrowDownLeft className="w-5 h-5" />
               <span>Deposit</span>
@@ -194,7 +196,8 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
           >
             <Button
               onClick={() => onNavigate('banks')}
-              className="w-full h-14 bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center justify-center gap-2"
+              className="w-full h-14 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl flex items-center justify-center gap-2 shadow-lg border-0 text-base font-semibold"
+              style={{ fontFamily: 'Poppins, sans-serif' }}
             >
               <Building2 className="w-5 h-5" />
               <span>Bank Account</span>
@@ -204,10 +207,10 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       </div>
 
       {/* Crypto Assets */}
-      <div className="px-6">
-        <p className="text-gray-500 mb-4">Your crypto assets</p>
+      <div className="px-6 pb-6">
+        <p className="text-gray-500 mb-3 text-sm font-medium">Your crypto assets</p>
 
-        <Card className="border border-gray-100 divide-y divide-gray-100">
+        <Card className="border border-gray-100 divide-y divide-gray-100 overflow-hidden">
           {cryptoAssets.map((asset, index) => (
             <motion.div
               key={asset.id}
@@ -222,7 +225,7 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
                 <img
                   src={asset.logo}
                   alt={asset.symbol}
-                  className="w-8 h-8 rounded-full flex-shrink-0"
+                  className="w-10 h-10 rounded-full flex-shrink-0"
                   onError={(e) => {
                     // Fallback if image fails to load
                     e.currentTarget.style.display = 'none';
@@ -230,15 +233,15 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
                 />
 
                 <div className="flex-1 text-left min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="text-gray-900 font-medium">{asset.name}</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-gray-900 font-semibold">{asset.name}</p>
                     <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded-full">
                       <img
                         src={asset.networkLogo}
                         alt={asset.network}
                         className="w-3 h-3 rounded-full"
                       />
-                      <span className="text-xs text-gray-600">{asset.network}</span>
+                      <span className="text-xs text-gray-600 font-medium">{asset.network}</span>
                     </div>
                   </div>
                   <p className="text-gray-500 text-sm">

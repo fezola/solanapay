@@ -187,3 +187,26 @@
 html {
   font-size: var(--font-size);
 }
+
+/* Safe area padding for iPhone notch and home indicator */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  /* For content screens with bottom navigation - 24 = 6rem */
+  .pb-safe-nav {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Fallback for browsers that don't support env() */
+@supports not (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: 0.5rem;
+  }
+
+  .pb-safe-nav {
+    padding-bottom: 6rem;
+  }
+}
