@@ -170,7 +170,7 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
             transition={{ delay: 0.4 }}
             className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-6"
           >
-            <h3 className="text-gray-900 font-semibold mb-5 text-base">Supported Networks</h3>
+            <h3 className="text-gray-900 font-semibold mb-6 text-base">Supported Networks</h3>
             <div className="space-y-3">
               {[
                 { name: 'Solana', logo: '/solana-sol-logo.svg' },
