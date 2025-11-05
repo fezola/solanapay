@@ -185,7 +185,7 @@ export function OfframpScreen({
   if (kycTier === 0) {
     return (
       <div className="pb-safe-nav bg-white min-h-screen">
-        <div className="px-6 pt-12 pb-6">
+        <div className="px-6 pb-6" style={{ paddingTop: `calc(3rem + env(safe-area-inset-top))` }}>
           <motion.div
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -221,7 +221,7 @@ export function OfframpScreen({
 
   return (
     <div className="pb-safe-nav bg-white min-h-screen">
-      <div className="px-6 pt-12 pb-6">
+      <div className="px-6 pb-6" style={{ paddingTop: `calc(3rem + env(safe-area-inset-top))` }}>
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}

@@ -124,7 +124,7 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
   };
 
   return (
-    <div className="pb-24 bg-white min-h-screen">
+    <div className="pb-safe-nav bg-white min-h-screen">
       <PageHeader
         title="Identity Verification"
         description="Complete KYC to unlock off-ramp features"

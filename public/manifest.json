@@ -2,12 +2,13 @@
   "name": "SolPay - Crypto Off-Ramp",
   "short_name": "SolPay",
   "description": "Convert your crypto to Naira instantly",
-  "theme_color": "#8B5CF6",
+  "theme_color": "#ffffff",
   "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "portrait",
   "scope": "/",
   "start_url": "/",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/SOLPAY.png",

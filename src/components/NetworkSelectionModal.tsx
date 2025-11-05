@@ -37,7 +37,8 @@ export function NetworkSelectionModal({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed left-1/2 -translate-x-1/2 bottom-0 z-50 bg-white rounded-t-3xl max-h-[80vh] overflow-hidden flex flex-col pb-8 w-full max-w-lg"
+            className="fixed left-1/2 -translate-x-1/2 bottom-0 z-50 bg-white rounded-t-3xl max-h-[80vh] overflow-hidden flex flex-col w-full max-w-lg"
+            style={{ paddingBottom: `calc(2rem + env(safe-area-inset-bottom))` }}
           >
             {/* Header */}
             <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex-shrink-0">

@@ -119,7 +119,7 @@ export function DepositScreen({ depositAddresses, onBack }: DepositScreenProps) 
   };
 
   return (
-    <div className="pb-24 bg-white min-h-screen">
+    <div className="pb-safe-nav bg-white min-h-screen">
       <PageHeader
         title="Deposit Crypto"
         description="Send crypto to your deposit addresses"

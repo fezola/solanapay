@@ -12,12 +12,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#8B5CF6" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="description" content="Convert your crypto to Naira instantly with SolPay" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="SolPay" />
     <link rel="apple-touch-icon" href="/SOLPAY.png" />
+
+    <!-- Safe Area CSS Variables -->
+    <style>
+      :root {
+        --sat: env(safe-area-inset-top);
+        --sar: env(safe-area-inset-right);
+        --sab: env(safe-area-inset-bottom);
+        --sal: env(safe-area-inset-left);
+      }
+    </style>
 
     <title>SolPay - Off-ramp Crypto to Naira</title>
   </head>

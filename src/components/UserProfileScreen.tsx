@@ -55,7 +55,7 @@ export function UserProfileScreen({
   return (
     <div className="min-h-screen bg-white pb-safe-nav">
       {/* Header */}
-      <div className="px-6 pt-12 pb-6 border-b border-gray-100">
+      <div className="px-6 pb-6 border-b border-gray-100" style={{ paddingTop: `calc(3rem + env(safe-area-inset-top))` }}>
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={onBack}

@@ -169,7 +169,7 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
   };
 
   return (
-    <div className="pb-24 bg-white min-h-screen">
+    <div className="pb-safe-nav bg-white min-h-screen">
       <PageHeader
         title="Bank Accounts"
         description="Manage your withdrawal accounts"

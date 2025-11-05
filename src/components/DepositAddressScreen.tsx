@@ -60,7 +60,7 @@ export function DepositAddressScreen({
   };
 
   return (
-    <div className="pb-32 bg-white min-h-screen">
+    <div className="pb-safe-nav bg-white min-h-screen">
       <PageHeader
         title={`Deposit ${crypto.symbol}`}
         description={`Send ${crypto.symbol} on ${network.name}`}

@@ -195,7 +195,7 @@ export function CryptoSelectionScreen({ onBack, onSelectCrypto }: CryptoSelectio
   ];
 
   return (
-    <div className="pb-32 bg-white min-h-screen overflow-hidden">
+    <div className="pb-safe-nav bg-white min-h-screen overflow-hidden">
       <PageHeader
         title="Select Cryptocurrency"
         description="Choose the crypto you want to deposit"

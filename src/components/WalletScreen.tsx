@@ -99,8 +99,8 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
   // Main wallet screen - just shows deposit button
   return (
     <>
-      <div className="pb-32 bg-white min-h-screen">
-        <div className="px-6 pt-12 pb-6">
+      <div className="pb-safe-nav bg-white min-h-screen">
+        <div className="px-6 pb-6" style={{ paddingTop: `calc(3rem + env(safe-area-inset-top))` }}>
           <motion.div
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}

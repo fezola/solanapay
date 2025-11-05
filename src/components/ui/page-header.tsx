@@ -11,7 +11,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, onBack, showBack = true }: PageHeaderProps) {
   return (
-    <div className="px-6 pt-12 pb-6">
+    <div className="px-6 pb-6" style={{ paddingTop: `calc(3rem + env(safe-area-inset-top))` }}>
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}

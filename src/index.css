@@ -400,6 +400,49 @@
     color: var(--foreground);
   }
 
+  /* Safe Area Insets for PWA */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pl-safe {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .pr-safe {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .py-safe {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .p-safe {
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+  }
+
+  /* Combined padding with safe areas */
+  .pt-12-safe {
+    padding-top: calc(calc(var(--spacing) * 12) + env(safe-area-inset-top));
+  }
+
+  .pb-safe-nav {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+
   :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) h1 {
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);

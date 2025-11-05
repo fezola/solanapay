@@ -84,8 +84,11 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
     <div className="pb-safe-nav bg-white min-h-screen">
       {/* Header with Background - Only greeting and balance */}
       <div
-        className="px-6 pt-12 pb-8 bg-cover bg-center bg-no-repeat rounded-b-3xl"
-        style={{ backgroundImage: 'url(/background.png)' }}
+        className="px-6 pb-8 bg-cover bg-center bg-no-repeat rounded-b-3xl"
+        style={{
+          backgroundImage: 'url(/background.png)',
+          paddingTop: `calc(3rem + env(safe-area-inset-top))`
+        }}
       >
         <motion.div
           initial={{ y: -20, opacity: 0 }}
