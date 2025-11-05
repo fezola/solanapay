@@ -100,41 +100,43 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
   return (
     <>
       <div className="pb-safe-nav bg-white min-h-screen">
-        <div className="px-6 pb-6" style={{ paddingTop: `calc(3rem + env(safe-area-inset-top))` }}>
+        {/* Header */}
+        <div className="px-6 pb-6 mb-6" style={{ paddingTop: `calc(3rem + env(safe-area-inset-top))` }}>
           <motion.div
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
           >
             <h1 className="text-gray-900 mb-2">My Wallets</h1>
-            <p className="text-gray-500">Deposit crypto to your account</p>
+            <p className="text-gray-500 mb-6">Deposit crypto to your account</p>
+
+            {/* Deposit Button */}
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Button
+                onClick={() => setDepositFlow('crypto-selection')}
+                className="w-full h-16 text-lg font-semibold bg-gray-900 hover:bg-gray-800 text-white rounded-2xl shadow-lg"
+                size="lg"
+              >
+                <ArrowDownLeft className="w-6 h-6 mr-2" />
+                Deposit Crypto
+              </Button>
+            </motion.div>
           </motion.div>
         </div>
 
-        <div className="px-6 pb-8">
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Button
-              onClick={() => setDepositFlow('crypto-selection')}
-              className="w-full h-16 text-lg font-semibold bg-gray-900 hover:bg-gray-800 text-white rounded-2xl shadow-lg"
-              size="lg"
-            >
-              <ArrowDownLeft className="w-6 h-6 mr-2" />
-              Deposit Crypto
-            </Button>
-          </motion.div>
-
-          {/* Info Section */}
+        {/* Main Content */}
+        <div className="px-6 space-y-6">
+          {/* Supported Cryptocurrencies - No heading, just icons with proper spacing */}
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="mt-8"
+            className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200"
           >
-            <h3 className="text-gray-900 font-semibold mb-4">Supported Cryptocurrencies</h3>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-4 gap-6">
               {[
                 { name: 'USDC', logo: '/usd-coin-usdc-logo.svg' },
                 { name: 'USDT', logo: '/tether-usdt-logo.svg' },
@@ -143,21 +145,19 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
               ].map((crypto, index) => (
                 <motion.div
                   key={crypto.name}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.3 + (index * 0.05) }}
-                  className="flex flex-col items-center gap-2"
+                  className="flex flex-col items-center gap-3"
                 >
-                  <div className="w-12 h-12 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                    <div className="w-8 h-8 flex-shrink-0">
-                      <img
-                        src={crypto.logo}
-                        alt={crypto.name}
-                        className="w-8 h-8 rounded-full object-contain"
-                      />
-                    </div>
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <img
+                      src={crypto.logo}
+                      alt={crypto.name}
+                      className="w-8 h-8 rounded-full object-contain"
+                    />
                   </div>
-                  <p className="text-xs text-gray-600 font-medium">{crypto.name}</p>
+                  <p className="text-xs text-gray-700 font-semibold">{crypto.name}</p>
                 </motion.div>
               ))}
             </div>
@@ -168,9 +168,9 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="mt-8 mb-8"
+            className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-6"
           >
-            <h3 className="text-gray-900 font-semibold mb-4">Supported Networks</h3>
+            <h3 className="text-gray-900 font-semibold mb-5 text-base">Supported Networks</h3>
             <div className="space-y-3">
               {[
                 { name: 'Solana', logo: '/solana-sol-logo.svg' },
@@ -185,16 +185,16 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
                   initial={{ x: -20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.5 + (index * 0.05) }}
-                  className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl border border-gray-200"
+                  className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-all"
                 >
-                  <div className="w-8 h-8 flex-shrink-0 bg-white rounded-full flex items-center justify-center border border-gray-200">
+                  <div className="w-10 h-10 flex-shrink-0 bg-gray-50 rounded-full flex items-center justify-center border border-gray-200">
                     <img
                       src={network.logo}
                       alt={network.name}
                       className="w-6 h-6 rounded-full object-contain"
                     />
                   </div>
-                  <p className="text-sm text-gray-900 font-medium">{network.name}</p>
+                  <p className="text-sm text-gray-900 font-semibold">{network.name}</p>
                 </motion.div>
               ))}
             </div>
