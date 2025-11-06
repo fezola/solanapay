@@ -65,7 +65,7 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
       setFilteredBanks(
         banks.filter(bank =>
           bank.name.toLowerCase().includes(query) ||
-          bank.slug.includes(query)
+          (bank.slug && bank.slug.includes(query))
         )
       );
     }
