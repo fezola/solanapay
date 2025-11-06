@@ -46,15 +46,32 @@ export class BreadIdentityService {
       );
 
       logger.info({
-        msg: 'Bread identity created',
-        identityId: response.data?.id,
-        fullResponse: response,
+        msg: 'Bread identity API response',
+        responseType: typeof response,
+        responseKeys: response ? Object.keys(response) : [],
+        fullResponse: JSON.stringify(response, null, 2),
       });
 
       // Bread API returns: { success, status, message, timestamp, data: { id, link } }
+      // The client.post() method already extracts response.data, so response IS the data object
+      const identityId = response?.id || response?.data?.id;
+
+      if (!identityId) {
+        logger.error({
+          msg: 'No identity ID in Bread API response',
+          response,
+        });
+        throw new Error('Bread API did not return an identity ID');
+      }
+
+      logger.info({
+        msg: 'Bread identity created successfully',
+        identityId,
+      });
+
       // Map to our BreadIdentity interface
       return {
-        id: response.data.id,
+        id: identityId,
         firstName: request.firstName,
         lastName: request.lastName,
         email: request.email,
