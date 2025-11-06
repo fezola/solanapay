@@ -78,35 +78,12 @@ export class BreadBeneficiaryService {
   }
 
   /**
-   * Verify bank account details
-   * This is typically done automatically by Bread when creating a beneficiary
+   * NOTE: Bread Africa does not have a standalone bank verification endpoint.
+   * Bank account verification happens automatically when creating a beneficiary.
+   * The verified account name is returned in the beneficiary creation response.
+   *
+   * This method has been removed. Use createBeneficiary() instead.
    */
-  async verifyBankAccount(
-    bankCode: string,
-    accountNumber: string
-  ): Promise<{ accountName: string; verified: boolean }> {
-    logger.info({
-      msg: 'Verifying bank account',
-      bankCode,
-      accountNumber,
-    });
-
-    const response = await this.client.post<{
-      accountName: string;
-      verified: boolean;
-    }>('/beneficiary/verify', {
-      bankCode,
-      accountNumber,
-    });
-
-    logger.info({
-      msg: 'Bank account verified',
-      accountName: response.accountName,
-      verified: response.verified,
-    });
-
-    return response;
-  }
 
   /**
    * Delete a beneficiary

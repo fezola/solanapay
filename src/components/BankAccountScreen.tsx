@@ -50,6 +50,7 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoadingBanks, setIsLoadingBanks] = useState(true);
   const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null);
+  const [showBankList, setShowBankList] = useState(false);
 
   // Load banks on mount
   useEffect(() => {
@@ -205,64 +206,58 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
                       placeholder="Search for your bank..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => setShowBankList(true)}
                       className="pl-10 w-full"
                     />
                   </div>
 
-                  {/* Bank List */}
-                  {isLoadingBanks ? (
-                    <div className="p-4 text-center text-gray-500">
-                      Loading banks...
-                    </div>
-                  ) : (
-                    <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
-                      {filteredBanks.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
-                          No banks found
+                  {/* Bank List - Only show when focused/searching */}
+                  {showBankList && (
+                    <>
+                      {isLoadingBanks ? (
+                        <div className="p-4 text-center text-gray-500 border border-gray-200 rounded-lg">
+                          Loading banks...
                         </div>
                       ) : (
-                        filteredBanks.map((bank) => (
-                          <button
-                            key={bank.code}
-                            onClick={() => {
-                              setSelectedBankCode(bank.code);
-                              setAccountName(''); // Reset account name when bank changes
-                            }}
-                            className={`w-full p-3 flex items-center gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
-                              selectedBankCode === bank.code ? 'bg-blue-50 hover:bg-blue-50' : ''
-                            }`}
-                          >
-                            {/* Bank Logo */}
-                            <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden p-1">
-                              {bank.logo ? (
-                                <img
-                                  src={bank.logo}
-                                  alt={bank.name}
-                                  className="w-full h-full object-contain"
-                                  onError={(e) => {
-                                    // Fallback to icon if image fails to load
-                                    e.currentTarget.style.display = 'none';
-                                    e.currentTarget.parentElement!.innerHTML = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>';
-                                  }}
-                                />
-                              ) : (
-                                <Building2 className="w-5 h-5 text-gray-400" />
-                              )}
+                        <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+                          {filteredBanks.length === 0 ? (
+                            <div className="p-4 text-center text-gray-500">
+                              No banks found
                             </div>
+                          ) : (
+                            filteredBanks.map((bank) => (
+                              <button
+                                key={bank.code}
+                                onClick={() => {
+                                  setSelectedBankCode(bank.code);
+                                  setAccountName(''); // Reset account name when bank changes
+                                  setShowBankList(false); // Close the list after selection
+                                  setSearchQuery(''); // Clear search
+                                }}
+                                className={`w-full p-3 flex items-center gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                                  selectedBankCode === bank.code ? 'bg-blue-50 hover:bg-blue-50' : ''
+                                }`}
+                              >
+                                {/* Bank Icon - Simple icon without logo */}
+                                <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center flex-shrink-0">
+                                  <Building2 className="w-5 h-5 text-blue-600" />
+                                </div>
 
-                            {/* Bank Info */}
-                            <div className="flex-1 text-left">
-                              <p className="font-medium text-gray-900 text-sm">{bank.name}</p>
-                            </div>
+                                {/* Bank Info */}
+                                <div className="flex-1 text-left">
+                                  <p className="font-medium text-gray-900 text-sm">{bank.name}</p>
+                                </div>
 
-                            {/* Selected Indicator */}
-                            {selectedBankCode === bank.code && (
-                              <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                            )}
-                          </button>
-                        ))
+                                {/* Selected Indicator */}
+                                {selectedBankCode === bank.code && (
+                                  <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                                )}
+                              </button>
+                            ))
+                          )}
+                        </div>
                       )}
-                    </div>
+                    </>
                   )}
 
                   {/* Selected Bank Display */}

@@ -41,45 +41,53 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * Verify bank account (without creating beneficiary)
+   *
+   * NOTE: Bread Africa doesn't have a standalone bank verification endpoint.
+   * This endpoint simply validates the bank code exists in Bread's supported banks.
+   * The actual account verification will happen when creating the beneficiary.
    */
   fastify.post('/verify-account', async (request, reply) => {
     const body = createBeneficiarySchema.parse(request.body);
 
     try {
-      const verification = await breadService.beneficiary.verifyBankAccount(
-        body.bank_code,
-        body.account_number
-      );
+      // Get bank name from Bread's bank list to validate the bank code
+      const banks = await breadService.offramp.getBanks();
+      const bank = banks.find((b: any) => b.code === body.bank_code);
 
+      if (!bank) {
+        return reply.status(400).send({
+          error: 'Invalid bank code',
+          message: 'The selected bank is not supported by Bread Africa'
+        });
+      }
+
+      // Return success - account name will be verified when beneficiary is created
       return {
         account_number: body.account_number,
-        account_name: verification.accountName,
+        account_name: `${bank.name} Account`, // Placeholder
         bank_code: body.bank_code,
+        bank_name: bank.name,
       };
     } catch (error: any) {
-      request.log.error('Account verification failed:', error);
+      request.log.error('Bank validation failed:', error);
       return reply.status(400).send({
-        error: 'Account verification failed',
-        message: error.message || 'Could not verify account details',
+        error: 'Bank validation failed',
+        message: error.message || 'Could not validate bank details',
       });
     }
   });
 
   /**
    * Create and verify beneficiary
+   * This creates a beneficiary in both Bread and our database
+   * Bread will automatically verify the bank account during creation
    */
   fastify.post('/beneficiaries', async (request, reply) => {
     const userId = request.userId!;
     const body = createBeneficiarySchema.parse(request.body);
 
-    // Verify account with Bread
     try {
-      const verification = await breadService.beneficiary.verifyBankAccount(
-        body.bank_code,
-        body.account_number
-      );
-
-      // Get bank name
+      // Get bank name from Bread's bank list
       const banks = await breadService.offramp.getBanks();
       const bank = banks.find((b: any) => b.code === body.bank_code);
 
@@ -87,9 +95,9 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Invalid bank code' });
       }
 
-      // Check if beneficiary already exists
+      // Check if beneficiary already exists in our database
       const { data: existing } = await supabaseAdmin
-        .from('payout_beneficiaries')
+        .from('bank_accounts')
         .select('*')
         .eq('user_id', userId)
         .eq('account_number', body.account_number)
@@ -100,31 +108,77 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         return { beneficiary: existing };
       }
 
-      // Create beneficiary
+      // Get user details to create/get Bread identity
+      const { data: user } = await supabaseAdmin
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+
+      // Get or create Bread identity
+      let breadIdentityId = user.bread_identity_id;
+
+      if (!breadIdentityId) {
+        // Create Bread identity for the user
+        const breadIdentity = await breadService.identity.createIdentity({
+          firstName: user.first_name || 'User',
+          lastName: user.last_name || 'Name',
+          email: user.email,
+          phoneNumber: user.phone_number || '+234',
+          address: {
+            country: 'NG',
+          },
+        });
+
+        breadIdentityId = breadIdentity.id;
+
+        // Save Bread identity ID to user record
+        await supabaseAdmin
+          .from('users')
+          .update({ bread_identity_id: breadIdentityId })
+          .eq('id', userId);
+      }
+
+      // Create beneficiary in Bread (this will verify the account)
+      const breadBeneficiary = await breadService.beneficiary.createBeneficiary({
+        identityId: breadIdentityId,
+        bankCode: body.bank_code,
+        accountNumber: body.account_number,
+        currency: 'NGN',
+      });
+
+      // Save beneficiary to our database with verified account name from Bread
       const { data: beneficiary, error } = await supabaseAdmin
-        .from('payout_beneficiaries')
+        .from('bank_accounts')
         .insert({
           user_id: userId,
           bank_code: body.bank_code,
           bank_name: bank.name,
           account_number: body.account_number,
-          account_name: verification.accountName,
+          account_name: breadBeneficiary.accountName,
+          bread_beneficiary_id: breadBeneficiary.id,
+          is_verified: true,
           verified_at: new Date().toISOString(),
+          bread_synced_at: new Date().toISOString(),
         })
         .select()
         .single();
 
       if (error) {
-        request.log.error({ error }, 'Failed to create beneficiary');
-        return reply.status(500).send({ error: 'Failed to create beneficiary' });
+        request.log.error({ error }, 'Failed to create beneficiary in database');
+        return reply.status(500).send({ error: 'Failed to save beneficiary' });
       }
 
       return { beneficiary };
     } catch (error: any) {
-      request.log.error('Account verification failed:', error);
+      request.log.error('Beneficiary creation failed:', error);
       return reply.status(400).send({
-        error: 'Account verification failed',
-        message: error.message,
+        error: 'Beneficiary creation failed',
+        message: error.message || 'Could not create beneficiary. Please check account details.',
       });
     }
   });
@@ -136,7 +190,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
     const userId = request.userId!;
 
     const { data: beneficiaries, error } = await supabaseAdmin
-      .from('payout_beneficiaries')
+      .from('bank_accounts')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -156,7 +210,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = request.params as { id: string };
 
     const { error } = await supabaseAdmin
-      .from('payout_beneficiaries')
+      .from('bank_accounts')
       .delete()
       .eq('id', id)
       .eq('user_id', userId);
@@ -199,7 +253,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Get beneficiary
     const { data: beneficiary } = await supabaseAdmin
-      .from('payout_beneficiaries')
+      .from('bank_accounts')
       .select('*')
       .eq('id', body.beneficiary_id)
       .eq('user_id', userId)
@@ -293,7 +347,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       .select(`
         *,
         quote:quotes(*),
-        beneficiary:payout_beneficiaries(*)
+        beneficiary:bank_accounts(*)
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -318,7 +372,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       .select(`
         *,
         quote:quotes(*),
-        beneficiary:payout_beneficiaries(*)
+        beneficiary:bank_accounts(*)
       `)
       .eq('id', id)
       .eq('user_id', userId)
