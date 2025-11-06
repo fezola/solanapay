@@ -40,8 +40,8 @@ const envSchema = z.object({
   // Redis (optional)
   REDIS_URL: z.string().url().optional(),
 
-  // Payout Rails
-  PAYSTACK_SECRET_KEY: z.string(),
+  // Payout Rails (DEPRECATED - We use Bread Africa now)
+  PAYSTACK_SECRET_KEY: z.string().optional(),
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
   PAYSTACK_MOCK_MODE: z.string().transform(v => v === 'true').default('false'),
 
