@@ -26,10 +26,10 @@ const fastify = Fastify({
 
 // Register plugins
 await fastify.register(cors, {
-  origin: env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] 
-    : true,
+  origin: env.CORS_ORIGIN.split(',').map(o => o.trim()),
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 });
 
 await fastify.register(helmet, {
