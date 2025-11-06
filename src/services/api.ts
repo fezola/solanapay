@@ -53,9 +53,13 @@ async function apiRequest<T>(
   const token = await getAuthToken();
 
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
     ...options.headers,
   };
+
+  // Only set Content-Type if there's a body
+  if (options.body) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -381,16 +385,23 @@ export const kycApi = {
    * Start KYC verification
    */
   async startKYC(level?: number) {
+    const requestOptions: RequestInit = {
+      method: 'POST',
+    };
+
+    // Only include body if level is provided (for legacy KYC)
+    // Sumsub flow doesn't need a body
+    if (level) {
+      requestOptions.body = JSON.stringify({ level });
+    }
+
     return apiRequest<{
       provider: string;
       applicantId?: string;
       accessToken?: string;
       message: string;
       verification?: any;
-    }>('/api/kyc/start', {
-      method: 'POST',
-      body: level ? JSON.stringify({ level }) : undefined,
-    });
+    }>('/api/kyc/start', requestOptions);
   },
 
   /**
