@@ -24,12 +24,14 @@ export class BreadIdentityService {
     });
 
     // Transform request to match Bread API format
-    // Bread API expects: type: "link", name: "Full Name", email, phone_number
+    // Bread API expects: type: "Link", name: "Full Name", details: { email, country }
     const breadRequest: any = {
-      type: 'link', // Use link-based verification
+      type: 'Link', // Use link-based verification
       name: `${request.firstName} ${request.lastName}`.trim(),
-      email: request.email,
-      phone_number: request.phoneNumber,
+      details: {
+        email: request.email,
+        country: request.address?.country || 'NG', // Default to Nigeria
+      },
     };
 
     logger.info({
@@ -38,18 +40,28 @@ export class BreadIdentityService {
     });
 
     try {
-      const response = await this.client.post<CreateIdentityResponse>(
+      const response = await this.client.post<any>(
         '/identity',
         breadRequest
       );
 
       logger.info({
         msg: 'Bread identity created',
-        identityId: response.identity.id,
-        status: response.identity.status,
+        identityId: response.data?.id,
+        fullResponse: response,
       });
 
-      return response.identity;
+      // Bread API returns: { success, status, message, timestamp, data: { id, link } }
+      // Map to our BreadIdentity interface
+      return {
+        id: response.data.id,
+        firstName: request.firstName,
+        lastName: request.lastName,
+        email: request.email,
+        phoneNumber: request.phoneNumber,
+        status: 'pending',
+        createdAt: response.timestamp || new Date().toISOString(),
+      };
     } catch (error: any) {
       logger.error({
         msg: 'Failed to create Bread identity',
