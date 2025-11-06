@@ -20,8 +20,11 @@ import { NotificationListener } from './services/notifications';
 interface BankAccount {
   id: string;
   bankName: string;
+  bankCode: string;
   accountNumber: string;
   accountName: string;
+  isVerified?: boolean;
+  logo?: string;
 }
 
 interface Transaction {

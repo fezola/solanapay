@@ -10,8 +10,11 @@ interface Transaction {
   crypto?: string;
   amount: number;
   nairaAmount?: number;
-  status: 'completed' | 'processing' | 'failed';
+  status: 'pending' | 'confirming' | 'quoting' | 'converting' | 'payout_pending' | 'completed' | 'failed';
   date: string;
+  bankAccountId?: string;
+  network?: string;
+  hash?: string;
 }
 
 interface TransactionsScreenProps {
@@ -24,6 +27,11 @@ export function TransactionsScreen({ transactions, onViewTransaction }: Transact
     switch (status) {
       case 'completed':
         return <CheckCircle2 className="w-4 h-4" />;
+      case 'pending':
+      case 'confirming':
+      case 'quoting':
+      case 'converting':
+      case 'payout_pending':
       case 'processing':
         return <Clock className="w-4 h-4" />;
       case 'failed':
@@ -37,6 +45,11 @@ export function TransactionsScreen({ transactions, onViewTransaction }: Transact
     switch (status) {
       case 'completed':
         return 'bg-green-100 text-green-700';
+      case 'pending':
+      case 'confirming':
+      case 'quoting':
+      case 'converting':
+      case 'payout_pending':
       case 'processing':
         return 'bg-yellow-100 text-yellow-700';
       case 'failed':
