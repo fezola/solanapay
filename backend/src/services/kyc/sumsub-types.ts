@@ -95,14 +95,27 @@ export type WebhookType =
   | 'applicantPending'
   | 'applicantReviewed'
   | 'applicantOnHold'
+  | 'applicantAwaitingUser'
+  | 'applicantAwaitingService'
+  | 'applicantActionPending'
+  | 'applicantActionReviewed'
+  | 'applicantActionOnHold'
   | 'applicantPersonalInfoChanged'
+  | 'applicantPersonalDataDeleted'
+  | 'applicantTagsChanged'
+  | 'applicantActivated'
+  | 'applicantDeactivated'
+  | 'applicantDeleted'
   | 'applicantReset'
-  | 'applicantDeleted';
+  | 'applicantLevelChanged'
+  | 'applicantWorkflowCompleted'
+  | 'applicantWorkflowFailed';
 
 // Webhook Payload
 export interface SumsubWebhookPayload {
   applicantId: string;
   inspectionId: string;
+  applicantType?: string;
   correlationId: string;
   levelName: string;
   externalUserId?: string;
@@ -112,10 +125,14 @@ export interface SumsubWebhookPayload {
     reviewAnswer: ReviewResult;
     rejectLabels?: string[];
     reviewRejectType?: string;
+    buttonIds?: string[];
   };
-  createdAt: string;
+  createdAt?: string;
+  createdAtMs?: string;
   clientId?: string;
   sandboxMode?: boolean;
+  applicantActionId?: string;
+  externalApplicantActionId?: string;
 }
 
 // Verification Documents
