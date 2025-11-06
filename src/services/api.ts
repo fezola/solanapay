@@ -1,9 +1,11 @@
 /**
  * API Client for Crypto Off-Ramp Backend
- * 
+ *
  * This service connects the frontend to the backend API.
  * All API calls go through this centralized client.
  */
+
+import { supabase } from './supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -15,21 +17,27 @@ class ApiError extends Error {
 }
 
 /**
- * Get auth token from localStorage
+ * Get auth token from Supabase session
  */
-function getAuthToken(): string | null {
-  return localStorage.getItem('auth_token');
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch (error) {
+    console.error('Failed to get auth token:', error);
+    return null;
+  }
 }
 
 /**
- * Set auth token in localStorage
+ * Set auth token in localStorage (legacy support)
  */
 function setAuthToken(token: string) {
   localStorage.setItem('auth_token', token);
 }
 
 /**
- * Clear auth token from localStorage
+ * Clear auth token from localStorage (legacy support)
  */
 function clearAuthToken() {
   localStorage.removeItem('auth_token');
@@ -42,8 +50,8 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = getAuthToken();
-  
+  const token = await getAuthToken();
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,

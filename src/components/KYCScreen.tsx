@@ -110,8 +110,12 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
   const handleStartKYC = async () => {
     setIsVerifying(true);
     try {
+      console.log('🔵 Starting KYC verification...');
+
       // Call backend to initialize Sumsub
       const response = await kycApi.startKYC();
+
+      console.log('✅ KYC initialization response:', response);
 
       if (response.provider === 'sumsub' && response.accessToken && response.applicantId) {
         setSumsubAccessToken(response.accessToken);
@@ -119,10 +123,11 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
         setStep('sumsub_verification');
         toast.success('KYC verification initialized');
       } else {
+        console.error('❌ Invalid KYC response:', response);
         toast.error('KYC provider not configured. Please contact support.');
       }
     } catch (error: any) {
-      console.error('Failed to start KYC:', error);
+      console.error('❌ Failed to start KYC:', error);
       toast.error(error.message || 'Failed to start KYC verification');
     } finally {
       setIsVerifying(false);
