@@ -179,6 +179,7 @@ export class BreadOfframpService {
 
     try {
       const response = await this.client.post<any>('/lookup', {
+        currency: 'NGN',
         bank_code: bankCode,
         account_number: accountNumber,
       });
