@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
@@ -18,9 +18,11 @@ import {
   ChevronRight,
   User,
   CreditCard,
-  Home as HomeIcon
+  Home as HomeIcon,
+  ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { kycApi } from '../services/api';
 
 interface KYCScreenProps {
   currentTier: number;
@@ -29,19 +31,22 @@ interface KYCScreenProps {
   onBack: () => void;
 }
 
-type KYCStep = 'tier_info' | 'bvn' | 'document' | 'selfie' | 'address' | 'review';
+type KYCStep = 'tier_info' | 'sumsub_verification' | 'review';
+
+// Declare Sumsub SDK types
+declare global {
+  interface Window {
+    snsWebSdk?: any;
+  }
+}
 
 export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScreenProps) {
   const [step, setStep] = useState<KYCStep>('tier_info');
-  const [bvn, setBvn] = useState('');
-  const [documentType, setDocumentType] = useState<'nin' | 'passport' | ''>('');
-  const [documentNumber, setDocumentNumber] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
-  const [uploadedDocs, setUploadedDocs] = useState({
-    document: false,
-    selfie: false,
-    address: false,
-  });
+  const [sumsubAccessToken, setSumsubAccessToken] = useState<string | null>(null);
+  const [sumsubApplicantId, setSumsubApplicantId] = useState<string | null>(null);
+  const sumsubContainerRef = useRef<HTMLDivElement>(null);
+  const [sdkLoaded, setSdkLoaded] = useState(false);
 
   const tiers = [
     {
@@ -67,60 +72,117 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
     },
   ];
 
+  // Load Sumsub SDK script
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.snsWebSdk) {
+      const script = document.createElement('script');
+      script.src = 'https://static.sumsub.com/idensic/static/sns-websdk-builder.js';
+      script.async = true;
+      script.onload = () => {
+        setSdkLoaded(true);
+        console.log('Sumsub SDK loaded');
+      };
+      script.onerror = () => {
+        toast.error('Failed to load verification SDK');
+      };
+      document.body.appendChild(script);
+    } else if (window.snsWebSdk) {
+      setSdkLoaded(true);
+    }
+  }, []);
+
+  // Initialize Sumsub when step changes to verification
+  useEffect(() => {
+    if (step === 'sumsub_verification' && sdkLoaded && sumsubAccessToken && sumsubContainerRef.current) {
+      initializeSumsubSDK();
+    }
+  }, [step, sdkLoaded, sumsubAccessToken]);
+
   const steps = [
     { id: 'tier_info', label: 'Overview', tier: 0 },
-    { id: 'bvn', label: 'BVN', tier: 1 },
-    { id: 'document', label: 'ID Document', tier: 1 },
-    { id: 'selfie', label: 'Selfie', tier: 1 },
-    { id: 'address', label: 'Address', tier: 2 },
+    { id: 'sumsub_verification', label: 'Identity Verification', tier: 1 },
     { id: 'review', label: 'Review', tier: 1 },
   ];
 
   const currentStepIndex = steps.findIndex(s => s.id === step);
   const progress = ((currentStepIndex + 1) / steps.length) * 100;
 
-  const handleBVNVerify = async () => {
-    if (bvn.length !== 11) {
-      toast.error('BVN must be 11 digits');
-      return;
-    }
-    
+  const handleStartKYC = async () => {
     setIsVerifying(true);
-    // Simulate BVN verification
-    setTimeout(() => {
+    try {
+      // Call backend to initialize Sumsub
+      const response = await kycApi.startKYC();
+
+      if (response.provider === 'sumsub' && response.accessToken && response.applicantId) {
+        setSumsubAccessToken(response.accessToken);
+        setSumsubApplicantId(response.applicantId);
+        setStep('sumsub_verification');
+        toast.success('KYC verification initialized');
+      } else {
+        toast.error('KYC provider not configured. Please contact support.');
+      }
+    } catch (error: any) {
+      console.error('Failed to start KYC:', error);
+      toast.error(error.message || 'Failed to start KYC verification');
+    } finally {
       setIsVerifying(false);
-      toast.success('BVN verified successfully!');
-      setStep('document');
-    }, 2000);
+    }
   };
 
-  const handleDocumentUpload = () => {
-    if (!documentType || !documentNumber) {
-      toast.error('Please fill in all document fields');
+  const initializeSumsubSDK = () => {
+    if (!window.snsWebSdk || !sumsubAccessToken || !sumsubContainerRef.current) {
       return;
     }
-    
-    // Simulate document upload
-    setUploadedDocs(prev => ({ ...prev, document: true }));
-    toast.success('Document uploaded successfully!');
-    setStep('selfie');
-  };
 
-  const handleSelfieCapture = () => {
-    // Simulate selfie capture
-    setUploadedDocs(prev => ({ ...prev, selfie: true }));
-    toast.success('Selfie captured successfully!');
-    setStep('review');
+    const snsWebSdkInstance = window.snsWebSdk
+      .init(sumsubAccessToken, () => sumsubAccessToken)
+      .withConf({
+        lang: 'en',
+        theme: 'light',
+        uiConf: {
+          customCssStr: `
+            :root {
+              --black: #000000;
+              --grey: #6B7280;
+              --grey-darker: #4B5563;
+              --border-color: #E5E7EB;
+            }
+          `,
+        },
+      })
+      .withOptions({ addViewportTag: false, adaptIframeHeight: true })
+      .on('idCheck.onStepCompleted', (payload: any) => {
+        console.log('Step completed:', payload);
+      })
+      .on('idCheck.onError', (error: any) => {
+        console.error('Sumsub error:', error);
+        toast.error('Verification error: ' + error.message);
+      })
+      .on('idCheck.applicantStatus', (payload: any) => {
+        console.log('Applicant status:', payload);
+        if (payload.reviewStatus === 'completed') {
+          toast.success('Verification completed! Processing your submission...');
+          setStep('review');
+        }
+      })
+      .build();
+
+    // Mount the SDK
+    snsWebSdkInstance.launch(sumsubContainerRef.current);
   };
 
   const handleSubmitKYC = async () => {
     setIsVerifying(true);
-    // Simulate KYC submission
-    setTimeout(() => {
-      setIsVerifying(false);
+    try {
+      await kycApi.completeKYC();
       toast.success('KYC submitted for review! We\'ll notify you within 24 hours.');
       onComplete();
-    }, 1500);
+    } catch (error: any) {
+      console.error('Failed to complete KYC:', error);
+      toast.error(error.message || 'Failed to submit KYC');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (
@@ -196,12 +258,21 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                     </div>
                   </div>
 
-                  {currentTier < tier.level && (
-                    <Button 
-                      onClick={() => setStep('bvn')}
+                  {currentTier < tier.level && tier.level === 1 && (
+                    <Button
+                      onClick={handleStartKYC}
+                      disabled={isVerifying}
                       className="w-full mt-4"
                     >
-                      Upgrade to Tier {tier.level}
+                      {isVerifying ? 'Initializing...' : `Upgrade to Tier ${tier.level}`}
+                    </Button>
+                  )}
+                  {currentTier < tier.level && tier.level > 1 && (
+                    <Button
+                      disabled
+                      className="w-full mt-4"
+                    >
+                      Complete Tier 1 First
                     </Button>
                   )}
                 </Card>
@@ -209,9 +280,9 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
             </motion.div>
           )}
 
-          {step === 'bvn' && (
+          {step === 'sumsub_verification' && (
             <motion.div
-              key="bvn"
+              key="sumsub_verification"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -222,195 +293,45 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                     <Shield className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="mb-1">BVN Verification</h3>
-                    <p className="text-gray-600">Verify your Bank Verification Number</p>
+                    <h3 className="mb-1">Identity Verification</h3>
+                    <p className="text-gray-600">Complete verification with Sumsub</p>
                   </div>
                 </div>
 
                 <div className="bg-blue-50 p-4 rounded-xl mb-6 border border-blue-100">
-                  <p className="text-blue-900 mb-2">Why we need your BVN</p>
-                  <p className="text-blue-800">
-                    BVN verification is required by Nigerian regulations for financial services. 
-                    Your BVN is encrypted and never shared with third parties.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Bank Verification Number (BVN)</Label>
-                    <Input
-                      type="text"
-                      placeholder="Enter 11-digit BVN"
-                      value={bvn}
-                      onChange={(e) => setBvn(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                      maxLength={11}
-                    />
-                    <p className="text-gray-500">Dial *565*0# to get your BVN</p>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={handleBVNVerify}
-                      disabled={bvn.length !== 11 || isVerifying}
-                      className="flex-1"
-                    >
-                      {isVerifying ? 'Verifying...' : 'Verify BVN'}
-                    </Button>
-                    <Button
-                      onClick={() => setStep('tier_info')}
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      Back
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          )}
-
-          {step === 'document' && (
-            <motion.div
-              key="document"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <Card className="p-6 border border-gray-100">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <CreditCard className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="mb-1">Identity Document</h3>
-                    <p className="text-gray-600">Upload a government-issued ID</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Document Type</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => setDocumentType('nin')}
-                        className={`p-4 border-2 rounded-xl transition-colors ${
-                          documentType === 'nin' 
-                            ? 'border-gray-900 bg-gray-50' 
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <FileText className="w-6 h-6 mx-auto mb-2 text-gray-700" />
-                        <p className="text-gray-900">NIN Card</p>
-                      </button>
-                      <button
-                        onClick={() => setDocumentType('passport')}
-                        className={`p-4 border-2 rounded-xl transition-colors ${
-                          documentType === 'passport' 
-                            ? 'border-gray-900 bg-gray-50' 
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <FileText className="w-6 h-6 mx-auto mb-2 text-gray-700" />
-                        <p className="text-gray-900">Passport</p>
-                      </button>
+                  <div className="flex items-start gap-3">
+                    <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-blue-900 font-medium mb-1">Secure Verification</p>
+                      <p className="text-blue-800 text-sm">
+                        You'll be asked to provide a government-issued ID and take a selfie.
+                        All data is encrypted and processed securely by Sumsub.
+                      </p>
                     </div>
                   </div>
-
-                  {documentType && (
-                    <div className="space-y-2">
-                      <Label>Document Number</Label>
-                      <Input
-                        type="text"
-                        placeholder={documentType === 'nin' ? 'Enter NIN' : 'Enter Passport Number'}
-                        value={documentNumber}
-                        onChange={(e) => setDocumentNumber(e.target.value)}
-                      />
-                    </div>
-                  )}
-
-                  {documentType && documentNumber && (
-                    <div className="space-y-2">
-                      <Label>Upload Document</Label>
-                      <button className="w-full p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-gray-400 hover:bg-gray-50 transition-colors">
-                        <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                        <p className="text-gray-600">Click to upload or drag and drop</p>
-                        <p className="text-gray-500 mt-1">PNG, JPG up to 10MB</p>
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={handleDocumentUpload}
-                      disabled={!documentType || !documentNumber}
-                      className="flex-1"
-                    >
-                      Continue
-                    </Button>
-                    <Button
-                      onClick={() => setStep('bvn')}
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      Back
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          )}
-
-          {step === 'selfie' && (
-            <motion.div
-              key="selfie"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <Card className="p-6 border border-gray-100">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                    <Camera className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <h3 className="mb-1">Selfie Verification</h3>
-                    <p className="text-gray-600">Take a quick selfie for liveness check</p>
-                  </div>
                 </div>
 
-                <div className="bg-yellow-50 p-4 rounded-xl mb-6 border border-yellow-100">
-                  <p className="text-yellow-900 mb-2">Instructions</p>
-                  <ul className="text-yellow-800 space-y-1">
-                    <li>• Ensure good lighting</li>
-                    <li>• Remove glasses and hats</li>
-                    <li>• Look directly at the camera</li>
-                    <li>• Keep your face in the frame</li>
-                  </ul>
-                </div>
+                {/* Sumsub SDK Container */}
+                <div
+                  ref={sumsubContainerRef}
+                  id="sumsub-websdk-container"
+                  className="min-h-[500px] rounded-xl overflow-hidden border border-gray-200"
+                />
 
-                <div className="w-full aspect-square bg-gray-100 rounded-xl mb-6 flex items-center justify-center">
-                  <Camera className="w-16 h-16 text-gray-400" />
-                </div>
-
-                <div className="flex gap-3">
+                <div className="mt-6">
                   <Button
-                    onClick={handleSelfieCapture}
-                    className="flex-1"
-                  >
-                    <Camera className="w-4 h-4 mr-2" />
-                    Capture Selfie
-                  </Button>
-                  <Button
-                    onClick={() => setStep('document')}
+                    onClick={() => setStep('tier_info')}
                     variant="outline"
-                    className="flex-1"
+                    className="w-full"
                   >
-                    Back
+                    Cancel
                   </Button>
                 </div>
               </Card>
             </motion.div>
           )}
+
+
 
           {step === 'review' && (
             <motion.div
@@ -425,8 +346,8 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                     <CheckCircle2 className="w-6 h-6 text-green-600" />
                   </div>
                   <div>
-                    <h3 className="mb-1">Review & Submit</h3>
-                    <p className="text-gray-600">Check your information before submitting</p>
+                    <h3 className="mb-1">Verification Complete</h3>
+                    <p className="text-gray-600">Your documents have been submitted</p>
                   </div>
                 </div>
 
@@ -435,41 +356,32 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                     <div className="flex items-center gap-3">
                       <Shield className="w-5 h-5 text-gray-600" />
                       <div>
-                        <p className="text-gray-900">BVN Verified</p>
-                        <p className="text-gray-600">••• •••• {bvn.slice(-4)}</p>
+                        <p className="text-gray-900">Identity Verified</p>
+                        <p className="text-gray-600">Documents submitted to Sumsub</p>
                       </div>
                     </div>
                     <CheckCircle2 className="w-5 h-5 text-green-600" />
                   </div>
 
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="w-5 h-5 text-gray-600" />
-                      <div>
-                        <p className="text-gray-900">{documentType === 'nin' ? 'NIN' : 'Passport'}</p>
-                        <p className="text-gray-600">{documentNumber}</p>
+                  {sumsubApplicantId && (
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-5 h-5 text-gray-600" />
+                        <div>
+                          <p className="text-gray-900">Applicant ID</p>
+                          <p className="text-gray-600 text-sm font-mono">{sumsubApplicantId.slice(0, 16)}...</p>
+                        </div>
                       </div>
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
                     </div>
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Camera className="w-5 h-5 text-gray-600" />
-                      <div>
-                        <p className="text-gray-900">Selfie Verification</p>
-                        <p className="text-gray-600">Liveness check passed</p>
-                      </div>
-                    </div>
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  </div>
+                  )}
                 </div>
 
                 <div className="bg-blue-50 p-4 rounded-xl mb-6 border border-blue-100">
                   <p className="text-blue-900 mb-2">What happens next?</p>
                   <p className="text-blue-800">
-                    Our compliance team will review your documents within 24 hours. 
-                    You'll receive an email notification once approved.
+                    Our compliance team will review your documents within 24-48 hours.
+                    You'll receive an email notification once your verification is approved.
                   </p>
                 </div>
 
@@ -479,14 +391,14 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                     disabled={isVerifying}
                     className="flex-1"
                   >
-                    {isVerifying ? 'Submitting...' : 'Submit for Review'}
+                    {isVerifying ? 'Finalizing...' : 'Complete Verification'}
                   </Button>
                   <Button
-                    onClick={() => setStep('selfie')}
+                    onClick={onBack}
                     variant="outline"
                     className="flex-1"
                   >
-                    Back
+                    Done
                   </Button>
                 </div>
               </Card>
@@ -518,7 +430,7 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                 <p className="text-red-800 mb-3">
                   We couldn't verify your documents. Please ensure they are clear and valid, then try again.
                 </p>
-                <Button onClick={() => setStep('bvn')} variant="outline" className="border-red-600 text-red-600">
+                <Button onClick={handleStartKYC} variant="outline" className="border-red-600 text-red-600">
                   Retry Verification
                 </Button>
               </div>

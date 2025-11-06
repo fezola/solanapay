@@ -322,10 +322,16 @@ export const kycApi = {
   /**
    * Start KYC verification
    */
-  async startKYC(level: number) {
-    return apiRequest<{ verification: any }>('/api/kyc/start', {
+  async startKYC(level?: number) {
+    return apiRequest<{
+      provider: string;
+      applicantId?: string;
+      accessToken?: string;
+      message: string;
+      verification?: any;
+    }>('/api/kyc/start', {
       method: 'POST',
-      body: JSON.stringify({ level }),
+      body: level ? JSON.stringify({ level }) : undefined,
     });
   },
 
