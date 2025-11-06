@@ -21,7 +21,7 @@ import {
   Home as HomeIcon,
   ExternalLink
 } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { kycApi } from '../services/api';
 
 interface KYCScreenProps {
@@ -93,8 +93,24 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
 
   // Initialize Sumsub when step changes to verification
   useEffect(() => {
+    console.log('🔍 Sumsub initialization check:', {
+      step,
+      sdkLoaded,
+      hasAccessToken: !!sumsubAccessToken,
+      hasContainer: !!sumsubContainerRef.current,
+      windowSdk: !!window.snsWebSdk,
+    });
+
     if (step === 'sumsub_verification' && sdkLoaded && sumsubAccessToken && sumsubContainerRef.current) {
+      console.log('✅ All conditions met, initializing Sumsub SDK...');
       initializeSumsubSDK();
+    } else {
+      console.log('⚠️ Waiting for conditions:', {
+        needStep: step !== 'sumsub_verification',
+        needSdkLoaded: !sdkLoaded,
+        needAccessToken: !sumsubAccessToken,
+        needContainer: !sumsubContainerRef.current,
+      });
     }
   }, [step, sdkLoaded, sumsubAccessToken]);
 
@@ -135,45 +151,72 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
   };
 
   const initializeSumsubSDK = () => {
-    if (!window.snsWebSdk || !sumsubAccessToken || !sumsubContainerRef.current) {
+    console.log('🚀 initializeSumsubSDK called');
+
+    if (!window.snsWebSdk) {
+      console.error('❌ window.snsWebSdk not available');
+      toast.error('Verification SDK not loaded. Please refresh the page.');
       return;
     }
 
-    const snsWebSdkInstance = window.snsWebSdk
-      .init(sumsubAccessToken, () => sumsubAccessToken)
-      .withConf({
-        lang: 'en',
-        theme: 'light',
-        uiConf: {
-          customCssStr: `
-            :root {
-              --black: #000000;
-              --grey: #6B7280;
-              --grey-darker: #4B5563;
-              --border-color: #E5E7EB;
-            }
-          `,
-        },
-      })
-      .withOptions({ addViewportTag: false, adaptIframeHeight: true })
-      .on('idCheck.onStepCompleted', (payload: any) => {
-        console.log('Step completed:', payload);
-      })
-      .on('idCheck.onError', (error: any) => {
-        console.error('Sumsub error:', error);
-        toast.error('Verification error: ' + error.message);
-      })
-      .on('idCheck.applicantStatus', (payload: any) => {
-        console.log('Applicant status:', payload);
-        if (payload.reviewStatus === 'completed') {
-          toast.success('Verification completed! Processing your submission...');
-          setStep('review');
-        }
-      })
-      .build();
+    if (!sumsubAccessToken) {
+      console.error('❌ sumsubAccessToken not available');
+      toast.error('Verification token missing. Please try again.');
+      return;
+    }
 
-    // Mount the SDK
-    snsWebSdkInstance.launch(sumsubContainerRef.current);
+    if (!sumsubContainerRef.current) {
+      console.error('❌ sumsubContainerRef.current not available');
+      toast.error('Verification container not ready. Please try again.');
+      return;
+    }
+
+    try {
+      console.log('🔧 Building Sumsub SDK instance...');
+
+      const snsWebSdkInstance = window.snsWebSdk
+        .init(sumsubAccessToken, () => sumsubAccessToken)
+        .withConf({
+          lang: 'en',
+          theme: 'light',
+          uiConf: {
+            customCssStr: `
+              :root {
+                --black: #000000;
+                --grey: #6B7280;
+                --grey-darker: #4B5563;
+                --border-color: #E5E7EB;
+              }
+            `,
+          },
+        })
+        .withOptions({ addViewportTag: false, adaptIframeHeight: true })
+        .on('idCheck.onStepCompleted', (payload: any) => {
+          console.log('✅ Step completed:', payload);
+        })
+        .on('idCheck.onError', (error: any) => {
+          console.error('❌ Sumsub error:', error);
+          toast.error('Verification error: ' + error.message);
+        })
+        .on('idCheck.applicantStatus', (payload: any) => {
+          console.log('📊 Applicant status:', payload);
+          if (payload.reviewStatus === 'completed') {
+            toast.success('Verification completed! Processing your submission...');
+            setStep('review');
+          }
+        })
+        .build();
+
+      console.log('✅ SDK instance built, launching...');
+
+      // Mount the SDK
+      snsWebSdkInstance.launch(sumsubContainerRef.current);
+
+      console.log('✅ SDK launched successfully');
+    } catch (error: any) {
+      console.error('❌ Failed to initialize Sumsub SDK:', error);
+      toast.error('Failed to load verification widget: ' + error.message);
+    }
   };
 
   const handleSubmitKYC = async () => {
