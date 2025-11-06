@@ -39,6 +39,6 @@ services:
       - key: KYC_AUTO_APPROVE
         value: false
       - key: CORS_ORIGIN
-        value: "*"
+        value: "https://www.solpayservice.xyz,https://solpayservice.xyz,http://localhost:5173"
     healthCheckPath: /health
 

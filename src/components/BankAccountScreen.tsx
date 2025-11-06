@@ -47,6 +47,7 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
   const [selectedBankCode, setSelectedBankCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
+  const [breadBeneficiaryId, setBreadBeneficiaryId] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoadingBanks, setIsLoadingBanks] = useState(true);
   const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null);
@@ -106,8 +107,9 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
       );
 
       setAccountName(result.accountName);
+      setBreadBeneficiaryId(result.breadBeneficiaryId || '');
       toast.success('Account verified successfully!', {
-        description: result.accountName,
+        description: `Account Holder: ${result.accountName}`,
       });
     } catch (error: any) {
       console.error('Verification error:', error);
@@ -115,6 +117,7 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
         description: error.message || 'Could not verify account. Please check details and try again.',
       });
       setAccountName('');
+      setBreadBeneficiaryId('');
     } finally {
       setIsVerifying(false);
     }
@@ -129,12 +132,13 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
     try {
       const selectedBank = banks.find(b => b.code === selectedBankCode);
 
-      // Add to database
+      // Add to database - pass breadBeneficiaryId if available
       await bankVerificationService.addBankAccount(
         userId,
         selectedBankCode,
         accountNumber,
-        accountName
+        accountName,
+        breadBeneficiaryId
       );
 
       // Add to local state
@@ -152,6 +156,7 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
       setSelectedBankCode('');
       setAccountNumber('');
       setAccountName('');
+      setBreadBeneficiaryId('');
       setSearchQuery('');
     } catch (error: any) {
       console.error('Error adding account:', error);

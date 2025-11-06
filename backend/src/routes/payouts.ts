@@ -15,6 +15,8 @@ const breadService = new BreadService({
 const createBeneficiarySchema = z.object({
   bank_code: z.string(),
   account_number: z.string().length(10),
+  bread_beneficiary_id: z.string().optional(), // Optional - if already verified
+  account_name: z.string().optional(), // Optional - if already verified
 });
 
 const confirmQuoteSchema = z.object({
@@ -40,13 +42,14 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * Verify bank account (without creating beneficiary)
+   * Verify bank account and get account holder name
    *
    * NOTE: Bread Africa doesn't have a standalone bank verification endpoint.
-   * This endpoint simply validates the bank code exists in Bread's supported banks.
-   * The actual account verification will happen when creating the beneficiary.
+   * We create a temporary beneficiary to verify the account and get the real account holder name.
+   * This beneficiary will be reused when the user adds the account.
    */
   fastify.post('/verify-account', async (request, reply) => {
+    const userId = request.userId!;
     const body = createBeneficiarySchema.parse(request.body);
 
     try {
@@ -61,18 +64,57 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Return success - account name will be verified when beneficiary is created
+      // Get user details to create/get Bread identity
+      const { data: user } = await supabaseAdmin
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+
+      // Get or create Bread identity
+      let breadIdentityId = user.bread_identity_id;
+      if (!breadIdentityId) {
+        const breadIdentity = await breadService.identity.createIdentity({
+          firstName: user.first_name || 'User',
+          lastName: user.last_name || 'Name',
+          email: user.email,
+          phoneNumber: user.phone_number || '+234',
+          address: { country: 'NG' },
+        });
+        breadIdentityId = breadIdentity.id;
+
+        // Save the Bread identity ID
+        await supabaseAdmin
+          .from('users')
+          .update({ bread_identity_id: breadIdentityId })
+          .eq('id', userId);
+      }
+
+      // Create beneficiary in Bread to verify the account and get real account name
+      const breadBeneficiary = await breadService.beneficiary.createBeneficiary({
+        identityId: breadIdentityId,
+        bankCode: body.bank_code,
+        accountNumber: body.account_number,
+        currency: 'NGN',
+      });
+
+      // Return the verified account details with REAL account holder name
       return {
         account_number: body.account_number,
-        account_name: `${bank.name} Account`, // Placeholder
+        account_name: breadBeneficiary.accountName, // Real account holder name from Bread
         bank_code: body.bank_code,
         bank_name: bank.name,
+        bread_beneficiary_id: breadBeneficiary.id, // Save this for later use
       };
     } catch (error: any) {
-      request.log.error('Bank validation failed:', error);
+      request.log.error('Bank verification failed:', error);
       return reply.status(400).send({
-        error: 'Bank validation failed',
-        message: error.message || 'Could not validate bank details',
+        error: 'Account verification failed',
+        message: error.message || 'Could not verify account. Please check the account number and try again.',
       });
     }
   });
@@ -143,13 +185,22 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           .eq('id', userId);
       }
 
-      // Create beneficiary in Bread (this will verify the account)
-      const breadBeneficiary = await breadService.beneficiary.createBeneficiary({
-        identityId: breadIdentityId,
-        bankCode: body.bank_code,
-        accountNumber: body.account_number,
-        currency: 'NGN',
-      });
+      // If bread_beneficiary_id is provided, reuse it (from verification step)
+      // Otherwise, create a new beneficiary in Bread
+      let breadBeneficiaryId = body.bread_beneficiary_id;
+      let accountName = body.account_name;
+
+      if (!breadBeneficiaryId) {
+        // Create beneficiary in Bread (this will verify the account)
+        const breadBeneficiary = await breadService.beneficiary.createBeneficiary({
+          identityId: breadIdentityId,
+          bankCode: body.bank_code,
+          accountNumber: body.account_number,
+          currency: 'NGN',
+        });
+        breadBeneficiaryId = breadBeneficiary.id;
+        accountName = breadBeneficiary.accountName;
+      }
 
       // Save beneficiary to our database with verified account name from Bread
       const { data: beneficiary, error } = await supabaseAdmin
@@ -159,8 +210,8 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           bank_code: body.bank_code,
           bank_name: bank.name,
           account_number: body.account_number,
-          account_name: breadBeneficiary.accountName,
-          bread_beneficiary_id: breadBeneficiary.id,
+          account_name: accountName!,
+          bread_beneficiary_id: breadBeneficiaryId,
           is_verified: true,
           verified_at: new Date().toISOString(),
           bread_synced_at: new Date().toISOString(),

@@ -12,6 +12,7 @@ export interface BankVerificationResult {
   accountName: string;
   bankCode: string;
   bankName: string;
+  breadBeneficiaryId?: string;
 }
 
 export interface BankListItem {
@@ -134,6 +135,7 @@ class BankVerificationService {
         accountName: data.account_name,
         bankCode: bankCode,
         bankName: bank?.name || data.bank_name || 'Unknown Bank',
+        breadBeneficiaryId: data.bread_beneficiary_id,
       };
     } catch (error: any) {
       console.error('Bank verification error:', error);
@@ -148,32 +150,39 @@ class BankVerificationService {
     userId: string,
     bankCode: string,
     accountNumber: string,
-    accountName: string
+    accountName: string,
+    breadBeneficiaryId?: string
   ): Promise<any> {
     try {
-      const bank = getBankByCode(bankCode);
+      // Get current session for auth token
+      const { data: { session } } = await supabase.auth.getSession();
 
-      const { data, error } = await supabase
-        .from('bank_accounts')
-        .insert({
-          user_id: userId,
-          bank_code: bankCode,
-          bank_name: bank?.name || 'Unknown Bank',
-          account_number: accountNumber,
-          account_name: accountName,
-          is_verified: true,
-          verified_at: new Date().toISOString(),
-          is_default: false,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error adding bank account:', error);
-        throw new Error('Failed to add bank account');
+      if (!session) {
+        throw new Error('You must be logged in to add bank accounts');
       }
 
-      return data;
+      // Call backend API to create beneficiary
+      const response = await fetch(`${this.apiBaseUrl}/api/payouts/beneficiaries`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bank_code: bankCode,
+          account_number: accountNumber,
+          bread_beneficiary_id: breadBeneficiaryId,
+          account_name: accountName,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to add bank account');
+      }
+
+      const data = await response.json();
+      return data.beneficiary;
     } catch (error: any) {
       console.error('Error adding bank account:', error);
       throw new Error(error.message || 'Failed to add bank account');

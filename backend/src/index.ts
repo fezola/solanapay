@@ -25,8 +25,13 @@ const fastify = Fastify({
 });
 
 // Register plugins
+// CORS configuration - handle wildcard and specific origins
+const corsOrigin = env.CORS_ORIGIN === '*'
+  ? true // Allow all origins when wildcard is set
+  : env.CORS_ORIGIN.split(',').map(o => o.trim());
+
 await fastify.register(cors, {
-  origin: env.CORS_ORIGIN.split(',').map(o => o.trim()),
+  origin: corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
