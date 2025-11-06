@@ -30,7 +30,7 @@ export class BreadBeneficiaryService {
 
     // Transform request to match Bread API format
     const breadRequest = {
-      currency: (request.currency || 'NGN').toLowerCase(),
+      currency: (request.currency || 'NGN').toUpperCase(),
       identity_id: request.identityId,
       details: {
         account_number: request.accountNumber,
