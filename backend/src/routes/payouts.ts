@@ -42,11 +42,8 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * Verify bank account
-   *
-   * NOTE: Bread Africa doesn't have a standalone bank verification endpoint.
-   * This endpoint validates the bank code and account number format.
-   * The actual account verification happens when creating the beneficiary.
+   * Verify bank account using Bread's lookup endpoint
+   * This MUST be called before creating a beneficiary
    */
   fastify.post('/verify-account', async (request, reply) => {
     const body = createBeneficiarySchema.parse(request.body);
@@ -71,18 +68,34 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Return success - actual verification will happen when adding the account
+      // Use Bread's lookup endpoint to verify the account
+      request.log.info({
+        msg: 'Calling Bread lookup API',
+        bankCode: body.bank_code,
+        accountNumber: body.account_number,
+      });
+
+      const lookupResult = await breadService.offramp.lookupAccount(
+        body.bank_code,
+        body.account_number
+      );
+
+      request.log.info({
+        msg: 'Bread lookup successful',
+        accountName: lookupResult.account_name,
+      });
+
       return {
-        account_number: body.account_number,
-        account_name: 'Pending verification...', // Placeholder - real name comes when adding account
-        bank_code: body.bank_code,
+        account_number: lookupResult.account_number,
+        account_name: lookupResult.account_name,
+        bank_code: lookupResult.bank_code,
         bank_name: bank.name,
       };
     } catch (error: any) {
-      request.log.error('Bank validation failed:', error);
+      request.log.error('Bank account lookup failed:', error);
       return reply.status(400).send({
-        error: 'Bank validation failed',
-        message: error.message || 'Could not validate bank details',
+        error: 'Bank account verification failed',
+        message: error.message || 'Could not verify bank account details',
       });
     }
   });
@@ -178,21 +191,51 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           .eq('id', userId);
       }
 
-      // If bread_beneficiary_id is provided, reuse it (from verification step)
-      // Otherwise, create a new beneficiary in Bread
+      // STEP 1: Lookup account to verify it exists (required by Bread)
+      request.log.info({
+        msg: 'Step 1: Looking up bank account',
+        bankCode: body.bank_code,
+        accountNumber: body.account_number,
+      });
+
+      const lookupResult = await breadService.offramp.lookupAccount(
+        body.bank_code,
+        body.account_number
+      );
+
+      request.log.info({
+        msg: 'Bank account lookup successful',
+        accountName: lookupResult.account_name,
+      });
+
+      // STEP 2: Create beneficiary in Bread with verified account details
       let breadBeneficiaryId = body.bread_beneficiary_id;
-      let accountName = body.account_name;
+      let accountName = lookupResult.account_name; // Use verified name from lookup
 
       if (!breadBeneficiaryId) {
-        // Create beneficiary in Bread (this will verify the account)
+        request.log.info({
+          msg: 'Step 2: Creating beneficiary in Bread',
+          identityId: breadIdentityId,
+          bankCode: body.bank_code,
+          accountNumber: body.account_number,
+        });
+
         const breadBeneficiary = await breadService.beneficiary.createBeneficiary({
           identityId: breadIdentityId,
           bankCode: body.bank_code,
           accountNumber: body.account_number,
           currency: 'NGN',
         });
+
         breadBeneficiaryId = breadBeneficiary.id;
-        accountName = breadBeneficiary.accountName;
+        // Use account name from lookup, fallback to beneficiary response or placeholder
+        accountName = lookupResult.account_name || breadBeneficiary.accountName || 'Account Holder';
+
+        request.log.info({
+          msg: 'Beneficiary created in Bread',
+          beneficiaryId: breadBeneficiaryId,
+          accountName,
+        });
       }
 
       // Save beneficiary to our database with verified account name from Bread

@@ -163,6 +163,53 @@ export class BreadOfframpService {
   }
 
   /**
+   * Lookup/verify bank account details
+   * This MUST be called before creating a beneficiary
+   */
+  async lookupAccount(bankCode: string, accountNumber: string): Promise<{
+    account_name: string;
+    account_number: string;
+    bank_code: string;
+  }> {
+    logger.info({
+      msg: 'Looking up bank account',
+      bankCode,
+      accountNumber,
+    });
+
+    try {
+      const response = await this.client.post<any>('/lookup', {
+        bank_code: bankCode,
+        account_number: accountNumber,
+      });
+
+      logger.info({
+        msg: 'Bank account lookup successful',
+        accountName: response.data?.account_name || response.account_name,
+        fullResponse: JSON.stringify(response, null, 2),
+      });
+
+      // Handle different response formats
+      const data = response.data || response;
+
+      return {
+        account_name: data.account_name,
+        account_number: data.account_number || accountNumber,
+        bank_code: data.bank_code || bankCode,
+      };
+    } catch (error: any) {
+      logger.error({
+        msg: 'Bank account lookup failed',
+        bankCode,
+        accountNumber,
+        error: error.message,
+        errorResponse: error.response?.data,
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Execute offramp transaction
    * TODO: Update this when we get actual API documentation for execute endpoint
    */
