@@ -94,6 +94,13 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.post('/beneficiaries', async (request, reply) => {
     const userId = request.userId!;
+
+    request.log.info({
+      msg: '🔵 BENEFICIARY ENDPOINT CALLED',
+      userId,
+      body: request.body,
+    });
+
     const body = createBeneficiarySchema.parse(request.body);
 
     try {
