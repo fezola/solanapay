@@ -19,9 +19,10 @@ const envSchema = z.object({
 
   // Solana
   SOLANA_RPC_URL: z.string().url(),
-  SOLANA_NETWORK: z.enum(['mainnet-beta', 'devnet', 'testnet']).default('devnet'),
+  SOLANA_NETWORK: z.enum(['mainnet-beta', 'devnet', 'testnet']).default('mainnet-beta'),
   SOLANA_TREASURY_ADDRESS: z.string().optional(),
   SOLANA_TREASURY_PRIVATE_KEY: z.string().optional(),
+  // Mainnet USDC and USDT mint addresses (same for mainnet and devnet)
   USDC_SOL_MINT: z.string().default('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
   USDT_SOL_MINT: z.string().default('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'),
 
