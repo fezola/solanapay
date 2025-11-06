@@ -18,7 +18,7 @@ import { healthRoutes } from './routes/health.js';
 import { initializeServices, shutdownServices } from './services/index.js';
 
 const fastify = Fastify({
-  logger: logger,
+  logger: true,
   trustProxy: true,
   requestIdHeader: 'x-request-id',
   requestIdLogLabel: 'reqId',
@@ -41,7 +41,7 @@ await fastify.register(rateLimit, {
   timeWindow: '1 minute',
   cache: 10000,
   allowList: ['127.0.0.1'],
-  redis: env.REDIS_URL,
+  ...(env.REDIS_URL ? { redis: env.REDIS_URL } : {}),
 });
 
 // Health check (no auth)

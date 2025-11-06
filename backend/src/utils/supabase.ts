@@ -43,8 +43,8 @@ export async function getUserFromToken(token: string) {
  */
 export async function verifyAdmin(token: string): Promise<boolean> {
   const user = await getUserFromToken(token);
-  
+
   // Check if user has admin role in metadata
-  return user.user_metadata?.role === 'admin' || user.email === env.ADMIN_EMAIL;
+  return user.user_metadata?.role === 'admin' || (env.ADMIN_EMAIL ? user.email === env.ADMIN_EMAIL : false);
 }
 

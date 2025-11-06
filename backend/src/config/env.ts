@@ -34,6 +34,11 @@ const envSchema = z.object({
 
   // Price Feeds
   PYTH_PRICE_SERVICE_URL: z.string().url().default('https://hermes.pyth.network'),
+  PYTH_API_KEY: z.string().optional(),
+  PRICE_FALLBACK_URL: z.string().url().optional(),
+
+  // Redis (optional)
+  REDIS_URL: z.string().url().optional(),
 
   // Payout Rails
   PAYSTACK_SECRET_KEY: z.string(),
@@ -57,6 +62,9 @@ const envSchema = z.object({
   // Observability
   SENTRY_DSN: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+
+  // Admin
+  ADMIN_EMAIL: z.string().email().optional(),
 
   // Limits & Fees
   DEFAULT_SPREAD_BPS: z.string().default('50').transform(Number),

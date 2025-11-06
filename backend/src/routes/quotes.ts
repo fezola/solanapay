@@ -2,18 +2,16 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { supabaseAdmin } from '../utils/supabase.js';
-import { rateEngine } from '../services/pricing/rate-engine.js';
 import { BreadService } from '../services/bread/index.js';
+import { rateEngine } from '../services/pricing/rate-engine.js';
 import { env } from '../config/env.js';
-import type { Asset, Chain, Network } from '../types/index.js';
+import type { Asset, Chain } from '../types/index.js';
 
-// Initialize Bread service if enabled
-const breadService = env.BREAD_ENABLED
-  ? new BreadService({
-      apiKey: env.BREAD_API_KEY,
-      baseUrl: env.BREAD_API_URL,
-    })
-  : null;
+// Initialize Bread service
+const breadService = new BreadService({
+  apiKey: env.BREAD_API_KEY!,
+  baseUrl: env.BREAD_API_URL,
+});
 
 const createQuoteSchema = z.object({
   asset: z.enum(['USDC', 'SOL', 'USDT', 'ETH']),
@@ -80,7 +78,7 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const breadQuote = await breadService.offramp.getQuote(
           body.asset as Asset,
-          body.chain as Network,
+          body.chain as Chain,
           body.crypto_amount
         );
 
@@ -102,14 +100,14 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
           type: breadQuote.data.type,
         };
 
-        request.log.info('Quote generated using Bread API', {
+        request.log.info({
           asset: body.asset,
           chain: body.chain,
           cryptoAmount: body.crypto_amount,
           fiatAmount: quote.fiatAmount,
-        });
+        }, 'Quote generated using Bread API');
       } catch (error) {
-        request.log.error('Bread API failed, falling back to legacy', error);
+        request.log.error({ error }, 'Bread API failed, falling back to legacy');
         // Fall back to legacy rate engine
         quote = await rateEngine.calculateQuote({
           asset: body.asset as Asset,
@@ -158,7 +156,7 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
       .single();
 
     if (error) {
-      request.log.error('Failed to create quote:', error);
+      request.log.error({ error }, 'Failed to create quote');
       return reply.status(500).send({ error: 'Failed to create quote' });
     }
 

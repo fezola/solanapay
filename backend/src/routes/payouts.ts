@@ -2,18 +2,15 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { supabaseAdmin } from '../utils/supabase.js';
-import { paystackService } from '../services/payout/paystack.js';
 import { BreadService } from '../services/bread/index.js';
 import { env } from '../config/env.js';
 import { nanoid } from 'nanoid';
 
-// Initialize Bread service if enabled
-const breadService = env.BREAD_ENABLED
-  ? new BreadService({
-      apiKey: env.BREAD_API_KEY,
-      baseUrl: env.BREAD_API_URL,
-    })
-  : null;
+// Initialize Bread service
+const breadService = new BreadService({
+  apiKey: env.BREAD_API_KEY!,
+  baseUrl: env.BREAD_API_URL,
+});
 
 const createBeneficiarySchema = z.object({
   bank_code: z.string(),
@@ -34,14 +31,10 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get('/banks', async (request, reply) => {
     try {
-      // Use Bread if enabled, otherwise use Paystack
-      const banks = breadService
-        ? await breadService.offramp.getBanks()
-        : await paystackService.getBanks();
-
-      return { banks, provider: breadService ? 'bread' : 'paystack' };
+      const banks = await breadService.offramp.getBanks();
+      return { banks, provider: 'bread' };
     } catch (error) {
-      request.log.error('Failed to fetch banks:', error);
+      request.log.error({ error }, 'Failed to fetch banks');
       return reply.status(500).send({ error: 'Failed to fetch banks' });
     }
   });
@@ -53,14 +46,14 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
     const body = createBeneficiarySchema.parse(request.body);
 
     try {
-      const verification = await paystackService.verifyBankAccount(
-        body.account_number,
-        body.bank_code
+      const verification = await breadService.beneficiary.verifyBankAccount(
+        body.bank_code,
+        body.account_number
       );
 
       return {
-        account_number: verification.account_number,
-        account_name: verification.account_name,
+        account_number: body.account_number,
+        account_name: verification.accountName,
         bank_code: body.bank_code,
       };
     } catch (error: any) {
@@ -79,16 +72,16 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
     const userId = request.userId!;
     const body = createBeneficiarySchema.parse(request.body);
 
-    // Verify account with Paystack
+    // Verify account with Bread
     try {
-      const verification = await paystackService.verifyBankAccount(
-        body.account_number,
-        body.bank_code
+      const verification = await breadService.beneficiary.verifyBankAccount(
+        body.bank_code,
+        body.account_number
       );
 
       // Get bank name
-      const banks = await paystackService.getBanks();
-      const bank = banks.find((b) => b.code === body.bank_code);
+      const banks = await breadService.offramp.getBanks();
+      const bank = banks.find((b: any) => b.code === body.bank_code);
 
       if (!bank) {
         return reply.status(400).send({ error: 'Invalid bank code' });
@@ -115,14 +108,14 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           bank_code: body.bank_code,
           bank_name: bank.name,
           account_number: body.account_number,
-          account_name: verification.account_name,
+          account_name: verification.accountName,
           verified_at: new Date().toISOString(),
         })
         .select()
         .single();
 
       if (error) {
-        request.log.error('Failed to create beneficiary:', error);
+        request.log.error({ error }, 'Failed to create beneficiary');
         return reply.status(500).send({ error: 'Failed to create beneficiary' });
       }
 
@@ -224,44 +217,19 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       const reference = `PAYOUT_${nanoid(16)}`;
       let providerReference = reference;
       let transferStatus = 'pending';
-      let provider = 'paystack';
+      let provider = 'bread';
 
-      // Use Bread if enabled and quote was created with Bread
-      if (breadService && quote.provider === 'bread') {
-        // TODO: Implement Bread offramp execution
-        // For now, we'll create the payout record and mark it as pending
-        // The actual execution will be implemented once we have the execute endpoint docs
+      // Execute Bread offramp
+      request.log.info({
+        quoteId: quote.id,
+        asset: quote.asset,
+        chain: quote.chain,
+        amount: quote.crypto_amount,
+      }, 'Executing Bread offramp');
 
-        request.log.info('Bread offramp execution - pending implementation', {
-          quoteId: quote.id,
-          asset: quote.asset,
-          chain: quote.chain,
-          amount: quote.crypto_amount,
-        });
-
-        provider = 'bread';
-        transferStatus = 'pending_execution';
-      } else {
-        // Use Paystack for legacy quotes
-        const recipient = await paystackService.createTransferRecipient({
-          type: 'nuban',
-          name: beneficiary.account_name,
-          account_number: beneficiary.account_number,
-          bank_code: beneficiary.bank_code,
-        });
-
-        const amountInKobo = Math.floor(parseFloat(quote.fiat_amount) * 100);
-
-        const transfer = await paystackService.initiateTransfer({
-          amount: amountInKobo,
-          recipient: recipient.recipient_code,
-          reason: `Crypto off-ramp: ${quote.crypto_amount} ${quote.asset}`,
-          reference,
-        });
-
-        providerReference = transfer.reference;
-        transferStatus = transfer.status;
-      }
+      // TODO: Implement actual Bread offramp execution
+      // For now, we'll create the payout record and mark it as pending
+      transferStatus = 'pending_execution';
 
       // Create payout record
       const { data: payout, error: payoutError } = await supabaseAdmin
@@ -280,7 +248,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         .single();
 
       if (payoutError) {
-        request.log.error('Failed to create payout record:', payoutError);
+        request.log.error({ error: payoutError }, 'Failed to create payout record');
         return reply.status(500).send({ error: 'Failed to create payout' });
       }
 

@@ -159,6 +159,62 @@ export type OfframpStatusResponse = BreadAPIResponse<OfframpStatusData>;
 // Legacy Types (kept for backward compatibility, will be removed)
 // ============================================================================
 
+export type BreadWalletType = 'onramp' | 'offramp';
+export type BreadNetwork = 'svm' | 'evm' | 'solana' | 'base' | 'ethereum' | 'polygon';
+export type BreadChain = 'mainnet' | 'testnet' | 'devnet' | 'solana' | 'base' | 'ethereum';
+
+export interface BreadIdentity {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  status: 'pending' | 'verified' | 'rejected';
+  createdAt: string;
+}
+
+export interface BreadBeneficiary {
+  id: string;
+  identityId: string;
+  bankCode: string;
+  accountNumber: string;
+  accountName?: string;
+  currency: string;
+  createdAt: string;
+}
+
+export interface BreadWallet {
+  id: string;
+  identityId: string;
+  type: BreadWalletType;
+  network: BreadNetwork;
+  chain: BreadChain;
+  address: string;
+  beneficiaryId?: string;
+  status?: 'active' | 'disabled';
+  createdAt: string;
+}
+
+export interface BreadRate {
+  cryptoAsset: string;
+  fiatCurrency: string;
+  rate: number;
+  timestamp: string;
+}
+
+export interface BreadOfframp {
+  id: string;
+  walletId: string;
+  beneficiaryId: string;
+  cryptoAmount: string;
+  fiatAmount: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  txHash?: string;
+  errorMessage?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
 export interface CreateIdentityRequest {
   firstName: string;
   lastName: string;

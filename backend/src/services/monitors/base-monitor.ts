@@ -4,7 +4,8 @@ import { baseWalletService } from '../wallet/base.js';
 import { logger } from '../../utils/logger.js';
 import { env } from '../../config/env.js';
 
-const ERC20_TRANSFER_EVENT = 'Transfer(address,address,uint256)';
+// ERC20 Transfer event signature (unused for now, but kept for future use)
+// const ERC20_TRANSFER_EVENT = 'Transfer(address,address,uint256)';
 
 export class BaseMonitor {
   private isRunning = false;
@@ -113,8 +114,8 @@ export class BaseMonitor {
   ) {
     const provider = baseWalletService.getProvider();
 
-    // Get transaction history for address
-    const history = await provider.send('eth_getLogs', [
+    // Get transaction history for address (unused for now, but kept for future use)
+    await provider.send('eth_getLogs', [
       {
         fromBlock: ethers.toQuantity(fromBlock),
         toBlock: ethers.toQuantity(toBlock),
@@ -127,9 +128,10 @@ export class BaseMonitor {
       const block = await provider.getBlock(blockNum, true);
       if (!block || !block.transactions) continue;
 
-      for (const tx of block.transactions) {
-        if (typeof tx === 'string') continue;
-        
+      for (const txData of block.transactions) {
+        if (typeof txData === 'string') continue;
+
+        const tx = txData as any; // Type assertion for transaction object
         if (tx.to?.toLowerCase() === depositAddress.address.toLowerCase() && tx.value > 0n) {
           await this.processETHDeposit(tx, depositAddress);
         }

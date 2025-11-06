@@ -93,6 +93,8 @@ export interface PayoutBeneficiary {
   verified_at: string | null;
   is_default: boolean;
   created_at: string;
+  bread_beneficiary_id?: string | null;
+  bread_synced_at?: string | null;
 }
 
 export interface Payout {

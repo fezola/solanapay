@@ -130,7 +130,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         const key = `${addr.asset.toLowerCase()}${addr.chain === 'solana' ? 'Solana' : 'Base'}`;
         balances[key] = balance;
       } catch (error) {
-        request.log.error(`Failed to get balance for ${addr.chain}/${addr.asset}:`, error);
+        request.log.error({ error }, `Failed to get balance for ${addr.chain}/${addr.asset}`);
         balances[`${addr.asset.toLowerCase()}${addr.chain}`] = 0;
       }
     }

@@ -7,7 +7,6 @@ import { SumsubClient, SumsubConfig } from './sumsub-client.js';
 import { supabaseAdmin } from '../../utils/supabase.js';
 import { logger } from '../../utils/logger.js';
 import {
-  SumsubApplicant,
   SumsubWebhookPayload,
   ReviewResult,
   KYC_TIER_MAPPING,

@@ -119,12 +119,19 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/otp/verify', async (request, reply) => {
     const body = otpVerifySchema.parse(request.body);
 
-    const { data, error } = await supabase.auth.verifyOtp({
-      email: body.email,
-      phone: body.phone,
-      token: body.token,
-      type: body.email ? 'email' : 'sms',
-    });
+    const { data, error } = await supabase.auth.verifyOtp(
+      body.email
+        ? {
+            email: body.email,
+            token: body.token,
+            type: 'email',
+          }
+        : {
+            phone: body.phone!,
+            token: body.token,
+            type: 'sms',
+          }
+    );
 
     if (error) {
       return reply.status(401).send({ error: error.message });

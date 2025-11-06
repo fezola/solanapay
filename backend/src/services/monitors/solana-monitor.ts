@@ -7,7 +7,7 @@ import { env } from '../../config/env.js';
 export class SolanaMonitor {
   private isRunning = false;
   private pollInterval = 10000; // 10 seconds
-  private lastProcessedSlot = 0;
+  // private lastProcessedSlot = 0; // Unused for now, but kept for future use
 
   /**
    * Start monitoring Solana deposits

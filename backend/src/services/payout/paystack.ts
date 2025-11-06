@@ -2,12 +2,6 @@ import axios, { AxiosInstance } from 'axios';
 import { env } from '../../config/env.js';
 import { logger } from '../../utils/logger.js';
 
-interface BankAccount {
-  account_number: string;
-  account_name: string;
-  bank_code: string;
-}
-
 interface TransferRecipient {
   recipient_code: string;
   type: string;
@@ -18,13 +12,6 @@ interface TransferRecipient {
     bank_code: string;
     bank_name: string;
   };
-}
-
-interface Transfer {
-  reference: string;
-  amount: number;
-  recipient: string;
-  reason?: string;
 }
 
 interface TransferResponse {

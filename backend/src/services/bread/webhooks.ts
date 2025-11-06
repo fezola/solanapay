@@ -5,7 +5,7 @@
 
 import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
-import { BreadWebhookPayload, BreadWebhookEvent, BreadOfframp } from './types.js';
+import { BreadWebhookPayload, BreadOfframp } from './types.js';
 
 export class BreadWebhookHandler {
   constructor(private webhookSecret?: string) {}

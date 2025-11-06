@@ -117,58 +117,25 @@ export class BreadService {
 
   /**
    * Execute a complete offramp flow
-   * Gets quote and executes offramp in one go
+   * DEPRECATED: Use BreadIntegrationService.executePayout() instead
+   * This method is not implemented correctly for the current Bread API
    */
-  async executeOfframp(params: {
-    walletId: string;
-    beneficiaryId: string;
-    cryptoAmount: string;
-    asset: 'USDC' | 'SOL' | 'USDT' | 'ETH';
-  }): Promise<{
-    offrampId: string;
-    cryptoAmount: string;
-    fiatAmount: string;
-    exchangeRate: string;
-    fee: string;
-    status: string;
-  }> {
-    logger.info({
-      msg: 'Executing Bread offramp',
-      walletId: params.walletId,
-      cryptoAmount: params.cryptoAmount,
-      asset: params.asset,
-    });
-
-    // Get quote first
-    const quote = await this.offramp.calculateQuote(
-      params.asset,
-      params.cryptoAmount,
-      'NGN'
-    );
-
-    // Execute offramp
-    const offramp = await this.offramp.createOfframp(
-      params.walletId,
-      params.beneficiaryId,
-      params.cryptoAmount
-    );
-
-    logger.info({
-      msg: 'Bread offramp executed',
-      offrampId: offramp.id,
-      fiatAmount: offramp.fiatAmount,
-      status: offramp.status,
-    });
-
-    return {
-      offrampId: offramp.id,
-      cryptoAmount: offramp.cryptoAmount,
-      fiatAmount: offramp.fiatAmount,
-      exchangeRate: offramp.exchangeRate,
-      fee: offramp.fee,
-      status: offramp.status,
-    };
-  }
+  // async executeOfframp(params: {
+  //   walletId: string;
+  //   beneficiaryId: string;
+  //   cryptoAmount: string;
+  //   asset: 'USDC' | 'SOL' | 'USDT' | 'ETH';
+  // }): Promise<{
+  //   offrampId: string;
+  //   cryptoAmount: string;
+  //   fiatAmount: string;
+  //   exchangeRate: string;
+  //   fee: string;
+  //   status: string;
+  // }> {
+  //   // TODO: Implement using actual Bread API structure
+  //   throw new Error('Not implemented - use BreadIntegrationService.executePayout()');
+  // }
 }
 
 // Export all types

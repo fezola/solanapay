@@ -2,7 +2,6 @@ import { FastifyPluginAsync } from 'fastify';
 import { adminMiddleware } from '../middleware/auth.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { rateEngine } from '../services/pricing/rate-engine.js';
-import { paystackService } from '../services/payout/paystack.js';
 
 export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   // Apply admin middleware to all routes
@@ -209,15 +208,11 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * Get Paystack balance
+   * Get balance (Bread Africa)
    */
   fastify.get('/balance', async (request, reply) => {
-    try {
-      const balance = await paystackService.getBalance();
-      return { balance };
-    } catch (error) {
-      return reply.status(500).send({ error: 'Failed to fetch balance' });
-    }
+    // TODO: Implement Bread Africa balance check
+    return { balance: 0, currency: 'NGN', provider: 'bread' };
   });
 
   /**

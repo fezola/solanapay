@@ -2,7 +2,7 @@ import { Connection, Keypair, PublicKey, Transaction, SystemProgram, sendAndConf
 import { getAssociatedTokenAddress, createTransferInstruction, getAccount } from '@solana/spl-token';
 import * as bip39 from 'bip39';
 import { derivePath } from 'ed25519-hd-key';
-import nacl from 'tweetnacl';
+// import nacl from 'tweetnacl'; // Unused for now, but kept for future use
 import { env } from '../../config/env.js';
 import { encrypt, decrypt } from '../../utils/encryption.js';
 import { logger } from '../../utils/logger.js';

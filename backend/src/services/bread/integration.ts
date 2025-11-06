@@ -258,6 +258,7 @@ export class BreadIntegrationService {
    */
   async getQuote(
     asset: Asset,
+    chain: Chain,
     cryptoAmount: string
   ): Promise<{
     spotPrice: string;
@@ -270,22 +271,26 @@ export class BreadIntegrationService {
     }
 
     try {
-      const quote = await this.breadService.offramp.calculateQuote(
+      const quote = await this.breadService.offramp.getQuote(
         asset,
-        cryptoAmount,
-        'NGN'
+        chain,
+        parseFloat(cryptoAmount)
       );
 
+      // Calculate net amount (output - fee)
+      const netAmount = quote.data.output_amount - quote.data.fee;
+
       return {
-        spotPrice: quote.exchangeRate,
-        fiatAmount: quote.fiatAmount,
-        fee: quote.fee,
-        netAmount: quote.netAmount,
+        spotPrice: quote.data.rate.toString(),
+        fiatAmount: quote.data.output_amount.toString(),
+        fee: quote.data.fee.toString(),
+        netAmount: netAmount.toString(),
       };
     } catch (error) {
       logger.error({
         msg: 'Failed to get quote from Bread',
         asset,
+        chain,
         cryptoAmount,
         error,
       });
@@ -325,18 +330,20 @@ export class BreadIntegrationService {
       }
 
       // Execute offramp
-      const offramp = await this.breadService.offramp.createOfframp(
-        quote.deposit_addresses.bread_wallet_id,
-        beneficiary.bread_beneficiary_id,
-        quote.crypto_amount
-      );
+      const offramp = await this.breadService.offramp.executeOfframp({
+        asset: `${quote.chain}:${quote.asset.toLowerCase()}` as any,
+        amount: parseFloat(quote.crypto_amount),
+        currency: 'NGN',
+        bank_code: beneficiary.bank_code,
+        account_number: beneficiary.account_number,
+      });
 
       // Update payout with Bread offramp ID
       await supabase
         .from('payouts')
         .update({
-          bread_offramp_id: offramp.id,
-          bread_tx_hash: offramp.txHash,
+          bread_offramp_id: offramp.data.id,
+          bread_tx_hash: offramp.data.tx_hash,
           bread_synced_at: new Date().toISOString(),
           status: 'processing',
         })
@@ -345,10 +352,10 @@ export class BreadIntegrationService {
       logger.info({
         msg: 'Payout executed via Bread',
         payoutId: payout.id,
-        offrampId: offramp.id,
+        offrampId: offramp.data.id,
       });
 
-      return offramp.id;
+      return offramp.data.id;
     } catch (error) {
       logger.error({
         msg: 'Failed to execute payout via Bread',

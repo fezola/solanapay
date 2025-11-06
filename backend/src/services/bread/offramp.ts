@@ -18,26 +18,25 @@ import {
   OfframpStatusResponse,
 } from './types.js';
 import { logger } from '../../utils/logger.js';
-import { Asset, Network } from '../../types/index.js';
+import { Asset, Chain } from '../../types/index.js';
 
 export class BreadOfframpService {
   constructor(private client: BreadClient) {}
 
   /**
-   * Map SolPay asset + network to Bread asset format
+   * Map SolPay asset + chain to Bread asset format
    */
-  mapAssetToBread(asset: Asset, network: Network): BreadAsset {
-    // Map network to Bread format
-    const networkMap: Record<Network, string> = {
+  mapAssetToBread(asset: Asset, chain: Chain): BreadAsset {
+    // Map chain to Bread format
+    const chainMap: Partial<Record<Chain, string>> = {
       solana: 'solana',
       base: 'base',
       ethereum: 'ethereum',
-      bnb: 'bsc',
     };
 
-    const breadNetwork = networkMap[network];
+    const breadNetwork = chainMap[chain];
     if (!breadNetwork) {
-      throw new Error(`Unsupported network: ${network}`);
+      throw new Error(`Unsupported chain: ${chain}`);
     }
 
     // Map asset to lowercase
@@ -49,7 +48,7 @@ export class BreadOfframpService {
     logger.debug({
       msg: 'Mapped SolPay asset to Bread',
       solpayAsset: asset,
-      solpayNetwork: network,
+      solpayChain: chain,
       breadAsset,
     });
 
@@ -61,15 +60,15 @@ export class BreadOfframpService {
    */
   async getQuote(
     asset: Asset,
-    network: Network,
+    chain: Chain,
     cryptoAmount: number
   ): Promise<OfframpQuoteResponse> {
-    const breadAsset = this.mapAssetToBread(asset, network);
+    const breadAsset = this.mapAssetToBread(asset, chain);
 
     logger.info({
       msg: 'Getting Bread offramp quote',
       asset,
-      network,
+      chain,
       breadAsset,
       cryptoAmount,
     });
@@ -99,13 +98,13 @@ export class BreadOfframpService {
   /**
    * Get current exchange rate for an asset
    */
-  async getRate(asset: Asset, network: Network): Promise<OfframpRateResponse> {
-    const breadAsset = this.mapAssetToBread(asset, network);
+  async getRate(asset: Asset, chain: Chain): Promise<OfframpRateResponse> {
+    const breadAsset = this.mapAssetToBread(asset, chain);
 
     logger.debug({
       msg: 'Fetching Bread exchange rate',
       asset,
-      network,
+      chain,
       breadAsset,
     });
 
@@ -212,6 +211,26 @@ export class BreadOfframpService {
     });
 
     return response;
+  }
+
+  /**
+   * Calculate quote (alias for getQuote for compatibility)
+   */
+  async calculateQuote(
+    asset: Asset,
+    chain: Chain,
+    cryptoAmount: number
+  ): Promise<OfframpQuoteResponse> {
+    return this.getQuote(asset, chain, cryptoAmount);
+  }
+
+  /**
+   * Create offramp (alias for executeOfframp for compatibility)
+   */
+  async createOfframp(
+    request: ExecuteOfframpRequest
+  ): Promise<ExecuteOfframpResponse> {
+    return this.executeOfframp(request);
   }
 }
 

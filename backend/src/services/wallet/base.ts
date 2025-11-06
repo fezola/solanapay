@@ -44,10 +44,10 @@ export class BaseWalletService {
     // Generate wallet using BIP44 path for Ethereum
     // m/44'/60'/0'/0/accountIndex
     const derivationPath = `m/44'/60'/0'/0/${accountIndex}`;
-    
+
     // In production, derive from master mnemonic stored in HSM
-    const wallet = ethers.Wallet.createRandom({ path: derivationPath });
-    
+    const wallet = ethers.Wallet.createRandom();
+
     // Encrypt private key before storage
     const encryptedPrivateKey = encrypt(wallet.privateKey);
 

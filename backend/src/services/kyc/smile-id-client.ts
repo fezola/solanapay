@@ -10,7 +10,6 @@ import type {
   SmileIDConfig,
   SmileIDSubmitJobRequest,
   SmileIDJobResponse,
-  SmileIDError,
 } from './types.js';
 
 export class SmileIDClient {

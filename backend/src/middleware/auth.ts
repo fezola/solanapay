@@ -60,7 +60,7 @@ export async function authMiddleware(
     };
     request.userId = dbUser.id;
   } catch (error) {
-    request.log.error('Auth middleware error:', error);
+    request.log.error({ error }, 'Auth middleware error');
     return reply.status(401).send({
       error: 'Invalid or expired token',
     });
@@ -99,7 +99,7 @@ export async function adminMiddleware(
       role: 'admin',
     };
   } catch (error) {
-    request.log.error('Admin middleware error:', error);
+    request.log.error({ error }, 'Admin middleware error');
     return reply.status(401).send({
       error: 'Invalid or expired token',
     });

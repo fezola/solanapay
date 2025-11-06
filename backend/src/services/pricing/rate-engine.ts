@@ -102,6 +102,10 @@ export class RateEngine {
    * Get price from fallback source (e.g., CoinGecko, Binance)
    */
   private async getPriceFromFallback(asset: Asset): Promise<number> {
+    if (!env.PRICE_FALLBACK_URL) {
+      throw new Error('PRICE_FALLBACK_URL not configured');
+    }
+
     const response = await axios.get(env.PRICE_FALLBACK_URL, {
       params: { asset },
       timeout: 5000,
