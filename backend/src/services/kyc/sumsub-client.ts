@@ -87,7 +87,16 @@ export class SumsubClient {
   } {
     const timestamp = Math.floor(Date.now() / 1000);
     const method = (config.method || 'GET').toUpperCase();
-    const url = config.url || '';
+    let url = config.url || '';
+
+    // Add query parameters to URL if they exist
+    if (config.params) {
+      const params = new URLSearchParams(config.params).toString();
+      if (params) {
+        url = `${url}?${params}`;
+      }
+    }
+
     const body = config.data ? JSON.stringify(config.data) : '';
 
     // Signature format: timestamp + method + url + body

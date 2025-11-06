@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: solpay-backend
+    runtime: node
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BREAD_API_KEY
+        sync: false
+      - key: BREAD_API_URL
+        value: https://processor-prod.up.railway.app
+      - key: SUMSUB_APP_TOKEN
+        sync: false
+      - key: SUMSUB_SECRET_KEY
+        sync: false
+      - key: SUMSUB_BASE_URL
+        value: https://api.sumsub.com
+      - key: SUMSUB_LEVEL_NAME
+        value: General
+      - key: SUMSUB_WEBHOOK_SECRET
+        sync: false
+      - key: KYC_AUTO_APPROVE
+        value: false
+      - key: CORS_ORIGIN
+        value: "*"
+    healthCheckPath: /health
+
