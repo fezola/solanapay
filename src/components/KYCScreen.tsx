@@ -47,6 +47,7 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
   const [sumsubApplicantId, setSumsubApplicantId] = useState<string | null>(null);
   const sumsubContainerRef = useRef<HTMLDivElement>(null);
   const [sdkLoaded, setSdkLoaded] = useState(false);
+  const [sdkInitialized, setSdkInitialized] = useState(false);
 
   const tiers = [
     {
@@ -93,6 +94,19 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
 
   // Initialize Sumsub when step changes to verification
   useEffect(() => {
+    // Only proceed if we're on the Sumsub verification step
+    if (step !== 'sumsub_verification') {
+      // Reset initialization state when leaving the step
+      setSdkInitialized(false);
+      return;
+    }
+
+    // Don't initialize twice
+    if (sdkInitialized) {
+      console.log('⏭️ SDK already initialized, skipping...');
+      return;
+    }
+
     console.log('🔍 Sumsub initialization check:', {
       step,
       sdkLoaded,
@@ -101,18 +115,26 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
       windowSdk: !!window.snsWebSdk,
     });
 
-    if (step === 'sumsub_verification' && sdkLoaded && sumsubAccessToken && sumsubContainerRef.current) {
-      console.log('✅ All conditions met, initializing Sumsub SDK...');
-      initializeSumsubSDK();
-    } else {
-      console.log('⚠️ Waiting for conditions:', {
-        needStep: step !== 'sumsub_verification',
-        needSdkLoaded: !sdkLoaded,
-        needAccessToken: !sumsubAccessToken,
-        needContainer: !sumsubContainerRef.current,
-      });
+    // Wait for all conditions to be met
+    if (!sdkLoaded || !sumsubAccessToken) {
+      console.log('⚠️ Waiting for SDK or token...');
+      return;
     }
-  }, [step, sdkLoaded, sumsubAccessToken]);
+
+    // Give React time to render the container
+    const timer = setTimeout(() => {
+      if (sumsubContainerRef.current) {
+        console.log('✅ All conditions met, initializing Sumsub SDK...');
+        initializeSumsubSDK();
+        setSdkInitialized(true);
+      } else {
+        console.error('❌ Container still not available after delay');
+        toast.error('Verification widget failed to load. Please try again.');
+      }
+    }, 100); // Small delay to ensure DOM is ready
+
+    return () => clearTimeout(timer);
+  }, [step, sdkLoaded, sumsubAccessToken, sdkInitialized]);
 
   const steps = [
     { id: 'tier_info', label: 'Overview', tier: 0 },
@@ -363,8 +385,19 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                 <div
                   ref={sumsubContainerRef}
                   id="sumsub-websdk-container"
-                  className="min-h-[500px] rounded-xl overflow-hidden border border-gray-200"
-                />
+                  className="min-h-[500px] rounded-xl overflow-hidden border border-gray-200 bg-white"
+                  style={{ minHeight: '500px' }}
+                >
+                  {/* Loading state while SDK initializes */}
+                  {!sumsubContainerRef.current?.hasChildNodes() && (
+                    <div className="flex items-center justify-center h-[500px]">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">Loading verification widget...</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <div className="mt-6">
                   <Button
