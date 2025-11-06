@@ -133,12 +133,30 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       let breadIdentityId = user.bread_identity_id;
 
       if (!breadIdentityId) {
+        // Parse full name into first and last name
+        const fullName = user.full_name || user.email.split('@')[0];
+        const nameParts = fullName.trim().split(' ');
+        const firstName = nameParts[0] || 'User';
+        const lastName = nameParts.slice(1).join(' ') || 'Name';
+
+        // Ensure phone number is in international format
+        let phoneNumber = user.phone || user.phone_number || '';
+        if (phoneNumber && !phoneNumber.startsWith('+')) {
+          // Assume Nigerian number if no country code
+          phoneNumber = phoneNumber.startsWith('0')
+            ? '+234' + phoneNumber.slice(1)
+            : '+234' + phoneNumber;
+        }
+        if (!phoneNumber) {
+          phoneNumber = '+2348000000000'; // Placeholder if no phone
+        }
+
         // Create Bread identity for the user
         const breadIdentity = await breadService.identity.createIdentity({
-          firstName: user.first_name || 'User',
-          lastName: user.last_name || 'Name',
+          firstName,
+          lastName,
           email: user.email,
-          phoneNumber: user.phone_number || '+234',
+          phoneNumber,
           address: {
             country: 'NG',
           },
