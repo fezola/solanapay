@@ -121,17 +121,32 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
       return;
     }
 
-    // Give React time to render the container
+    // Give React and Framer Motion time to render the container
+    // Framer Motion animations can delay DOM rendering
     const timer = setTimeout(() => {
-      if (sumsubContainerRef.current) {
+      const container = document.getElementById('sumsub-websdk-container');
+      console.log('🔍 Checking container after delay:', {
+        containerById: !!container,
+        containerByRef: !!sumsubContainerRef.current,
+      });
+
+      if (container) {
         console.log('✅ All conditions met, initializing Sumsub SDK...');
+        // Update the ref if it's not set
+        if (!sumsubContainerRef.current) {
+          (sumsubContainerRef as any).current = container;
+        }
         initializeSumsubSDK();
         setSdkInitialized(true);
       } else {
         console.error('❌ Container still not available after delay');
+        console.error('DOM state:', {
+          step,
+          bodyHTML: document.body.innerHTML.includes('sumsub-websdk-container'),
+        });
         toast.error('Verification widget failed to load. Please try again.');
       }
-    }, 100); // Small delay to ensure DOM is ready
+    }, 500); // Increased delay for Framer Motion animation
 
     return () => clearTimeout(timer);
   }, [step, sdkLoaded, sumsubAccessToken, sdkInitialized]);
@@ -351,12 +366,7 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
           )}
 
           {step === 'sumsub_verification' && (
-            <motion.div
-              key="sumsub_verification"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
+            <div key="sumsub_verification">
               <Card className="p-6 border border-gray-100">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -409,7 +419,7 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                   </Button>
                 </div>
               </Card>
-            </motion.div>
+            </div>
           )}
 
 
