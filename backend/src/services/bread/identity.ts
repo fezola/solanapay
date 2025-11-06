@@ -32,23 +32,35 @@ export class BreadIdentityService {
       phone_number: request.phoneNumber,
     };
 
-    logger.debug({
+    logger.info({
       msg: 'Bread API identity request payload',
       payload: breadRequest,
     });
 
-    const response = await this.client.post<CreateIdentityResponse>(
-      '/identity',
-      breadRequest
-    );
+    try {
+      const response = await this.client.post<CreateIdentityResponse>(
+        '/identity',
+        breadRequest
+      );
 
-    logger.info({
-      msg: 'Bread identity created',
-      identityId: response.identity.id,
-      status: response.identity.status,
-    });
+      logger.info({
+        msg: 'Bread identity created',
+        identityId: response.identity.id,
+        status: response.identity.status,
+      });
 
-    return response.identity;
+      return response.identity;
+    } catch (error: any) {
+      logger.error({
+        msg: 'Failed to create Bread identity',
+        error: error.message,
+        errorCode: error.code,
+        errorStatus: error.statusCode,
+        errorDetails: error.details,
+        fullError: error,
+      });
+      throw error;
+    }
   }
 
   /**
