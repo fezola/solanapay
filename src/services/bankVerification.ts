@@ -26,7 +26,7 @@ class BankVerificationService {
 
   constructor() {
     // Use environment variable or default to localhost for development
-    this.apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    this.apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
   }
 
   /**
