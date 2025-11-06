@@ -5,6 +5,7 @@ import { supabaseAdmin } from '../utils/supabase.js';
 import { BreadService } from '../services/bread/index.js';
 import { env } from '../config/env.js';
 import { nanoid } from 'nanoid';
+import type { Asset, Chain } from '../types/index.js';
 
 // Initialize Bread service
 const breadService = new BreadService({
@@ -24,6 +25,19 @@ const confirmQuoteSchema = z.object({
   beneficiary_id: z.string().uuid(),
 });
 
+const getRateSchema = z.object({
+  asset: z.enum(['USDC', 'SOL', 'USDT', 'ETH']).optional().default('USDC'),
+  chain: z.enum(['solana', 'base']).optional().default('solana'),
+  currency: z.enum(['NGN']).optional().default('NGN'),
+});
+
+const getQuoteSchema = z.object({
+  asset: z.enum(['USDC', 'SOL', 'USDT', 'ETH']),
+  chain: z.enum(['solana', 'base']),
+  amount: z.number().positive(),
+  currency: z.enum(['NGN']).optional().default('NGN'),
+});
+
 export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
   // Apply auth middleware to all routes
   fastify.addHook('onRequest', authMiddleware);
@@ -38,6 +52,119 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
     } catch (error) {
       request.log.error({ error }, 'Failed to fetch banks');
       return reply.status(500).send({ error: 'Failed to fetch banks' });
+    }
+  });
+
+  /**
+   * Get current exchange rate for crypto → NGN
+   * GET /api/payouts/rate?asset=USDC&chain=solana&currency=NGN
+   */
+  fastify.get('/rate', async (request, reply) => {
+    const query = getRateSchema.parse(request.query);
+
+    try {
+      request.log.info({
+        msg: 'Fetching Bread exchange rate',
+        asset: query.asset,
+        chain: query.chain,
+        currency: query.currency,
+      });
+
+      const rateResponse = await breadService.offramp.getRate(
+        query.asset as Asset,
+        query.chain as Chain
+      );
+
+      request.log.info({
+        msg: 'Bread rate fetched successfully',
+        rate: rateResponse.data.rate,
+      });
+
+      return {
+        asset: query.asset,
+        chain: query.chain,
+        currency: query.currency,
+        rate: rateResponse.data.rate,
+        provider: 'bread',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      request.log.error({ error }, 'Failed to fetch rate from Bread');
+
+      // Return detailed error from Bread API
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch rate';
+      const breadError = error.response?.data;
+
+      return reply.status(error.response?.status || 500).send({
+        error: 'Failed to fetch rate',
+        message: errorMessage,
+        bread_error: breadError, // Include Bread's error for debugging
+      });
+    }
+  });
+
+  /**
+   * Get precise quote for crypto → NGN conversion
+   * POST /api/payouts/quote
+   * Body: { asset: 'USDC', chain: 'solana', amount: 50, currency: 'NGN' }
+   */
+  fastify.post('/quote', async (request, reply) => {
+    const body = getQuoteSchema.parse(request.body);
+
+    try {
+      request.log.info({
+        msg: 'Getting Bread offramp quote',
+        asset: body.asset,
+        chain: body.chain,
+        amount: body.amount,
+        currency: body.currency,
+      });
+
+      const quoteResponse = await breadService.offramp.getQuote(
+        body.asset as Asset,
+        body.chain as Chain,
+        body.amount
+      );
+
+      request.log.info({
+        msg: 'Bread quote fetched successfully',
+        rate: quoteResponse.data.rate,
+        outputAmount: quoteResponse.data.output_amount,
+        fee: quoteResponse.data.fee,
+      });
+
+      return {
+        asset: body.asset,
+        chain: body.chain,
+        currency: body.currency,
+        input_amount: body.amount,
+        rate: quoteResponse.data.rate,
+        output_amount: quoteResponse.data.output_amount,
+        fee: quoteResponse.data.fee,
+        expiry: quoteResponse.data.expiry,
+        provider: 'bread',
+        timestamp: new Date().toISOString(),
+        // Helpful display values
+        display: {
+          you_send: `${body.amount} ${body.asset}`,
+          you_receive: `₦${quoteResponse.data.output_amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          rate_display: `1 ${body.asset} = ₦${quoteResponse.data.rate.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          fee_display: `₦${quoteResponse.data.fee.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          expires_in: quoteResponse.data.expiry ? `${Math.floor((new Date(quoteResponse.data.expiry).getTime() - Date.now()) / 1000)}s` : 'N/A',
+        },
+      };
+    } catch (error: any) {
+      request.log.error({ error }, 'Failed to get quote from Bread');
+
+      // Return detailed error from Bread API
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to get quote';
+      const breadError = error.response?.data;
+
+      return reply.status(error.response?.status || 500).send({
+        error: 'Failed to get quote',
+        message: errorMessage,
+        bread_error: breadError, // Include Bread's error for debugging
+      });
     }
   });
 

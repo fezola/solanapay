@@ -254,6 +254,56 @@ export const payoutsApi = {
   },
 
   /**
+   * Get current exchange rate for crypto → NGN
+   * @param asset - Crypto asset (USDC, SOL, USDT, ETH)
+   * @param chain - Blockchain (solana, base)
+   * @param currency - Fiat currency (default: NGN)
+   */
+  async getRate(asset: string = 'USDC', chain: string = 'solana', currency: string = 'NGN') {
+    const params = new URLSearchParams({ asset, chain, currency });
+    return apiRequest<{
+      asset: string;
+      chain: string;
+      currency: string;
+      rate: number;
+      provider: string;
+      timestamp: string;
+    }>(`/api/payouts/rate?${params}`);
+  },
+
+  /**
+   * Get precise quote for crypto → NGN conversion
+   * @param asset - Crypto asset (USDC, SOL, USDT, ETH)
+   * @param chain - Blockchain (solana, base)
+   * @param amount - Amount in crypto
+   * @param currency - Fiat currency (default: NGN)
+   */
+  async getQuote(asset: string, chain: string, amount: number, currency: string = 'NGN') {
+    return apiRequest<{
+      asset: string;
+      chain: string;
+      currency: string;
+      input_amount: number;
+      rate: number;
+      output_amount: number;
+      fee: number;
+      expiry: string;
+      provider: string;
+      timestamp: string;
+      display: {
+        you_send: string;
+        you_receive: string;
+        rate_display: string;
+        fee_display: string;
+        expires_in: string;
+      };
+    }>('/api/payouts/quote', {
+      method: 'POST',
+      body: JSON.stringify({ asset, chain, amount, currency }),
+    });
+  },
+
+  /**
    * Add and verify bank account beneficiary
    */
   async addBeneficiary(bankCode: string, accountNumber: string) {
