@@ -43,18 +43,42 @@ export class BreadBeneficiaryService {
       payload: breadRequest,
     });
 
-    const response = await this.client.post<CreateBeneficiaryResponse>(
+    const response = await this.client.post<any>(
       '/beneficiary',
       breadRequest
     );
 
     logger.info({
-      msg: 'Bread beneficiary created',
-      beneficiaryId: response.beneficiary.id,
-      accountName: response.beneficiary.accountName,
+      msg: 'Bread API response',
+      fullResponse: JSON.stringify(response, null, 2),
     });
 
-    return response.beneficiary;
+    // Bread API returns: { success, status, message, timestamp, data: { id } }
+    const beneficiaryId = response.data?.id || response.id;
+
+    if (!beneficiaryId) {
+      logger.error({
+        msg: 'No beneficiary ID in Bread API response',
+        response,
+      });
+      throw new Error('Bread API did not return a beneficiary ID');
+    }
+
+    logger.info({
+      msg: 'Bread beneficiary created successfully',
+      beneficiaryId,
+    });
+
+    // Return a BreadBeneficiary object
+    return {
+      id: beneficiaryId,
+      identityId: request.identityId,
+      bankCode: request.bankCode,
+      accountNumber: request.accountNumber,
+      accountName: '', // Bread doesn't return account name in beneficiary creation
+      currency: request.currency || 'NGN',
+      createdAt: response.timestamp || new Date().toISOString(),
+    };
   }
 
   /**
