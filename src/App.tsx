@@ -14,7 +14,7 @@ import { LimitsScreen } from './components/LimitsScreen';
 import { BottomNavigation } from './components/BottomNavigation';
 import { PINSetupScreen } from './components/PINSetupScreen';
 import { UserProfileScreen } from './components/UserProfileScreen';
-import { authService, userService } from './services/supabase';
+import { authService, userService, bankAccountService } from './services/supabase';
 import { NotificationListener } from './services/notifications';
 
 interface BankAccount {
@@ -140,6 +140,32 @@ export default function App() {
     };
     checkSession();
   }, []);
+
+  // Load bank accounts when user is authenticated
+  useEffect(() => {
+    const loadBankAccounts = async () => {
+      if (isAuthenticated && userId) {
+        try {
+          const accounts = await bankAccountService.getBankAccounts(userId);
+          // Transform Supabase data to match BankAccount interface
+          const transformedAccounts = accounts.map((account: any) => ({
+            id: account.id,
+            bankName: account.bank_name,
+            bankCode: account.bank_code,
+            accountNumber: account.account_number,
+            accountName: account.account_name,
+            isVerified: account.is_verified,
+            logo: undefined, // Will be populated by BankAccountScreen
+          }));
+          setBankAccounts(transformedAccounts);
+          console.log('✅ Loaded bank accounts:', transformedAccounts.length);
+        } catch (error) {
+          console.error('Failed to load bank accounts:', error);
+        }
+      }
+    };
+    loadBankAccounts();
+  }, [isAuthenticated, userId]);
 
   // Start/stop real-time notification listener when user is authenticated
   useEffect(() => {
