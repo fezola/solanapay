@@ -68,21 +68,26 @@ export class BreadClient {
     if (error.response) {
       // Server responded with error
       const { status, data } = error.response;
-      const errorData = data?.error;
+
+      // Bread API returns errors in format: { status, message, data }
+      // NOT { error: { code, message } }
+      const errorMessage = (data as any)?.message || data?.error?.message || 'An unknown error occurred';
+      const errorCode = data?.error?.code || 'BREAD_API_ERROR';
+      const errorDetails = data?.error?.details || (data as any)?.data;
 
       logger.error({
         msg: 'Bread API Error Response',
         status,
-        code: errorData?.code,
-        message: errorData?.message,
-        details: errorData?.details,
+        errorMessage,
+        errorCode,
+        fullResponse: data,
       });
 
       throw new BreadAPIError(
-        errorData?.code || 'UNKNOWN_ERROR',
-        errorData?.message || 'An unknown error occurred',
+        errorCode,
+        errorMessage,
         status,
-        errorData?.details
+        errorDetails
       );
     } else if (error.request) {
       // Request made but no response
