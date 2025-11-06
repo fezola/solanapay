@@ -74,31 +74,66 @@ export const kycRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/start', async (request, reply) => {
     const userId = request.userId!;
 
+    console.log('🔵 KYC START ENDPOINT CALLED', { userId });
+
     if (sumsubService) {
-      // Get user email and phone for Sumsub
-      const { data: user } = await supabaseAdmin
-        .from('users')
-        .select('email, phone, kyc_tier, kyc_status')
-        .eq('id', userId)
-        .single();
+      try {
+        // Get user email and phone for Sumsub
+        const { data: user, error: userError } = await supabaseAdmin
+          .from('users')
+          .select('email, phone_number, kyc_tier, kyc_status')
+          .eq('id', userId)
+          .single();
 
-      if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
+        console.log('📊 User data fetched:', {
+          userId,
+          email: user?.email,
+          hasPhone: !!user?.phone_number,
+          error: userError
+        });
+
+        if (userError || !user) {
+          console.error('❌ User not found:', userError);
+          return reply.status(404).send({ error: 'User not found' });
+        }
+
+        // Initialize KYC with Sumsub
+        console.log('🔄 Initializing Sumsub KYC...', {
+          userId,
+          email: user.email,
+          phone: user.phone_number
+        });
+
+        const result = await sumsubService.initializeKYC(
+          userId,
+          user.email,
+          user.phone_number
+        );
+
+        console.log('✅ Sumsub KYC initialized:', {
+          applicantId: result.applicantId,
+          hasAccessToken: !!result.accessToken
+        });
+
+        return {
+          provider: 'sumsub',
+          applicantId: result.applicantId,
+          accessToken: result.accessToken,
+          message: 'KYC initialized. Use the access token with Sumsub Web SDK.',
+        };
+      } catch (error: any) {
+        console.error('❌ Sumsub initialization error:', {
+          error: error.message,
+          stack: error.stack,
+          response: error.response?.data,
+        });
+
+        return reply.status(400).send({
+          error: 'Failed to initialize KYC',
+          message: error.message,
+          details: error.response?.data || error.toString(),
+        });
       }
-
-      // Initialize KYC with Sumsub
-      const result = await sumsubService.initializeKYC(
-        userId,
-        user.email,
-        user.phone
-      );
-
-      return {
-        provider: 'sumsub',
-        applicantId: result.applicantId,
-        accessToken: result.accessToken,
-        message: 'KYC initialized. Use the access token with Sumsub Web SDK.',
-      };
     }
 
     // Fallback to legacy KYC
