@@ -23,27 +23,14 @@ export class BreadIdentityService {
       email: request.email,
     });
 
-    // Transform request to match Bread API format (snake_case)
+    // Transform request to match Bread API format
+    // Bread API expects: type: "link", name: "Full Name", email, phone_number
     const breadRequest: any = {
-      first_name: request.firstName,
-      last_name: request.lastName,
+      type: 'link', // Use link-based verification
+      name: `${request.firstName} ${request.lastName}`.trim(),
       email: request.email,
       phone_number: request.phoneNumber,
     };
-
-    if (request.dateOfBirth) {
-      breadRequest.date_of_birth = request.dateOfBirth;
-    }
-
-    if (request.address) {
-      breadRequest.address = {
-        country: request.address.country,
-      };
-      if (request.address.street) breadRequest.address.street = request.address.street;
-      if (request.address.city) breadRequest.address.city = request.address.city;
-      if (request.address.state) breadRequest.address.state = request.address.state;
-      if (request.address.postalCode) breadRequest.address.postal_code = request.address.postalCode;
-    }
 
     logger.debug({
       msg: 'Bread API identity request payload',
