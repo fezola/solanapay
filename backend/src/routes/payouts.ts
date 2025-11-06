@@ -42,14 +42,13 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * Verify bank account and get account holder name
+   * Verify bank account
    *
    * NOTE: Bread Africa doesn't have a standalone bank verification endpoint.
-   * We create a temporary beneficiary to verify the account and get the real account holder name.
-   * This beneficiary will be reused when the user adds the account.
+   * This endpoint validates the bank code and account number format.
+   * The actual account verification happens when creating the beneficiary.
    */
   fastify.post('/verify-account', async (request, reply) => {
-    const userId = request.userId!;
     const body = createBeneficiarySchema.parse(request.body);
 
     try {
@@ -64,57 +63,26 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Get user details to create/get Bread identity
-      const { data: user } = await supabaseAdmin
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
-      }
-
-      // Get or create Bread identity
-      let breadIdentityId = user.bread_identity_id;
-      if (!breadIdentityId) {
-        const breadIdentity = await breadService.identity.createIdentity({
-          firstName: user.first_name || 'User',
-          lastName: user.last_name || 'Name',
-          email: user.email,
-          phoneNumber: user.phone_number || '+234',
-          address: { country: 'NG' },
+      // Validate account number format (10 digits for Nigerian banks)
+      if (!/^\d{10}$/.test(body.account_number)) {
+        return reply.status(400).send({
+          error: 'Invalid account number',
+          message: 'Account number must be exactly 10 digits'
         });
-        breadIdentityId = breadIdentity.id;
-
-        // Save the Bread identity ID
-        await supabaseAdmin
-          .from('users')
-          .update({ bread_identity_id: breadIdentityId })
-          .eq('id', userId);
       }
 
-      // Create beneficiary in Bread to verify the account and get real account name
-      const breadBeneficiary = await breadService.beneficiary.createBeneficiary({
-        identityId: breadIdentityId,
-        bankCode: body.bank_code,
-        accountNumber: body.account_number,
-        currency: 'NGN',
-      });
-
-      // Return the verified account details with REAL account holder name
+      // Return success - actual verification will happen when adding the account
       return {
         account_number: body.account_number,
-        account_name: breadBeneficiary.accountName, // Real account holder name from Bread
+        account_name: 'Pending verification...', // Placeholder - real name comes when adding account
         bank_code: body.bank_code,
         bank_name: bank.name,
-        bread_beneficiary_id: breadBeneficiary.id, // Save this for later use
       };
     } catch (error: any) {
-      request.log.error('Bank verification failed:', error);
+      request.log.error('Bank validation failed:', error);
       return reply.status(400).send({
-        error: 'Account verification failed',
-        message: error.message || 'Could not verify account. Please check the account number and try again.',
+        error: 'Bank validation failed',
+        message: error.message || 'Could not validate bank details',
       });
     }
   });

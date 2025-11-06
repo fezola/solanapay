@@ -108,9 +108,17 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
 
       setAccountName(result.accountName);
       setBreadBeneficiaryId(result.breadBeneficiaryId || '');
-      toast.success('Account verified successfully!', {
-        description: `Account Holder: ${result.accountName}`,
-      });
+
+      // Show appropriate message based on whether we got real account name
+      if (result.accountName && result.accountName !== 'Pending verification...') {
+        toast.success('Account verified successfully!', {
+          description: `Account Holder: ${result.accountName}`,
+        });
+      } else {
+        toast.success('Bank details validated!', {
+          description: 'Account will be verified when you add it.',
+        });
+      }
     } catch (error: any) {
       console.error('Verification error:', error);
       toast.error('Verification failed', {
@@ -312,13 +320,37 @@ export function BankAccountScreen({ userId, bankAccounts, onAddAccount, onDelete
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-green-50 p-4 rounded-xl border border-green-200"
+                    className={`p-4 rounded-xl border ${
+                      accountName === 'Pending verification...'
+                        ? 'bg-blue-50 border-blue-200'
+                        : 'bg-green-50 border-green-200'
+                    }`}
                   >
                     <div className="flex items-start gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      <CheckCircle2 className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                        accountName === 'Pending verification...'
+                          ? 'text-blue-600'
+                          : 'text-green-600'
+                      }`} />
                       <div>
-                        <p className="text-sm font-medium text-green-900 mb-1">Account Verified</p>
-                        <p className="text-green-800 font-semibold">{accountName}</p>
+                        <p className={`text-sm font-medium mb-1 ${
+                          accountName === 'Pending verification...'
+                            ? 'text-blue-900'
+                            : 'text-green-900'
+                        }`}>
+                          {accountName === 'Pending verification...'
+                            ? 'Bank Details Validated'
+                            : 'Account Verified'}
+                        </p>
+                        <p className={`font-semibold ${
+                          accountName === 'Pending verification...'
+                            ? 'text-blue-800'
+                            : 'text-green-800'
+                        }`}>
+                          {accountName === 'Pending verification...'
+                            ? 'Account name will be verified when you add it'
+                            : accountName}
+                        </p>
                       </div>
                     </div>
                   </motion.div>
