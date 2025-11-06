@@ -213,9 +213,17 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       return { beneficiary };
     } catch (error: any) {
       request.log.error('Beneficiary creation failed:', error);
+
+      // Extract detailed error information
+      const errorMessage = error.message || 'Could not create beneficiary. Please check account details.';
+      const errorCode = error.code || 'UNKNOWN_ERROR';
+      const errorDetails = error.details || {};
+
       return reply.status(400).send({
         error: 'Beneficiary creation failed',
-        message: error.message || 'Could not create beneficiary. Please check account details.',
+        message: errorMessage,
+        code: errorCode,
+        details: errorDetails,
       });
     }
   });

@@ -28,12 +28,24 @@ export class BreadBeneficiaryService {
       accountNumber: request.accountNumber,
     });
 
+    // Transform request to match Bread API format
+    const breadRequest = {
+      currency: (request.currency || 'NGN').toLowerCase(),
+      identity_id: request.identityId,
+      details: {
+        account_number: request.accountNumber,
+        bank_code: request.bankCode,
+      },
+    };
+
+    logger.debug({
+      msg: 'Bread API request payload',
+      payload: breadRequest,
+    });
+
     const response = await this.client.post<CreateBeneficiaryResponse>(
       '/beneficiary',
-      {
-        ...request,
-        currency: request.currency || 'NGN',
-      }
+      breadRequest
     );
 
     logger.info({
