@@ -46,8 +46,13 @@ const envSchema = z.object({
   BREAD_WEBHOOK_SECRET: z.string().optional(),
   BREAD_ENABLED: z.string().transform(v => v === 'true').default('false'),
 
-  // KYC/AML (Optional for development)
-  KYC_AUTO_APPROVE: z.string().transform(v => v === 'true').default('true'),
+  // KYC/AML - Sumsub
+  SUMSUB_APP_TOKEN: z.string().optional(),
+  SUMSUB_SECRET_KEY: z.string().optional(),
+  SUMSUB_BASE_URL: z.string().url().default('https://api.sumsub.com'),
+  SUMSUB_LEVEL_NAME: z.string().default('basic-kyc-level'),
+  SUMSUB_WEBHOOK_SECRET: z.string().optional(),
+  KYC_AUTO_APPROVE: z.string().transform(v => v === 'true').default('false'),
 
   // Observability
   SENTRY_DSN: z.string().optional(),

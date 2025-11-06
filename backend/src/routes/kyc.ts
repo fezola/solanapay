@@ -2,6 +2,8 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { supabaseAdmin } from '../utils/supabase.js';
+import { SumsubService } from '../services/kyc/index.js';
+import { env } from '../config/env.js';
 
 const startKYCSchema = z.object({
   level: z.number().int().min(1).max(2),
@@ -19,6 +21,17 @@ const uploadDocumentSchema = z.object({
   selfie_url: z.string().url().optional(),
 });
 
+// Initialize Sumsub service if credentials are available
+const sumsubService =
+  env.SUMSUB_APP_TOKEN && env.SUMSUB_SECRET_KEY
+    ? new SumsubService({
+        appToken: env.SUMSUB_APP_TOKEN,
+        secretKey: env.SUMSUB_SECRET_KEY,
+        baseUrl: env.SUMSUB_BASE_URL,
+        levelName: env.SUMSUB_LEVEL_NAME,
+      })
+    : null;
+
 export const kycRoutes: FastifyPluginAsync = async (fastify) => {
   // Apply auth middleware to all routes
   fastify.addHook('onRequest', authMiddleware);
@@ -29,6 +42,13 @@ export const kycRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/status', async (request, reply) => {
     const userId = request.userId!;
 
+    if (sumsubService) {
+      // Use Sumsub for KYC status
+      const status = await sumsubService.getKYCStatus(userId);
+      return status;
+    }
+
+    // Fallback to legacy KYC
     const { data: user } = await supabaseAdmin
       .from('users')
       .select('kyc_tier, kyc_status')
@@ -49,10 +69,39 @@ export const kycRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * Start KYC verification
+   * Start KYC verification (Initialize Sumsub)
    */
   fastify.post('/start', async (request, reply) => {
     const userId = request.userId!;
+
+    if (sumsubService) {
+      // Get user email and phone for Sumsub
+      const { data: user } = await supabaseAdmin
+        .from('users')
+        .select('email, phone, kyc_tier, kyc_status')
+        .eq('id', userId)
+        .single();
+
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+
+      // Initialize KYC with Sumsub
+      const result = await sumsubService.initializeKYC(
+        userId,
+        user.email,
+        user.phone
+      );
+
+      return {
+        provider: 'sumsub',
+        applicantId: result.applicantId,
+        accessToken: result.accessToken,
+        message: 'KYC initialized. Use the access token with Sumsub Web SDK.',
+      };
+    }
+
+    // Fallback to legacy KYC
     const body = startKYCSchema.parse(request.body);
 
     const { data: user } = await supabaseAdmin
@@ -77,9 +126,10 @@ export const kycRoutes: FastifyPluginAsync = async (fastify) => {
       .from('kyc_verifications')
       .insert({
         user_id: userId,
-        provider: 'youverify',
-        level: body.level,
+        provider: 'legacy',
+        tier: body.level,
         status: 'pending',
+        applicant_id: `legacy_${userId}`,
       })
       .select()
       .single();
@@ -242,6 +292,34 @@ export const kycRoutes: FastifyPluginAsync = async (fastify) => {
       message: 'KYC verification approved',
       kyc_tier: verification.level,
     };
+  });
+
+  /**
+   * Retry KYC verification (Sumsub)
+   */
+  fastify.post('/retry', async (request, reply) => {
+    const userId = request.userId!;
+
+    if (!sumsubService) {
+      return reply.status(400).send({
+        error: 'Sumsub not configured',
+      });
+    }
+
+    try {
+      const result = await sumsubService.retryKYC(userId);
+
+      return {
+        provider: 'sumsub',
+        applicantId: result.applicantId,
+        accessToken: result.accessToken,
+        message: 'KYC retry initialized. Use the access token with Sumsub Web SDK.',
+      };
+    } catch (error: any) {
+      return reply.status(400).send({
+        error: error.message || 'Failed to retry KYC',
+      });
+    }
   });
 
   /**

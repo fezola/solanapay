@@ -1,95 +1,162 @@
 /**
  * Bread Africa API Types
- * Based on https://docs.bread.africa
+ * Based on actual API at https://processor-prod.up.railway.app
  */
 
 // ============================================================================
-// Core Entities
+// Asset Types
 // ============================================================================
 
-export interface BreadIdentity {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phoneNumber: string;
-  dateOfBirth?: string;
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    country: string;
-    postalCode?: string;
-  };
-  status: 'pending' | 'verified' | 'rejected';
-  createdAt: string;
-  updatedAt: string;
-}
+export type BreadAsset =
+  | 'base:usdc'
+  | 'solana:usdc'
+  | 'ethereum:usdc'
+  | 'arbitrum:usdc'
+  | 'polygon:usdc'
+  | 'optimism:usdc'
+  | 'bsc:usdc'
+  | 'base:usdt'
+  | 'solana:usdt'
+  | 'ethereum:usdt'
+  | 'arbitrum:usdt'
+  | 'polygon:usdt'
+  | 'optimism:usdt'
+  | 'bsc:usdt'
+  | 'base:cngn'
+  | 'bsc:cngn';
 
-export interface BreadBeneficiary {
-  id: string;
-  identityId: string;
-  bankCode: string;
-  accountNumber: string;
-  accountName: string;
-  currency: string;
-  status: 'active' | 'inactive';
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type BreadWalletType = 'offramp' | 'basic';
-export type BreadNetwork = 'evm' | 'svm';
-export type BreadChain = 'ethereum' | 'base' | 'solana' | 'polygon' | 'arbitrum' | 'optimism';
-
-export interface BreadWallet {
-  id: string;
-  identityId: string;
-  type: BreadWalletType;
-  network: BreadNetwork;
-  chain: BreadChain;
+export interface BreadAssetInfo {
+  id: BreadAsset;
+  name: string;
+  code: string;
   address: string;
-  beneficiaryId?: string; // For offramp wallets
-  status: 'active' | 'inactive';
-  createdAt: string;
-  updatedAt: string;
+  icon: string;
+  blockchain: {
+    id: number;
+    name: string;
+    icon: string;
+  };
 }
 
-export type BreadOfframpStatus = 
-  | 'pending'
-  | 'processing'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
-
-export interface BreadOfframp {
-  id: string;
-  identityId: string;
-  walletId: string;
-  beneficiaryId: string;
-  cryptoAsset: string;
-  cryptoAmount: string;
-  fiatCurrency: string;
-  fiatAmount: string;
-  exchangeRate: string;
-  fee: string;
-  status: BreadOfframpStatus;
-  txHash?: string;
-  errorMessage?: string;
-  createdAt: string;
-  updatedAt: string;
-  completedAt?: string;
-}
-
-export interface BreadRate {
-  cryptoAsset: string;
-  fiatCurrency: string;
-  rate: string;
-  timestamp: string;
+export interface BreadBank {
+  name: string;
+  code: string;
+  icon: string;
 }
 
 // ============================================================================
-// API Request/Response Types
+// API Response Wrapper
+// ============================================================================
+
+export interface BreadAPIResponse<T> {
+  success: boolean;
+  status: number;
+  message: string;
+  timestamp: string;
+  data: T;
+}
+
+// ============================================================================
+// Offramp Quote Types
+// ============================================================================
+
+export interface OfframpQuoteRequest {
+  amount: number; // Amount in crypto or fiat depending on is_exact_output
+  currency: 'NGN'; // Target fiat currency
+  asset: BreadAsset; // Crypto asset to convert from
+  is_exact_output: boolean; // If true, amount is in fiat; if false, amount is in crypto
+}
+
+export interface OfframpQuoteData {
+  type: 'offramp';
+  fee: number; // Fee in fiat currency
+  expiry: string; // ISO timestamp when quote expires
+  currency: 'NGN';
+  rate: number; // Exchange rate (fiat per crypto)
+  input_amount: number; // Input amount (crypto if is_exact_output=false, fiat if true)
+  output_amount: number; // Output amount in fiat currency
+}
+
+export type OfframpQuoteResponse = BreadAPIResponse<OfframpQuoteData>;
+
+// ============================================================================
+// Offramp Rate Types
+// ============================================================================
+
+export interface OfframpRateRequest {
+  currency: 'NGN';
+  asset: BreadAsset;
+}
+
+export interface OfframpRateData {
+  rate: number; // Exchange rate (fiat per crypto)
+}
+
+export type OfframpRateResponse = BreadAPIResponse<OfframpRateData>;
+
+// ============================================================================
+// Assets List Types
+// ============================================================================
+
+export type AssetsListResponse = BreadAPIResponse<BreadAssetInfo[]>;
+
+// ============================================================================
+// Banks List Types
+// ============================================================================
+
+export interface BanksListRequest {
+  currency: 'NGN';
+}
+
+export type BanksListResponse = BreadAPIResponse<BreadBank[]>;
+
+// ============================================================================
+// Offramp Execution Types (TODO: Update when we get actual API docs)
+// ============================================================================
+
+export interface ExecuteOfframpRequest {
+  asset: BreadAsset;
+  amount: number;
+  currency: 'NGN';
+  bank_code: string;
+  account_number: string;
+  // Add more fields as needed based on actual API
+}
+
+export interface ExecuteOfframpData {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  amount: number;
+  currency: string;
+  asset: BreadAsset;
+  tx_hash?: string;
+  created_at: string;
+  // Add more fields as needed based on actual API
+}
+
+export type ExecuteOfframpResponse = BreadAPIResponse<ExecuteOfframpData>;
+
+// ============================================================================
+// Offramp Status Types
+// ============================================================================
+
+export interface OfframpStatusData {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  amount: number;
+  currency: string;
+  asset: BreadAsset;
+  tx_hash?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  // Add more fields as needed based on actual API
+}
+
+export type OfframpStatusResponse = BreadAPIResponse<OfframpStatusData>;
+
+// ============================================================================
+// Legacy Types (kept for backward compatibility, will be removed)
 // ============================================================================
 
 export interface CreateIdentityRequest {

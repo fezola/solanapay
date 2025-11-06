@@ -5,223 +5,213 @@
 
 import { BreadClient } from './client.js';
 import {
-  BreadOfframp,
-  CreateOfframpRequest,
-  CreateOfframpResponse,
-  GetRateRequest,
-  GetRateResponse,
-  ListOfframpsResponse,
+  BreadAsset,
+  BreadAssetInfo,
+  BreadBank,
+  OfframpQuoteRequest,
+  OfframpQuoteResponse,
+  OfframpRateResponse,
+  AssetsListResponse,
+  BanksListResponse,
+  ExecuteOfframpRequest,
+  ExecuteOfframpResponse,
+  OfframpStatusResponse,
 } from './types.js';
 import { logger } from '../../utils/logger.js';
-import { Asset } from '../../types/index.js';
+import { Asset, Network } from '../../types/index.js';
 
 export class BreadOfframpService {
   constructor(private client: BreadClient) {}
 
   /**
-   * Map SolPay asset to Bread crypto asset
+   * Map SolPay asset + network to Bread asset format
    */
-  private mapAssetToBread(asset: Asset): string {
-    const assetMap: Record<Asset, string> = {
-      USDC: 'USDC',
-      SOL: 'SOL',
-      USDT: 'USDT',
-      ETH: 'ETH',
+  mapAssetToBread(asset: Asset, network: Network): BreadAsset {
+    // Map network to Bread format
+    const networkMap: Record<Network, string> = {
+      solana: 'solana',
+      base: 'base',
+      ethereum: 'ethereum',
+      bnb: 'bsc',
     };
 
-    return assetMap[asset] || asset;
+    const breadNetwork = networkMap[network];
+    if (!breadNetwork) {
+      throw new Error(`Unsupported network: ${network}`);
+    }
+
+    // Map asset to lowercase
+    const assetLower = asset.toLowerCase();
+
+    // Construct Bread asset ID
+    const breadAsset = `${breadNetwork}:${assetLower}` as BreadAsset;
+
+    logger.debug({
+      msg: 'Mapped SolPay asset to Bread',
+      solpayAsset: asset,
+      solpayNetwork: network,
+      breadAsset,
+    });
+
+    return breadAsset;
   }
 
   /**
-   * Get current exchange rate
+   * Get offramp quote (crypto → fiat)
    */
-  async getRate(
+  async getQuote(
     asset: Asset,
-    fiatCurrency: string = 'NGN',
-    cryptoAmount?: string,
-    fiatAmount?: string
-  ): Promise<GetRateResponse> {
-    const cryptoAsset = this.mapAssetToBread(asset);
+    network: Network,
+    cryptoAmount: number
+  ): Promise<OfframpQuoteResponse> {
+    const breadAsset = this.mapAssetToBread(asset, network);
 
-    logger.debug({
-      msg: 'Fetching Bread exchange rate',
-      cryptoAsset,
-      fiatCurrency,
-      cryptoAmount,
-      fiatAmount,
-    });
-
-    const request: GetRateRequest = {
-      cryptoAsset,
-      fiatCurrency,
-      cryptoAmount,
-      fiatAmount,
-    };
-
-    const response = await this.client.post<GetRateResponse>('/rate', request);
-
-    logger.debug({
-      msg: 'Bread exchange rate fetched',
-      rate: response.rate.rate,
-      cryptoAmount: response.cryptoAmount,
-      fiatAmount: response.fiatAmount,
-    });
-
-    return response;
-  }
-
-  /**
-   * Create an offramp transaction
-   */
-  async createOfframp(
-    walletId: string,
-    beneficiaryId: string,
-    cryptoAmount: string
-  ): Promise<BreadOfframp> {
     logger.info({
-      msg: 'Creating Bread offramp',
-      walletId,
-      beneficiaryId,
+      msg: 'Getting Bread offramp quote',
+      asset,
+      network,
+      breadAsset,
       cryptoAmount,
     });
 
-    const request: CreateOfframpRequest = {
-      walletId,
-      beneficiaryId,
-      cryptoAmount,
+    const request: OfframpQuoteRequest = {
+      amount: cryptoAmount,
+      currency: 'NGN',
+      asset: breadAsset,
+      is_exact_output: false, // Amount is in crypto
     };
 
-    const response = await this.client.post<CreateOfframpResponse>(
-      '/offramp',
+    const response = await this.client.post<OfframpQuoteResponse>(
+      '/quote/offramp',
       request
     );
 
     logger.info({
-      msg: 'Bread offramp created',
-      offrampId: response.offramp.id,
-      status: response.offramp.status,
-      fiatAmount: response.offramp.fiatAmount,
+      msg: 'Bread offramp quote fetched',
+      rate: response.data.rate,
+      outputAmount: response.data.output_amount,
+      fee: response.data.fee,
     });
-
-    return response.offramp;
-  }
-
-  /**
-   * Get offramp by ID
-   */
-  async getOfframp(offrampId: string): Promise<BreadOfframp> {
-    logger.debug({
-      msg: 'Fetching Bread offramp',
-      offrampId,
-    });
-
-    const offramp = await this.client.get<BreadOfframp>(
-      `/offramp/${offrampId}`
-    );
-
-    return offramp;
-  }
-
-  /**
-   * List offramps for an identity
-   */
-  async listOfframps(
-    identityId: string,
-    options?: {
-      page?: number;
-      limit?: number;
-      status?: string;
-    }
-  ): Promise<ListOfframpsResponse> {
-    logger.debug({
-      msg: 'Listing Bread offramps',
-      identityId,
-      options,
-    });
-
-    const params = new URLSearchParams();
-    if (options?.page) params.append('page', options.page.toString());
-    if (options?.limit) params.append('limit', options.limit.toString());
-    if (options?.status) params.append('status', options.status);
-
-    const response = await this.client.get<ListOfframpsResponse>(
-      `/identity/${identityId}/offramps?${params.toString()}`
-    );
 
     return response;
   }
 
   /**
-   * Cancel an offramp transaction
+   * Get current exchange rate for an asset
    */
-  async cancelOfframp(offrampId: string): Promise<BreadOfframp> {
-    logger.info({
-      msg: 'Cancelling Bread offramp',
-      offrampId,
+  async getRate(asset: Asset, network: Network): Promise<OfframpRateResponse> {
+    const breadAsset = this.mapAssetToBread(asset, network);
+
+    logger.debug({
+      msg: 'Fetching Bread exchange rate',
+      asset,
+      network,
+      breadAsset,
     });
 
-    const offramp = await this.client.post<BreadOfframp>(
-      `/offramp/${offrampId}/cancel`
+    const response = await this.client.get<OfframpRateResponse>(
+      '/rate/offramp',
+      {
+        params: {
+          currency: 'NGN',
+          asset: breadAsset,
+        },
+      }
+    );
+
+    logger.debug({
+      msg: 'Bread exchange rate fetched',
+      rate: response.data.rate,
+    });
+
+    return response;
+  }
+
+  /**
+   * Get list of supported assets
+   */
+  async getAssets(): Promise<BreadAssetInfo[]> {
+    logger.debug({ msg: 'Fetching Bread supported assets' });
+
+    const response = await this.client.get<AssetsListResponse>('/assets');
+
+    logger.debug({
+      msg: 'Bread assets fetched',
+      count: response.data.length,
+    });
+
+    return response.data;
+  }
+
+  /**
+   * Get list of supported banks
+   */
+  async getBanks(): Promise<BreadBank[]> {
+    logger.debug({ msg: 'Fetching Bread supported banks' });
+
+    const response = await this.client.get<BanksListResponse>('/banks', {
+      params: {
+        currency: 'NGN',
+      },
+    });
+
+    logger.debug({
+      msg: 'Bread banks fetched',
+      count: response.data.length,
+    });
+
+    return response.data;
+  }
+
+  /**
+   * Execute offramp transaction
+   * TODO: Update this when we get actual API documentation for execute endpoint
+   */
+  async executeOfframp(
+    request: ExecuteOfframpRequest
+  ): Promise<ExecuteOfframpResponse> {
+    logger.info({
+      msg: 'Executing Bread offramp',
+      asset: request.asset,
+      amount: request.amount,
+      bankCode: request.bank_code,
+    });
+
+    const response = await this.client.post<ExecuteOfframpResponse>(
+      '/offramp/execute',
+      request
     );
 
     logger.info({
-      msg: 'Bread offramp cancelled',
-      offrampId: offramp.id,
-      status: offramp.status,
+      msg: 'Bread offramp executed',
+      offrampId: response.data.id,
+      status: response.data.status,
     });
 
-    return offramp;
+    return response;
   }
 
   /**
    * Get offramp status
+   * TODO: Update this when we get actual API documentation for status endpoint
    */
-  async getOfframpStatus(offrampId: string): Promise<{
-    status: BreadOfframp['status'];
-    completed: boolean;
-    failed: boolean;
-  }> {
-    const offramp = await this.getOfframp(offrampId);
+  async getOfframpStatus(offrampId: string): Promise<OfframpStatusResponse> {
+    logger.debug({
+      msg: 'Fetching Bread offramp status',
+      offrampId,
+    });
 
-    return {
-      status: offramp.status,
-      completed: offramp.status === 'completed',
-      failed: offramp.status === 'failed',
-    };
-  }
+    const response = await this.client.get<OfframpStatusResponse>(
+      `/offramp/status/${offrampId}`
+    );
 
-  /**
-   * Calculate quote for offramp
-   * This combines rate fetching with fee calculation
-   */
-  async calculateQuote(
-    asset: Asset,
-    cryptoAmount: string,
-    fiatCurrency: string = 'NGN'
-  ): Promise<{
-    cryptoAsset: string;
-    cryptoAmount: string;
-    fiatCurrency: string;
-    fiatAmount: string;
-    exchangeRate: string;
-    fee: string;
-    netAmount: string;
-  }> {
-    const rateResponse = await this.getRate(asset, fiatCurrency, cryptoAmount);
+    logger.debug({
+      msg: 'Bread offramp status fetched',
+      offrampId,
+      status: response.data.status,
+    });
 
-    const fiatAmount = parseFloat(rateResponse.fiatAmount || '0');
-    const fee = parseFloat(rateResponse.fee || '0');
-    const netAmount = fiatAmount - fee;
-
-    return {
-      cryptoAsset: this.mapAssetToBread(asset),
-      cryptoAmount,
-      fiatCurrency,
-      fiatAmount: fiatAmount.toString(),
-      exchangeRate: rateResponse.rate.rate,
-      fee: fee.toString(),
-      netAmount: netAmount.toString(),
-    };
+    return response;
   }
 }
 

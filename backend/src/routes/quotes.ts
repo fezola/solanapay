@@ -3,8 +3,17 @@ import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { rateEngine } from '../services/pricing/rate-engine.js';
+import { BreadService } from '../services/bread/index.js';
 import { env } from '../config/env.js';
-import type { Asset, Chain } from '../types/index.js';
+import type { Asset, Chain, Network } from '../types/index.js';
+
+// Initialize Bread service if enabled
+const breadService = env.BREAD_ENABLED
+  ? new BreadService({
+      apiKey: env.BREAD_API_KEY,
+      baseUrl: env.BREAD_API_URL,
+    })
+  : null;
 
 const createQuoteSchema = z.object({
   asset: z.enum(['USDC', 'SOL', 'USDT', 'ETH']),
@@ -62,17 +71,69 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
-    // Calculate quote
-    const quote = await rateEngine.calculateQuote({
-      asset: body.asset as Asset,
-      chain: body.chain as Chain,
-      cryptoAmount: body.crypto_amount,
-      fiatTarget: body.fiat_target,
-      currency: body.currency,
-    });
+    // Calculate quote using Bread if enabled, otherwise use legacy rate engine
+    let quote;
+    let breadQuoteData = null;
+
+    if (breadService && body.crypto_amount) {
+      // Use Bread API for quote
+      try {
+        const breadQuote = await breadService.offramp.getQuote(
+          body.asset as Asset,
+          body.chain as Network,
+          body.crypto_amount
+        );
+
+        // Map Bread response to our quote format
+        quote = {
+          cryptoAmount: body.crypto_amount,
+          spotPrice: breadQuote.data.rate,
+          fxRate: breadQuote.data.rate,
+          spreadBps: 0, // Bread includes spread in rate
+          flatFee: breadQuote.data.fee,
+          variableFeeBps: 0,
+          totalFee: breadQuote.data.fee,
+          grossFiatAmount: breadQuote.data.output_amount + breadQuote.data.fee,
+          fiatAmount: breadQuote.data.output_amount,
+        };
+
+        breadQuoteData = {
+          expiry: breadQuote.data.expiry,
+          type: breadQuote.data.type,
+        };
+
+        request.log.info('Quote generated using Bread API', {
+          asset: body.asset,
+          chain: body.chain,
+          cryptoAmount: body.crypto_amount,
+          fiatAmount: quote.fiatAmount,
+        });
+      } catch (error) {
+        request.log.error('Bread API failed, falling back to legacy', error);
+        // Fall back to legacy rate engine
+        quote = await rateEngine.calculateQuote({
+          asset: body.asset as Asset,
+          chain: body.chain as Chain,
+          cryptoAmount: body.crypto_amount,
+          fiatTarget: body.fiat_target,
+          currency: body.currency,
+        });
+      }
+    } else {
+      // Use legacy rate engine
+      quote = await rateEngine.calculateQuote({
+        asset: body.asset as Asset,
+        chain: body.chain as Chain,
+        cryptoAmount: body.crypto_amount,
+        fiatTarget: body.fiat_target,
+        currency: body.currency,
+      });
+    }
 
     // Create quote record
-    const lockExpiresAt = new Date(Date.now() + env.QUOTE_LOCK_SECONDS * 1000);
+    const lockExpiresAt = breadQuoteData?.expiry
+      ? new Date(breadQuoteData.expiry)
+      : new Date(Date.now() + env.QUOTE_LOCK_SECONDS * 1000);
 
     const { data: quoteRecord, error } = await supabaseAdmin
       .from('quotes')
@@ -83,14 +144,15 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
         crypto_amount: quote.cryptoAmount.toString(),
         spot_price: quote.spotPrice.toString(),
         fx_rate: quote.fxRate.toString(),
-        spread_bps: quote.spreadBps,
+        spread_bps: quote.spreadBps || 0,
         flat_fee: quote.flatFee.toString(),
-        variable_fee_bps: quote.variableFeeBps,
+        variable_fee_bps: quote.variableFeeBps || 0,
         total_fee: quote.totalFee.toString(),
         fiat_amount: quote.fiatAmount.toString(),
         currency: body.currency,
         lock_expires_at: lockExpiresAt.toISOString(),
         status: 'active',
+        provider: breadService ? 'bread' : 'legacy',
       })
       .select()
       .single();

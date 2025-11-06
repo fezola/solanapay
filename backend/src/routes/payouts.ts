@@ -3,7 +3,17 @@ import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { paystackService } from '../services/payout/paystack.js';
+import { BreadService } from '../services/bread/index.js';
+import { env } from '../config/env.js';
 import { nanoid } from 'nanoid';
+
+// Initialize Bread service if enabled
+const breadService = env.BREAD_ENABLED
+  ? new BreadService({
+      apiKey: env.BREAD_API_KEY,
+      baseUrl: env.BREAD_API_URL,
+    })
+  : null;
 
 const createBeneficiarySchema = z.object({
   bank_code: z.string(),
@@ -24,8 +34,12 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get('/banks', async (request, reply) => {
     try {
-      const banks = await paystackService.getBanks();
-      return { banks };
+      // Use Bread if enabled, otherwise use Paystack
+      const banks = breadService
+        ? await breadService.offramp.getBanks()
+        : await paystackService.getBanks();
+
+      return { banks, provider: breadService ? 'bread' : 'paystack' };
     } catch (error) {
       request.log.error('Failed to fetch banks:', error);
       return reply.status(500).send({ error: 'Failed to fetch banks' });
@@ -207,24 +221,47 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
     // For now, we'll assume balance is sufficient
 
     try {
-      // Create transfer recipient in Paystack (if not exists)
-      const recipient = await paystackService.createTransferRecipient({
-        type: 'nuban',
-        name: beneficiary.account_name,
-        account_number: beneficiary.account_number,
-        bank_code: beneficiary.bank_code,
-      });
-
-      // Initiate transfer
       const reference = `PAYOUT_${nanoid(16)}`;
-      const amountInKobo = Math.floor(parseFloat(quote.fiat_amount) * 100);
+      let providerReference = reference;
+      let transferStatus = 'pending';
+      let provider = 'paystack';
 
-      const transfer = await paystackService.initiateTransfer({
-        amount: amountInKobo,
-        recipient: recipient.recipient_code,
-        reason: `Crypto off-ramp: ${quote.crypto_amount} ${quote.asset}`,
-        reference,
-      });
+      // Use Bread if enabled and quote was created with Bread
+      if (breadService && quote.provider === 'bread') {
+        // TODO: Implement Bread offramp execution
+        // For now, we'll create the payout record and mark it as pending
+        // The actual execution will be implemented once we have the execute endpoint docs
+
+        request.log.info('Bread offramp execution - pending implementation', {
+          quoteId: quote.id,
+          asset: quote.asset,
+          chain: quote.chain,
+          amount: quote.crypto_amount,
+        });
+
+        provider = 'bread';
+        transferStatus = 'pending_execution';
+      } else {
+        // Use Paystack for legacy quotes
+        const recipient = await paystackService.createTransferRecipient({
+          type: 'nuban',
+          name: beneficiary.account_name,
+          account_number: beneficiary.account_number,
+          bank_code: beneficiary.bank_code,
+        });
+
+        const amountInKobo = Math.floor(parseFloat(quote.fiat_amount) * 100);
+
+        const transfer = await paystackService.initiateTransfer({
+          amount: amountInKobo,
+          recipient: recipient.recipient_code,
+          reason: `Crypto off-ramp: ${quote.crypto_amount} ${quote.asset}`,
+          reference,
+        });
+
+        providerReference = transfer.reference;
+        transferStatus = transfer.status;
+      }
 
       // Create payout record
       const { data: payout, error: payoutError } = await supabaseAdmin
@@ -235,8 +272,8 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           beneficiary_id: beneficiary.id,
           fiat_amount: quote.fiat_amount,
           currency: quote.currency,
-          provider: 'paystack',
-          provider_reference: reference,
+          provider,
+          provider_reference: providerReference,
           status: 'pending',
         })
         .select()
@@ -262,9 +299,9 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       return {
         payout,
         transfer: {
-          reference: transfer.reference,
-          status: transfer.status,
-          amount: transfer.amount / 100,
+          reference: providerReference,
+          status: transferStatus,
+          provider,
         },
       };
     } catch (error: any) {

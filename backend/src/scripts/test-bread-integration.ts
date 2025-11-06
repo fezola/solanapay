@@ -3,9 +3,8 @@
  * Quick script to test Bread API connectivity and basic operations
  */
 
-import { BreadService } from '../services/bread/index.js';
+import axios from 'axios';
 import { env } from '../config/env.js';
-import { logger } from '../utils/logger.js';
 
 async function testBreadIntegration() {
   console.log('🍞 Testing Bread Africa Integration\n');
@@ -14,7 +13,7 @@ async function testBreadIntegration() {
   if (!env.BREAD_API_KEY) {
     console.error('❌ BREAD_API_KEY not configured in .env');
     console.log('\nPlease add the following to your .env file:');
-    console.log('BREAD_API_KEY=sk_test_your_api_key_here');
+    console.log('BREAD_API_KEY=your_api_key_here');
     console.log('BREAD_ENABLED=true');
     process.exit(1);
   }
@@ -24,30 +23,23 @@ async function testBreadIntegration() {
     console.log('Set BREAD_ENABLED=true in .env to enable Bread integration\n');
   }
 
+  const client = axios.create({
+    baseURL: env.BREAD_API_URL,
+    headers: {
+      'x-service-key': env.BREAD_API_KEY,
+      'Content-Type': 'application/json',
+    },
+    timeout: 30000,
+  });
+
   try {
-    // Initialize Bread service
-    console.log('1️⃣  Initializing Bread service...');
-    const breadService = new BreadService({
-      apiKey: env.BREAD_API_KEY,
-      baseUrl: env.BREAD_API_URL,
-    });
-    console.log('✅ Bread service initialized\n');
-
-    // Test health check
-    console.log('2️⃣  Testing API connectivity...');
-    const isHealthy = await breadService.healthCheck();
-    if (isHealthy) {
-      console.log('✅ Bread API is healthy\n');
-    } else {
-      console.log('⚠️  Bread API health check failed (endpoint may not exist)\n');
-    }
-
-    // Test identity creation
-    console.log('3️⃣  Testing identity creation...');
-    const testIdentity = await breadService.identity.createIdentity({
-      firstName: 'Test',
-      lastName: 'User',
-      email: `test-${Date.now()}@solpay.app`,
+    // Test 1: Get Offramp Quote
+    console.log('1️⃣  Testing Offramp Quote API...');
+    const quoteResponse = await client.post('/quote/offramp', {
+      amount: 1000,
+      currency: 'NGN',
+      asset: 'base:usdc',
+      is_exact_output: false,
       phoneNumber: '+2348012345678',
       address: {
         country: 'NG',

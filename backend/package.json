@@ -13,6 +13,9 @@
     "seed": "tsx src/db/seed.ts",
     "test": "vitest",
     "test:bread": "tsx src/scripts/test-bread-integration.ts",
+    "test:bread:full": "tsx src/scripts/test-full-bread-integration.ts",
+    "test:sumsub": "tsx src/scripts/test-sumsub-integration.ts",
+    "debug:sumsub": "tsx src/scripts/debug-sumsub-auth.ts",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit"
   },

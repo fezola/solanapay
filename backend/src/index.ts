@@ -12,6 +12,7 @@ import { kycRoutes } from './routes/kyc.js';
 import { transactionRoutes } from './routes/transactions.js';
 import { webhookRoutes } from './routes/webhooks.js';
 import { breadWebhookRoutes } from './routes/bread-webhooks.js';
+import { sumsubWebhookRoutes } from './routes/sumsub-webhooks.js';
 import { adminRoutes } from './routes/admin.js';
 import { healthRoutes } from './routes/health.js';
 import { initializeServices, shutdownServices } from './services/index.js';
@@ -48,7 +49,8 @@ await fastify.register(healthRoutes, { prefix: '/health' });
 
 // Webhooks (no auth, but verify signatures)
 await fastify.register(webhookRoutes, { prefix: '/webhooks' });
-await fastify.register(breadWebhookRoutes, { prefix: '/api/webhooks' });
+await fastify.register(breadWebhookRoutes, { prefix: '/api/webhooks/bread' });
+await fastify.register(sumsubWebhookRoutes, { prefix: '/api/webhooks/sumsub' });
 
 // Public routes
 await fastify.register(authRoutes, { prefix: '/api/auth' });
