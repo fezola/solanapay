@@ -391,23 +391,23 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                   </div>
                 </div>
 
+                {/* Loading state while SDK initializes */}
+                {!sdkInitialized && (
+                  <div className="flex items-center justify-center h-[500px] border border-gray-200 rounded-xl bg-white mb-6">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading verification widget...</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Sumsub SDK Container */}
                 <div
                   ref={sumsubContainerRef}
                   id="sumsub-websdk-container"
                   className="min-h-[500px] rounded-xl overflow-hidden border border-gray-200 bg-white"
-                  style={{ minHeight: '500px' }}
-                >
-                  {/* Loading state while SDK initializes */}
-                  {!sumsubContainerRef.current?.hasChildNodes() && (
-                    <div className="flex items-center justify-center h-[500px]">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                        <p className="text-gray-600">Loading verification widget...</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  style={{ minHeight: '500px', display: sdkInitialized ? 'block' : 'none' }}
+                />
 
                 <div className="mt-6">
                   <Button
