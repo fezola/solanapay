@@ -611,7 +611,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       // Get Bread wallet ID from deposit_addresses table
       const { data: depositAddress, error: walletError } = await supabaseAdmin
         .from('deposit_addresses')
-        .select('bread_wallet_id')
+        .select('bread_wallet_id, bread_wallet_address, address, encrypted_private_key')
         .eq('user_id', userId)
         .eq('network', quote.crypto_network)  // Changed from quote.chain
         .eq('asset_symbol', quote.crypto_asset)  // Changed from quote.asset
@@ -637,8 +637,38 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Execute Bread offramp
+      // STEP 1: Transfer crypto from SolPay deposit wallet to Bread wallet
       request.log.info({
+        msg: '🔵 Step 1: Transferring crypto to Bread wallet',
+        fromAddress: depositAddress.address,
+        toAddress: depositAddress.bread_wallet_address,
+        amount: quote.crypto_amount,
+        asset: quote.crypto_asset,
+        chain: quote.crypto_network,
+      });
+
+      // Import transfer service
+      const { transferToBreadWallet } = await import('../services/transfer.js');
+
+      const transferResult = await transferToBreadWallet({
+        chain: quote.crypto_network as 'solana' | 'base',
+        asset: quote.crypto_asset,
+        amount: parseFloat(quote.crypto_amount),
+        fromAddress: depositAddress.address,
+        toAddress: depositAddress.bread_wallet_address!,
+        userId,
+      });
+
+      request.log.info({
+        msg: '✅ Crypto transferred to Bread wallet',
+        txHash: transferResult.txHash,
+        amount: quote.crypto_amount,
+        asset: quote.crypto_asset,
+      });
+
+      // STEP 2: Execute Bread offramp
+      request.log.info({
+        msg: '🔵 Step 2: Executing Bread offramp',
         quoteId: quote.id,
         asset: quote.crypto_asset,
         chain: quote.crypto_network,
@@ -646,7 +676,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         beneficiary: beneficiary.account_number,
         breadWalletId: depositAddress.bread_wallet_id,
         breadBeneficiaryId: bankAccount.bread_beneficiary_id,
-      }, 'Executing Bread offramp');
+      });
 
       // Call Bread Africa's offramp API with correct format
       const offrampResult = await breadService.offramp.executeOfframp({
