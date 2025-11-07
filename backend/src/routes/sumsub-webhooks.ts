@@ -36,8 +36,12 @@ export const sumsubWebhookRoutes: FastifyPluginAsync = async (fastify) => {
       const signature = request.headers['x-payload-digest'] as string;
       const rawBody = JSON.stringify(request.body);
 
-      // Verify webhook signature if secret is configured
-      if (env.SUMSUB_WEBHOOK_SECRET && signature) {
+      // Verify webhook signature if secret is configured and not a placeholder
+      if (
+        env.SUMSUB_WEBHOOK_SECRET &&
+        env.SUMSUB_WEBHOOK_SECRET !== 'your_webhook_secret_here' &&
+        signature
+      ) {
         const isValid = sumsubService.verifyWebhookSignature(
           rawBody,
           signature,
@@ -51,6 +55,12 @@ export const sumsubWebhookRoutes: FastifyPluginAsync = async (fastify) => {
           });
           return reply.status(401).send({ error: 'Invalid signature' });
         }
+
+        logger.info({ msg: 'Webhook signature verified successfully' });
+      } else {
+        logger.warn({
+          msg: 'Webhook signature verification skipped - secret not configured',
+        });
       }
 
       // Parse webhook payload
