@@ -269,9 +269,10 @@ export class SumsubService {
   verifyWebhookSignature(
     payload: string,
     signature: string,
-    secret: string
+    secret: string,
+    algorithm?: string
   ): boolean {
-    return this.client.verifyWebhookSignature(payload, signature, secret);
+    return this.client.verifyWebhookSignature(payload, signature, secret, algorithm);
   }
 }
 

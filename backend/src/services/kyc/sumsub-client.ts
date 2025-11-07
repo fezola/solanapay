@@ -292,14 +292,28 @@ export class SumsubClient {
 
   /**
    * Verify webhook signature
+   * @param payload - Raw webhook body as string
+   * @param signature - Signature from x-payload-digest header
+   * @param secret - Webhook secret key
+   * @param algorithm - Algorithm from x-payload-digest-alg header (default: HMAC_SHA256_HEX)
    */
   verifyWebhookSignature(
     payload: string,
     signature: string,
-    secret: string
+    secret: string,
+    algorithm: string = 'HMAC_SHA256_HEX'
   ): boolean {
+    // Map Sumsub algorithm names to Node.js crypto algorithm names
+    const algoMap: Record<string, string> = {
+      'HMAC_SHA1_HEX': 'sha1',
+      'HMAC_SHA256_HEX': 'sha256',
+      'HMAC_SHA512_HEX': 'sha512',
+    };
+
+    const cryptoAlgo = algoMap[algorithm] || 'sha256';
+
     const expectedSignature = crypto
-      .createHmac('sha256', secret)
+      .createHmac(cryptoAlgo, secret)
       .update(payload)
       .digest('hex');
 
