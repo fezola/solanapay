@@ -120,6 +120,17 @@ export function OfframpScreen({
   const dailyRemaining = limits.daily.limit - limits.daily.used;
   const exceedsLimit = youReceive > dailyRemaining;
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 OfframpScreen Debug:', {
+      kycTier,
+      limits,
+      dailyRemaining,
+      youReceive,
+      exceedsLimit,
+    });
+  }, [kycTier, limits, youReceive, exceedsLimit]);
+
   // Fetch rates from Bread on mount using quote endpoint (includes fees)
   useEffect(() => {
     const fetchRates = async () => {

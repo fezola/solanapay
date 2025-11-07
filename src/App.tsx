@@ -217,12 +217,13 @@ export default function App() {
 
           if (response.ok) {
             const data = await response.json();
+            console.log('📊 Limits API response:', data);
             if (data.limits && data.limits.length > 0) {
               const daily = data.limits.find((l: any) => l.period === 'daily');
               const weekly = data.limits.find((l: any) => l.period === 'weekly');
               const monthly = data.limits.find((l: any) => l.period === 'monthly');
 
-              setLimits({
+              const newLimits = {
                 daily: {
                   limit: daily ? parseFloat(daily.limit_amount) : 0,
                   used: daily ? parseFloat(daily.used_amount) : 0,
@@ -238,9 +239,14 @@ export default function App() {
                   used: monthly ? parseFloat(monthly.used_amount) : 0,
                   resets: monthly?.period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                 },
-              });
-              console.log('✅ Loaded limits from backend');
+              };
+              setLimits(newLimits);
+              console.log('✅ Loaded limits from backend:', newLimits);
+            } else {
+              console.warn('⚠️ No limits found in API response');
             }
+          } else {
+            console.error('❌ Failed to load limits, status:', response.status);
           }
         } catch (error) {
           console.error('Failed to load limits:', error);
