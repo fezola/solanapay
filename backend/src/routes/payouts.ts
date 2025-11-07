@@ -237,9 +237,30 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Step 4: Create Bread wallet if it doesn't exist
       let walletId = bankAccount.bread_wallet_id;
-      let breadWalletAddress: string;
+      let breadWalletAddress: string = '';
+
+      if (walletId) {
+        // Wallet ID exists in DB - verify it exists on Bread
+        request.log.info({ walletId }, 'Checking existing Bread wallet...');
+
+        try {
+          const breadWallet = await breadService.wallet.getWallet(walletId);
+          breadWalletAddress = breadWallet.address;
+          request.log.info({ breadWalletAddress }, 'Bread wallet verified and address retrieved');
+        } catch (error: any) {
+          // Wallet doesn't exist on Bread (404) - the stored ID is invalid
+          request.log.warn(
+            { walletId, error: error.message },
+            'Stored Bread wallet does not exist on Bread. Recreating...'
+          );
+
+          // Clear the invalid wallet ID and create a new one
+          walletId = null;
+        }
+      }
 
       if (!walletId) {
+        // No wallet or invalid wallet - create a new one
         request.log.info('Creating Bread wallet for beneficiary...');
 
         const wallet = await breadService.wallet.createWallet(
@@ -252,19 +273,22 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         walletId = wallet.id;
         breadWalletAddress = wallet.address;
 
-        // Update bank account with wallet ID
+        request.log.info(
+          {
+            walletId,
+            breadWalletAddress,
+            rawWalletData: JSON.stringify(wallet)
+          },
+          'Bread wallet created - saving to database'
+        );
+
+        // Update bank account with the REAL Bread wallet ID
         await supabaseAdmin
           .from('bank_accounts')
           .update({ bread_wallet_id: walletId })
           .eq('id', body.beneficiary_id);
 
-        request.log.info({ walletId, breadWalletAddress }, 'Bread wallet created and saved');
-      } else {
-        // Wallet already exists, fetch it to get the address
-        request.log.info({ walletId }, 'Using existing Bread wallet');
-        const breadWallet = await breadService.wallet.getWallet(walletId);
-        breadWalletAddress = breadWallet.address;
-        request.log.info({ breadWalletAddress }, 'Bread wallet address retrieved');
+        request.log.info({ walletId }, 'Bread wallet ID saved to database');
       }
 
       // Step 6: Get user's deposit address
