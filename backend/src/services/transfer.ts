@@ -78,9 +78,17 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
     .select('private_key_encrypted')
     .eq('user_id', request.userId)
     .eq('network', 'solana')
+    .eq('asset_symbol', request.asset.toUpperCase())
     .single();
 
   if (error || !depositAddress?.private_key_encrypted) {
+    logger.error({
+      msg: 'Failed to get private key from database',
+      error: error?.message,
+      userId: request.userId,
+      network: 'solana',
+      asset: request.asset,
+    });
     throw new Error('Deposit wallet private key not found');
   }
 
@@ -242,9 +250,17 @@ async function transferBase(request: TransferRequest): Promise<TransferResult> {
     .select('private_key_encrypted')
     .eq('user_id', request.userId)
     .eq('network', 'base')
+    .eq('asset_symbol', request.asset.toUpperCase())
     .single();
 
   if (error || !depositAddress?.private_key_encrypted) {
+    logger.error({
+      msg: 'Failed to get private key from database',
+      error: error?.message,
+      userId: request.userId,
+      network: 'base',
+      asset: request.asset,
+    });
     throw new Error('Deposit wallet private key not found');
   }
 
