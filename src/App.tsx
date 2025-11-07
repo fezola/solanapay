@@ -321,6 +321,18 @@ export default function App() {
     }
   }, [isAuthenticated, userId, needsPINSetup]);
 
+  // Auto-refresh balance every 10 seconds when on home screen
+  useEffect(() => {
+    if (isAuthenticated && userId && currentScreen === 'home') {
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing balance...');
+        loadBalance();
+      }, 10000); // 10 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, userId, currentScreen]);
+
   const handleAuth = async (userData: { name: string; email: string; userId: string }) => {
     setUserName(userData.name);
     setUserEmail(userData.email);
@@ -398,20 +410,8 @@ export default function App() {
   };
 
   const handleOfframpSuccess = (transaction: Transaction) => {
-    // Deduct from balance based on asset
-    const newBalance = { ...balance };
-    if (transaction.crypto === 'USDC') {
-      if (transaction.network === 'Solana') {
-        newBalance.usdcSolana = balance.usdcSolana - transaction.amount;
-      } else if (transaction.network === 'Base') {
-        newBalance.usdcBase = balance.usdcBase - transaction.amount;
-      }
-    } else if (transaction.crypto === 'SOL') {
-      newBalance.sol = balance.sol - transaction.amount;
-    } else if (transaction.crypto === 'USDT') {
-      newBalance.usdtSolana = balance.usdtSolana - transaction.amount;
-    }
-    setBalance(newBalance);
+    // Refresh balance from backend to get accurate data
+    loadBalance();
 
     // Add transaction
     setTransactions([transaction, ...transactions]);
@@ -435,6 +435,11 @@ export default function App() {
     } else {
       setActiveTab(screen);
       setCurrentScreen(screen);
+    }
+
+    // Refresh balance when navigating to home screen
+    if (screen === 'home') {
+      loadBalance();
     }
   };
 
