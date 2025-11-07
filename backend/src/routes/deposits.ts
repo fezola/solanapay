@@ -3,7 +3,16 @@ import { authMiddleware } from '../middleware/auth.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { solanaWalletService } from '../services/wallet/solana.js';
 import { baseWalletService } from '../services/wallet/base.js';
+import { BreadService } from '../services/bread/index.js';
+import { env } from '../config/env.js';
+import { logger } from '../utils/logger.js';
 import type { Chain, Asset } from '../types/index.js';
+
+// Initialize Bread service
+const breadService = new BreadService({
+  apiKey: env.BREAD_API_KEY!,
+  baseUrl: env.BREAD_API_URL,
+});
 
 export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   // Apply auth middleware to all routes
@@ -175,19 +184,64 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
 /**
  * Generate deposit addresses for a new user
  * Respects user's offramp_mode preference (automatic vs basic)
+ * Also creates Bread Africa wallets for offramp functionality
  */
 async function generateUserAddresses(userId: string) {
   const addresses = [];
   let accountIndex = 0;
 
-  // Get user's offramp mode preference
+  // Get user's offramp mode preference and Bread identity ID
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('offramp_mode')
+    .select('offramp_mode, bread_identity_id')
     .eq('id', userId)
     .single();
 
   const walletType = user?.offramp_mode || 'basic';
+  const breadIdentityId = user?.bread_identity_id;
+
+  // Create Bread wallets if user has completed KYC
+  let breadSolanaWalletId: string | undefined;
+  let breadBaseWalletId: string | undefined;
+
+  if (breadIdentityId) {
+    try {
+      // Create Bread wallet for Solana (shared by SOL, USDC, USDT)
+      logger.info({ msg: 'Creating Bread wallet for Solana', userId, breadIdentityId });
+      const breadSolanaWallet = await breadService.wallet.createWallet(
+        breadIdentityId,
+        'solana',
+        'basic' // Always use 'basic' type - user can enable automation later
+      );
+      // Note: Bread API returns wallet_id but our type interface uses id
+      breadSolanaWalletId = (breadSolanaWallet as any).wallet_id || breadSolanaWallet.id;
+      logger.info({ msg: 'Bread Solana wallet created', walletId: breadSolanaWalletId });
+
+      // Create Bread wallet for Base (shared by USDC, USDT)
+      logger.info({ msg: 'Creating Bread wallet for Base', userId, breadIdentityId });
+      const breadBaseWallet = await breadService.wallet.createWallet(
+        breadIdentityId,
+        'base',
+        'basic'
+      );
+      // Note: Bread API returns wallet_id but our type interface uses id
+      breadBaseWalletId = (breadBaseWallet as any).wallet_id || breadBaseWallet.id;
+      logger.info({ msg: 'Bread Base wallet created', walletId: breadBaseWalletId });
+    } catch (error: any) {
+      logger.error({
+        msg: 'Failed to create Bread wallets',
+        error: error.message,
+        userId,
+        breadIdentityId,
+      });
+      // Continue anyway - Bread wallets can be created later via sync script
+    }
+  } else {
+    logger.warn({
+      msg: 'User has no Bread identity ID - skipping Bread wallet creation',
+      userId,
+    });
+  }
 
   // Generate ONE Solana wallet for SOL, USDC, and USDT
   const solanaWallet = await solanaWalletService.generateWallet(userId, accountIndex++);
@@ -204,6 +258,9 @@ async function generateUserAddresses(userId: string) {
         derivation_path: solanaWallet.derivationPath,
         private_key_encrypted: solanaWallet.encryptedPrivateKey,
         wallet_type: walletType,
+        bread_wallet_id: breadSolanaWalletId, // Link to Bread wallet
+        bread_wallet_type: breadSolanaWalletId ? 'basic' : null,
+        bread_synced_at: breadSolanaWalletId ? new Date().toISOString() : null,
       })
       .select()
       .single();
@@ -233,6 +290,9 @@ async function generateUserAddresses(userId: string) {
         derivation_path: baseWallet.derivationPath,
         private_key_encrypted: baseWallet.encryptedPrivateKey,
         wallet_type: walletType,
+        bread_wallet_id: breadBaseWalletId, // Link to Bread wallet
+        bread_wallet_type: breadBaseWalletId ? 'basic' : null,
+        bread_synced_at: breadBaseWalletId ? new Date().toISOString() : null,
       })
       .select()
       .single();

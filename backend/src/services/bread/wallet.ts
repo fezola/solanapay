@@ -62,24 +62,45 @@ export class BreadWalletService {
       chain: breadChain,
     });
 
-    // Offramp wallets require a beneficiary (automatic mode)
-    // Basic wallets don't need a beneficiary upfront (manual mode)
-    if (type === 'offramp' && !beneficiaryId) {
-      throw new Error('Beneficiary ID is required for automatic offramp wallets');
-    }
+    // Generate a unique reference for the wallet
+    const reference = `wallet_${identityId}_${chain}_${Date.now()}`;
 
-    const request: CreateWalletRequest = {
-      identityId,
-      type,
-      network,
-      chain: breadChain,
-      beneficiaryId,
+    // Bread API only requires a reference field to create a wallet
+    const breadRequest = {
+      reference,
     };
+
+    logger.debug({
+      msg: 'Bread API request payload',
+      payload: breadRequest,
+    });
 
     const response = await this.client.post<CreateWalletResponse>(
       '/wallet',
-      request
+      breadRequest
     );
+
+    // If this is an offramp wallet, enable automation
+    if (type === 'offramp' && beneficiaryId) {
+      logger.info({
+        msg: 'Enabling offramp automation for wallet',
+        walletId: response.wallet.id,
+        beneficiaryId,
+      });
+
+      await this.client.post('/automate', {
+        wallet_id: response.wallet.id,
+        transfer: false,
+        swap: false,
+        offramp: true,
+        beneficiary_id: beneficiaryId,
+      });
+
+      logger.info({
+        msg: 'Offramp automation enabled',
+        walletId: response.wallet.id,
+      });
+    }
 
     logger.info({
       msg: 'Bread wallet created',
