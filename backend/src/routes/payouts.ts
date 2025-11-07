@@ -611,7 +611,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       // Get Bread wallet ID from deposit_addresses table
       const { data: depositAddress, error: walletError } = await supabaseAdmin
         .from('deposit_addresses')
-        .select('bread_wallet_id, bread_wallet_address, address, encrypted_private_key')
+        .select('bread_wallet_id, bread_wallet_address, address, private_key_encrypted')
         .eq('user_id', userId)
         .eq('network', quote.crypto_network)  // Changed from quote.chain
         .eq('asset_symbol', quote.crypto_asset)  // Changed from quote.asset

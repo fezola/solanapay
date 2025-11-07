@@ -75,17 +75,17 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
   // Get the encrypted private key from database
   const { data: depositAddress, error } = await supabaseAdmin
     .from('deposit_addresses')
-    .select('encrypted_private_key')
+    .select('private_key_encrypted')
     .eq('user_id', request.userId)
     .eq('network', 'solana')
     .single();
 
-  if (error || !depositAddress?.encrypted_private_key) {
+  if (error || !depositAddress?.private_key_encrypted) {
     throw new Error('Deposit wallet private key not found');
   }
 
   // Decrypt the private key
-  const privateKeyHex = decrypt(depositAddress.encrypted_private_key);
+  const privateKeyHex = decrypt(depositAddress.private_key_encrypted);
   const privateKeyBytes = Buffer.from(privateKeyHex, 'hex');
   const fromWallet = Keypair.fromSecretKey(privateKeyBytes);
 
@@ -239,17 +239,17 @@ async function transferBase(request: TransferRequest): Promise<TransferResult> {
   // Get the encrypted private key from database
   const { data: depositAddress, error } = await supabaseAdmin
     .from('deposit_addresses')
-    .select('encrypted_private_key')
+    .select('private_key_encrypted')
     .eq('user_id', request.userId)
     .eq('network', 'base')
     .single();
 
-  if (error || !depositAddress?.encrypted_private_key) {
+  if (error || !depositAddress?.private_key_encrypted) {
     throw new Error('Deposit wallet private key not found');
   }
 
   // Decrypt the private key
-  const privateKeyHex = decrypt(depositAddress.encrypted_private_key);
+  const privateKeyHex = decrypt(depositAddress.private_key_encrypted);
   const wallet = new ethers.Wallet(privateKeyHex, provider);
 
   // ERC20 ABI for transfer function
