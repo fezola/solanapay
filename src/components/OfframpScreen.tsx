@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge';
 import { ArrowDownUp, Info, ChevronRight, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { quotesApi, payoutsApi } from '../services/api';
 
 interface OfframpScreenProps {
   balance: {
@@ -240,11 +241,40 @@ export function OfframpScreen({
 
     setIsProcessing(true);
 
-    // Simulate processing
-    setTimeout(() => {
+    try {
+      // Step 1: Create a quote in the database
+      console.log('🔵 Creating quote...', {
+        asset: currentAsset.symbol,
+        chain: currentAsset.network.toLowerCase(),
+        crypto_amount: parseFloat(amount),
+      });
+
+      const quoteResponse = await quotesApi.createQuote({
+        asset: currentAsset.symbol,
+        chain: currentAsset.network.toLowerCase(),
+        crypto_amount: parseFloat(amount),
+        currency: 'NGN',
+      });
+
+      console.log('✅ Quote created:', quoteResponse);
+
+      // Step 2: Confirm the quote and execute the offramp
+      console.log('🔵 Confirming payout...', {
+        quoteId: quoteResponse.quote.id,
+        beneficiaryId: selectedBank,
+      });
+
+      const payoutResponse = await payoutsApi.confirmPayout(
+        quoteResponse.quote.id,
+        selectedBank
+      );
+
+      console.log('✅ Payout confirmed:', payoutResponse);
+
+      // Step 3: Create transaction object for UI
       const bankAccount = bankAccounts.find(b => b.id === selectedBank);
       const transaction = {
-        id: `TXN${Date.now()}`,
+        id: payoutResponse.payout.id,
         type: 'offramp',
         crypto: currentAsset.symbol,
         network: currentAsset.network,
@@ -252,7 +282,7 @@ export function OfframpScreen({
         nairaAmount: youReceive,
         rate: currentAsset.rate,
         fee: fee,
-        status: 'processing',
+        status: payoutResponse.payout.status,
         date: new Date().toISOString(),
         bankAccountId: selectedBank,
         bankAccount: bankAccount,
@@ -261,12 +291,23 @@ export function OfframpScreen({
       };
 
       onOfframpSuccess(transaction);
-      toast.success('Off-ramp initiated successfully!');
+      toast.success('Off-ramp executed successfully! Money is on the way to your bank.');
       setIsProcessing(false);
       setAmount('');
       setSelectedBank('');
       setQuoteLockTime(120);
-    }, 2000);
+    } catch (error: any) {
+      console.error('❌ Offramp failed:', error);
+
+      // Show detailed error message
+      const errorMessage = error.response?.data?.message ||
+                          error.response?.data?.error ||
+                          error.message ||
+                          'Failed to execute offramp. Please try again.';
+
+      toast.error(errorMessage);
+      setIsProcessing(false);
+    }
   };
 
   if (kycTier === 0) {
