@@ -111,16 +111,18 @@ export interface BanksListRequest {
 export type BanksListResponse = BreadAPIResponse<BreadBank[]>;
 
 // ============================================================================
-// Offramp Execution Types (TODO: Update when we get actual API docs)
+// Offramp Execution Types
 // ============================================================================
 
+/**
+ * Request format for POST /offramp
+ * Based on Bread Africa API documentation
+ */
 export interface ExecuteOfframpRequest {
-  asset: BreadAsset;
-  amount: number;
-  currency: 'NGN';
-  bank_code: string;
-  account_number: string;
-  // Add more fields as needed based on actual API
+  wallet_id: string;        // Bread wallet ID
+  amount: number;           // Amount to offramp
+  beneficiary_id: string;   // Bread beneficiary ID
+  asset: BreadAsset;        // Asset to offramp (e.g., "base:usdc")
 }
 
 export interface ExecuteOfframpData {

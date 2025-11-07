@@ -510,6 +510,38 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       const reference = `PAYOUT_${nanoid(16)}`;
       let provider = 'bread';
 
+      // Get Bread beneficiary ID from bank_accounts table
+      const { data: bankAccount, error: bankError } = await supabaseAdmin
+        .from('bank_accounts')
+        .select('bread_beneficiary_id')
+        .eq('id', beneficiary.id)
+        .single();
+
+      if (bankError || !bankAccount?.bread_beneficiary_id) {
+        request.log.error({ error: bankError, beneficiaryId: beneficiary.id }, 'Beneficiary not synced with Bread');
+        return reply.status(400).send({
+          error: 'Beneficiary not synced',
+          message: 'Please re-add your bank account to sync with Bread Africa',
+        });
+      }
+
+      // Get Bread wallet ID from deposit_addresses table
+      const { data: depositAddress, error: walletError } = await supabaseAdmin
+        .from('deposit_addresses')
+        .select('bread_wallet_id')
+        .eq('user_id', userId)
+        .eq('network', quote.chain)
+        .eq('asset_symbol', quote.asset)
+        .single();
+
+      if (walletError || !depositAddress?.bread_wallet_id) {
+        request.log.error({ error: walletError, chain: quote.chain, asset: quote.asset }, 'Wallet not synced with Bread');
+        return reply.status(400).send({
+          error: 'Wallet not synced',
+          message: 'Your wallet is not synced with Bread Africa. Please contact support.',
+        });
+      }
+
       // Execute Bread offramp
       request.log.info({
         quoteId: quote.id,
@@ -517,15 +549,16 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         chain: quote.chain,
         amount: quote.crypto_amount,
         beneficiary: beneficiary.account_number,
+        breadWalletId: depositAddress.bread_wallet_id,
+        breadBeneficiaryId: bankAccount.bread_beneficiary_id,
       }, 'Executing Bread offramp');
 
-      // Call Bread Africa's offramp API
+      // Call Bread Africa's offramp API with correct format
       const offrampResult = await breadService.offramp.executeOfframp({
-        asset: `${quote.chain}:${quote.asset.toLowerCase()}` as any,
+        wallet_id: depositAddress.bread_wallet_id,
         amount: parseFloat(quote.crypto_amount),
-        currency: 'NGN',
-        bank_code: beneficiary.bank_code,
-        account_number: beneficiary.account_number,
+        beneficiary_id: bankAccount.bread_beneficiary_id,
+        asset: `${quote.chain}:${quote.asset.toLowerCase()}` as any,
       });
 
       request.log.info({

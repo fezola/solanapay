@@ -212,7 +212,7 @@ export class BreadOfframpService {
 
   /**
    * Execute offramp transaction
-   * TODO: Update this when we get actual API documentation for execute endpoint
+   * Uses POST /offramp endpoint (not /offramp/execute)
    */
   async executeOfframp(
     request: ExecuteOfframpRequest
@@ -222,20 +222,31 @@ export class BreadOfframpService {
       asset: request.asset,
       amount: request.amount,
       bankCode: request.bank_code,
+      accountNumber: request.account_number,
     });
 
-    const response = await this.client.post<ExecuteOfframpResponse>(
-      '/offramp/execute',
-      request
-    );
+    try {
+      const response = await this.client.post<ExecuteOfframpResponse>(
+        '/offramp',  // Changed from /offramp/execute
+        request
+      );
 
-    logger.info({
-      msg: 'Bread offramp executed',
-      offrampId: response.data.id,
-      status: response.data.status,
-    });
+      logger.info({
+        msg: 'Bread offramp executed successfully',
+        offrampId: response.data?.id,
+        status: response.data?.status,
+      });
 
-    return response;
+      return response;
+    } catch (error: any) {
+      logger.error({
+        msg: 'Bread offramp execution failed',
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw error;
+    }
   }
 
   /**
