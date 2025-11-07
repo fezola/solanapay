@@ -119,27 +119,38 @@ export function OfframpScreen({
   const dailyRemaining = limits.daily.limit - limits.daily.used;
   const exceedsLimit = youReceive > dailyRemaining;
 
-  // Fetch rates from Bread on mount
+  // Fetch rates from Bread on mount using quote endpoint (includes fees)
   useEffect(() => {
     const fetchRates = async () => {
       setLoadingRates(true);
       try {
         const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://crypto-offramp-backend.onrender.com';
 
-        // Fetch rates for all assets
+        // Fetch rates for all assets using quote endpoint (gives actual rate with fees)
         const assetMappings = [
-          { id: 'usdc-solana', breadAsset: 'solana:usdc' },
-          { id: 'usdc-base', breadAsset: 'base:usdc' },
-          { id: 'sol', breadAsset: 'solana:sol' },
-          { id: 'usdt-solana', breadAsset: 'solana:usdt' },
+          { id: 'usdc-solana', breadAsset: 'solana:usdc', amount: 1 },
+          { id: 'usdc-base', breadAsset: 'base:usdc', amount: 1 },
+          { id: 'sol', breadAsset: 'solana:sol', amount: 1 },
+          { id: 'usdt-solana', breadAsset: 'solana:usdt', amount: 1 },
         ];
 
-        const ratePromises = assetMappings.map(async ({ id, breadAsset }) => {
+        const ratePromises = assetMappings.map(async ({ id, breadAsset, amount }) => {
           try {
-            const response = await fetch(`${API_URL}/api/rates/offramp?currency=NGN&asset=${breadAsset}`);
+            const response = await fetch(`${API_URL}/api/rates/quote`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                asset: breadAsset,
+                amount: amount,
+                currency: 'NGN',
+                is_exact_output: false,
+              }),
+            });
             if (response.ok) {
               const data = await response.json();
-              return { id, rate: data.rate };
+              // Calculate effective rate: output_amount / input_amount
+              const effectiveRate = data.output_amount / data.input_amount;
+              return { id, rate: effectiveRate };
             }
           } catch (error) {
             console.error(`Failed to fetch rate for ${breadAsset}:`, error);
@@ -157,7 +168,7 @@ export function OfframpScreen({
         });
 
         setRates(newRates);
-        console.log('✅ Fetched rates from Bread:', newRates);
+        console.log('✅ Fetched rates from Bread (with fees):', newRates);
       } catch (error) {
         console.error('Failed to fetch rates:', error);
         toast.error('Failed to fetch exchange rates');
