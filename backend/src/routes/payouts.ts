@@ -616,18 +616,17 @@ async function updateUserLimits(userId: string, amount: number) {
 
   for (const period of periods) {
     const { data: limit } = await supabaseAdmin
-      .from('limits')
+      .from('transaction_limits')
       .select('*')
       .eq('user_id', userId)
       .eq('period', period)
-      .eq('asset', 'ALL')
       .single();
 
     if (limit) {
       const newUsed = parseFloat(limit.used_amount) + amount;
-      
+
       await supabaseAdmin
-        .from('limits')
+        .from('transaction_limits')
         .update({ used_amount: newUsed.toString() })
         .eq('id', limit.id);
     }

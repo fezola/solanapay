@@ -364,7 +364,7 @@ export const kycRoutes: FastifyPluginAsync = async (fastify) => {
     const userId = request.userId!;
 
     const { data: limits } = await supabaseAdmin
-      .from('limits')
+      .from('transaction_limits')
       .select('*')
       .eq('user_id', userId);
 
@@ -396,29 +396,29 @@ async function createUserLimits(userId: string, tier: number) {
   const periods = [
     {
       period: 'daily',
-      resets_at: new Date(now.getTime() + 24 * 60 * 60 * 1000),
-      max_amount: limits.daily,
+      period_end: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+      limit_amount: limits.daily,
     },
     {
       period: 'weekly',
-      resets_at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
-      max_amount: limits.weekly,
+      period_end: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+      limit_amount: limits.weekly,
     },
     {
       period: 'monthly',
-      resets_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-      max_amount: limits.monthly,
+      period_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+      limit_amount: limits.monthly,
     },
   ];
 
   for (const limit of periods) {
-    await supabaseAdmin.from('limits').upsert({
+    await supabaseAdmin.from('transaction_limits').upsert({
       user_id: userId,
       period: limit.period,
-      asset: 'ALL',
-      max_amount: limit.max_amount.toString(),
+      limit_amount: limit.limit_amount.toString(),
       used_amount: '0',
-      resets_at: limit.resets_at.toISOString(),
+      period_start: now.toISOString(),
+      period_end: limit.period_end.toISOString(),
     });
   }
 }

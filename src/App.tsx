@@ -144,7 +144,7 @@ export default function App() {
     checkSession();
   }, []);
 
-  // Load bank accounts when user is authenticated
+  // Load bank accounts and limits when user is authenticated
   useEffect(() => {
     const loadBankAccounts = async () => {
       if (isAuthenticated && userId) {
@@ -167,7 +167,56 @@ export default function App() {
         }
       }
     };
+
+    const loadLimits = async () => {
+      if (isAuthenticated && userId) {
+        try {
+          const session = await authService.getSession();
+          const token = session?.access_token;
+          if (!token) return;
+
+          const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://crypto-offramp-backend.onrender.com';
+          const response = await fetch(`${API_URL}/api/kyc/limits`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.limits && data.limits.length > 0) {
+              const daily = data.limits.find((l: any) => l.period === 'daily');
+              const weekly = data.limits.find((l: any) => l.period === 'weekly');
+              const monthly = data.limits.find((l: any) => l.period === 'monthly');
+
+              setLimits({
+                daily: {
+                  limit: daily ? parseFloat(daily.limit_amount) : 0,
+                  used: daily ? parseFloat(daily.used_amount) : 0,
+                  resets: daily?.period_end || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                },
+                weekly: {
+                  limit: weekly ? parseFloat(weekly.limit_amount) : 0,
+                  used: weekly ? parseFloat(weekly.used_amount) : 0,
+                  resets: weekly?.period_end || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+                monthly: {
+                  limit: monthly ? parseFloat(monthly.limit_amount) : 0,
+                  used: monthly ? parseFloat(monthly.used_amount) : 0,
+                  resets: monthly?.period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              });
+              console.log('✅ Loaded limits from backend');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load limits:', error);
+        }
+      }
+    };
+
     loadBankAccounts();
+    loadLimits();
   }, [isAuthenticated, userId]);
 
   // Start/stop real-time notification listener when user is authenticated

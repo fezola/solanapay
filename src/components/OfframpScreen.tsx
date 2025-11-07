@@ -51,6 +51,13 @@ export function OfframpScreen({
   const [selectedBank, setSelectedBank] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [quoteLockTime, setQuoteLockTime] = useState(120); // 120 seconds quote lock
+  const [rates, setRates] = useState<Record<string, number>>({
+    'usdc-solana': 1600,
+    'usdc-base': 1600,
+    'sol': 250000,
+    'usdt-solana': 1600,
+  });
+  const [loadingRates, setLoadingRates] = useState(false);
 
   const assets = [
     {
@@ -59,10 +66,11 @@ export function OfframpScreen({
       symbol: 'USDC',
       network: 'Solana',
       balance: balance.usdcSolana,
-      rate: 1600,
+      rate: rates['usdc-solana'],
       minAmount: 1,
       logo: '/usd-coin-usdc-logo.svg',
       networkLogo: '/solana-sol-logo.svg',
+      breadAsset: 'solana:usdc',
     },
     {
       id: 'usdc-base' as AssetId,
@@ -70,10 +78,11 @@ export function OfframpScreen({
       symbol: 'USDC',
       network: 'Base',
       balance: balance.usdcBase,
-      rate: 1600,
+      rate: rates['usdc-base'],
       minAmount: 1,
       logo: '/usd-coin-usdc-logo.svg',
       networkLogo: '/BASE.png',
+      breadAsset: 'base:usdc',
     },
     {
       id: 'sol' as AssetId,
@@ -81,10 +90,11 @@ export function OfframpScreen({
       symbol: 'SOL',
       network: 'Solana',
       balance: balance.sol,
-      rate: 250000,
+      rate: rates['sol'],
       minAmount: 0.01,
       logo: '/solana-sol-logo.svg',
       networkLogo: '/solana-sol-logo.svg',
+      breadAsset: 'solana:sol',
     },
     {
       id: 'usdt-solana' as AssetId,
@@ -92,10 +102,11 @@ export function OfframpScreen({
       symbol: 'USDT',
       network: 'Solana',
       balance: balance.usdtSolana,
-      rate: 1600,
+      rate: rates['usdt-solana'],
       minAmount: 1,
       logo: '/tether-usdt-logo.svg',
       networkLogo: '/solana-sol-logo.svg',
+      breadAsset: 'solana:usdt',
     },
   ];
 
@@ -107,6 +118,59 @@ export function OfframpScreen({
 
   const dailyRemaining = limits.daily.limit - limits.daily.used;
   const exceedsLimit = youReceive > dailyRemaining;
+
+  // Fetch rates from Bread on mount
+  useEffect(() => {
+    const fetchRates = async () => {
+      setLoadingRates(true);
+      try {
+        const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://crypto-offramp-backend.onrender.com';
+
+        // Fetch rates for all assets
+        const assetMappings = [
+          { id: 'usdc-solana', breadAsset: 'solana:usdc' },
+          { id: 'usdc-base', breadAsset: 'base:usdc' },
+          { id: 'sol', breadAsset: 'solana:sol' },
+          { id: 'usdt-solana', breadAsset: 'solana:usdt' },
+        ];
+
+        const ratePromises = assetMappings.map(async ({ id, breadAsset }) => {
+          try {
+            const response = await fetch(`${API_URL}/api/rates/offramp?currency=NGN&asset=${breadAsset}`);
+            if (response.ok) {
+              const data = await response.json();
+              return { id, rate: data.rate };
+            }
+          } catch (error) {
+            console.error(`Failed to fetch rate for ${breadAsset}:`, error);
+          }
+          return null;
+        });
+
+        const results = await Promise.all(ratePromises);
+        const newRates: Record<string, number> = { ...rates };
+
+        results.forEach(result => {
+          if (result && result.rate) {
+            newRates[result.id] = result.rate;
+          }
+        });
+
+        setRates(newRates);
+        console.log('✅ Fetched rates from Bread:', newRates);
+      } catch (error) {
+        console.error('Failed to fetch rates:', error);
+        toast.error('Failed to fetch exchange rates');
+      } finally {
+        setLoadingRates(false);
+      }
+    };
+
+    fetchRates();
+    // Refresh rates every 30 seconds
+    const interval = setInterval(fetchRates, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Quote countdown timer
   useEffect(() => {
@@ -120,7 +184,7 @@ export function OfframpScreen({
           return prev - 1;
         });
       }, 1000);
-      
+
       return () => clearInterval(timer);
     }
   }, [amount, quoteLockTime]);
