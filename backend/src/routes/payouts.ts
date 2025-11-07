@@ -259,7 +259,44 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         request.log.info({ walletId }, 'Bread wallet created and saved');
       }
 
-      // Step 4: Execute offramp via Bread
+      // Step 5: Get Bread wallet address
+      const breadWallet = await breadService.wallet.getWallet(walletId);
+      const breadWalletAddress = breadWallet.address;
+
+      request.log.info({ breadWalletAddress, walletNetwork: breadWallet.network }, 'Bread wallet address retrieved');
+
+      // Step 6: Get user's deposit address
+      const { data: depositAddress } = await supabaseAdmin
+        .from('deposit_addresses')
+        .select('address')
+        .eq('user_id', userId)
+        .eq('chain', body.chain)
+        .single();
+
+      if (!depositAddress) {
+        return reply.status(404).send({
+          error: 'Deposit address not found',
+          message: 'No deposit address found for this chain',
+        });
+      }
+
+      // Step 7: Transfer crypto from deposit wallet to Bread wallet
+      request.log.info('Transferring crypto to Bread wallet...');
+
+      const { transferToBreadWallet } = await import('../services/transfer.js');
+
+      const transferResult = await transferToBreadWallet({
+        chain: body.chain as 'solana' | 'base',
+        asset: body.asset,
+        amount: body.amount,
+        fromAddress: depositAddress.address,
+        toAddress: breadWalletAddress,
+        userId,
+      });
+
+      request.log.info({ transfer: transferResult }, 'Transfer completed');
+
+      // Step 8: Execute offramp via Bread
       const offrampResult = await breadService.offramp.executeOfframp({
         wallet_id: walletId,
         amount: body.amount,
