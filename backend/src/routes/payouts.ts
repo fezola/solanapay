@@ -388,12 +388,21 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
             breadBeneficiaryId
           );
 
+          // Extract addresses - handle both string and object formats
+          const solanaAddress = typeof solanaWallet.address === 'string'
+            ? solanaWallet.address
+            : (solanaWallet.address as any).svm || solanaWallet.address;
+
+          const baseAddress = typeof baseWallet.address === 'string'
+            ? baseWallet.address
+            : (baseWallet.address as any).evm || baseWallet.address;
+
           request.log.info({
             msg: '✅ Bread wallets created successfully',
             solanaWalletId: solanaWallet.id,
-            solanaAddress: solanaWallet.address,
+            solanaAddress,
             baseWalletId: baseWallet.id,
-            baseAddress: baseWallet.address,
+            baseAddress,
           });
 
           // Update deposit_addresses table with Bread wallet IDs
@@ -402,7 +411,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
             .from('deposit_addresses')
             .update({
               bread_wallet_id: solanaWallet.id,
-              bread_wallet_address: solanaWallet.address.svm || solanaWallet.address,
+              bread_wallet_address: solanaAddress,
               bread_wallet_type: 'offramp',
               bread_synced_at: new Date().toISOString(),
             })
@@ -414,7 +423,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
             .from('deposit_addresses')
             .update({
               bread_wallet_id: baseWallet.id,
-              bread_wallet_address: baseWallet.address.evm || baseWallet.address,
+              bread_wallet_address: baseAddress,
               bread_wallet_type: 'offramp',
               bread_synced_at: new Date().toISOString(),
             })
