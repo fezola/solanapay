@@ -126,6 +126,23 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
     toPubkey
   );
 
+  // Check source token account balance
+  let fromAccountInfo;
+  try {
+    fromAccountInfo = await getAccount(connection, fromTokenAccount);
+    logger.info({
+      msg: 'Source token account info',
+      tokenAccount: fromTokenAccount.toBase58(),
+      balance: fromAccountInfo.amount.toString(),
+      owner: fromAccountInfo.owner.toBase58(),
+    });
+  } catch (error) {
+    throw new Error(
+      `Source token account does not exist for ${request.fromAddress}. ` +
+      `Wallet may not have any ${request.asset}.`
+    );
+  }
+
   // Check if destination token account exists
   try {
     await getAccount(connection, toTokenAccount);
@@ -141,12 +158,22 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
   const decimals = 6;
   const amountInTokenUnits = Math.floor(request.amount * Math.pow(10, decimals));
 
+  // Check if source has enough balance
+  if (BigInt(fromAccountInfo.amount) < BigInt(amountInTokenUnits)) {
+    throw new Error(
+      `Insufficient ${request.asset} balance. ` +
+      `Available: ${Number(fromAccountInfo.amount) / Math.pow(10, decimals)} ${request.asset}, ` +
+      `Requested: ${request.amount} ${request.asset}`
+    );
+  }
+
   logger.info({
     msg: 'Creating SPL token transfer',
     from: fromTokenAccount.toBase58(),
     to: toTokenAccount.toBase58(),
     amount: request.amount,
     amountInTokenUnits,
+    availableBalance: Number(fromAccountInfo.amount) / Math.pow(10, decimals),
   });
 
   // Create transfer instruction
