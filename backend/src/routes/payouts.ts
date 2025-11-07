@@ -25,6 +25,14 @@ const confirmQuoteSchema = z.object({
   beneficiary_id: z.string().uuid(),
 });
 
+const executeOfframpSchema = z.object({
+  asset: z.string(),
+  chain: z.string(),
+  amount: z.number().positive(),
+  beneficiary_id: z.string().uuid(),
+  currency: z.string().default('NGN'),
+});
+
 const getRateSchema = z.object({
   asset: z.enum(['USDC', 'SOL', 'USDT', 'ETH']).optional().default('USDC'),
   chain: z.enum(['solana', 'base']).optional().default('solana'),
@@ -164,6 +172,92 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         error: 'Failed to get quote',
         message: errorMessage,
         bread_error: breadError, // Include Bread's error for debugging
+      });
+    }
+  });
+
+  /**
+   * Execute offramp in one step (no quote creation needed)
+   * POST /api/payouts/execute
+   * Body: { asset: 'USDC', chain: 'solana', amount: 1, beneficiary_id: 'uuid', currency: 'NGN' }
+   */
+  fastify.post('/execute', async (request, reply) => {
+    const userId = request.userId!;
+    const body = executeOfframpSchema.parse(request.body);
+
+    request.log.info({ body }, '🚀 Executing offramp (simplified flow)');
+
+    // Minimum offramp amount check
+    if (body.amount < 1) {
+      return reply.status(400).send({
+        error: 'Amount too low',
+        message: 'Minimum off-ramp amount is 1 USD',
+      });
+    }
+
+    try {
+      // Step 1: Get quote from Bread
+      const quoteResponse = await breadService.offramp.getQuote(
+        body.asset as Asset,
+        body.chain as Chain,
+        body.amount
+      );
+
+      request.log.info({ quote: quoteResponse.data }, 'Quote received from Bread');
+
+      // Step 2: Get beneficiary
+      const { data: beneficiary } = await supabaseAdmin
+        .from('beneficiaries')
+        .select('*')
+        .eq('id', body.beneficiary_id)
+        .eq('user_id', userId)
+        .single();
+
+      if (!beneficiary) {
+        return reply.status(404).send({ error: 'Beneficiary not found' });
+      }
+
+      // Step 3: Execute offramp via Bread
+      const offrampResult = await breadService.offramp.executeOfframp({
+        wallet_id: beneficiary.bread_wallet_id,
+        amount: body.amount,
+        beneficiary_id: beneficiary.bread_beneficiary_id,
+        asset: breadService.offramp.mapAssetToBread(body.asset as Asset, body.chain as Chain),
+      });
+
+      request.log.info({ offramp: offrampResult }, 'Offramp executed via Bread');
+
+      // Step 4: Create payout record
+      const { data: payout, error: payoutError } = await supabaseAdmin
+        .from('payouts')
+        .insert({
+          user_id: userId,
+          beneficiary_id: body.beneficiary_id,
+          fiat_amount: quoteResponse.data.output_amount.toString(),
+          currency: body.currency,
+          provider: 'bread',
+          provider_reference: offrampResult.data.id,
+          status: 'processing',
+        })
+        .select()
+        .single();
+
+      if (payoutError) {
+        request.log.error({ error: payoutError }, 'Failed to create payout record');
+        return reply.status(500).send({ error: 'Failed to create payout record' });
+      }
+
+      return {
+        payout,
+        quote: quoteResponse.data,
+        offramp: offrampResult.data,
+      };
+    } catch (error: any) {
+      request.log.error({ error: error.message, stack: error.stack }, 'Offramp execution failed');
+      return reply.status(500).send({
+        error: 'Offramp failed',
+        message: error.message,
+        details: error.response?.data,
       });
     }
   });

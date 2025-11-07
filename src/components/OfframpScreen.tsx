@@ -242,34 +242,39 @@ export function OfframpScreen({
     setIsProcessing(true);
 
     try {
-      // Step 1: Create a quote in the database
-      console.log('🔵 Creating quote...', {
+      // Step 1: Get quote from Bread API (working endpoint)
+      console.log('🔵 Getting quote from Bread...', {
         asset: currentAsset.symbol,
         chain: currentAsset.network.toLowerCase(),
-        crypto_amount: parseFloat(amount),
+        amount: parseFloat(amount),
       });
 
-      const quoteResponse = await quotesApi.createQuote({
+      const quoteResponse = await payoutsApi.getQuote(
+        currentAsset.symbol,
+        currentAsset.network.toLowerCase(),
+        parseFloat(amount),
+        'NGN'
+      );
+
+      console.log('✅ Quote received:', quoteResponse);
+
+      // Step 2: Execute the offramp directly
+      console.log('🔵 Executing offramp...', {
         asset: currentAsset.symbol,
         chain: currentAsset.network.toLowerCase(),
-        crypto_amount: parseFloat(amount),
-        currency: 'NGN',
-      });
-
-      console.log('✅ Quote created:', quoteResponse);
-
-      // Step 2: Confirm the quote and execute the offramp
-      console.log('🔵 Confirming payout...', {
-        quoteId: quoteResponse.quote.id,
+        amount: parseFloat(amount),
         beneficiaryId: selectedBank,
       });
 
-      const payoutResponse = await payoutsApi.confirmPayout(
-        quoteResponse.quote.id,
-        selectedBank
-      );
+      const payoutResponse = await payoutsApi.executeOfframp({
+        asset: currentAsset.symbol,
+        chain: currentAsset.network.toLowerCase(),
+        amount: parseFloat(amount),
+        beneficiary_id: selectedBank,
+        currency: 'NGN',
+      });
 
-      console.log('✅ Payout confirmed:', payoutResponse);
+      console.log('✅ Offramp executed:', payoutResponse);
 
       // Step 3: Create transaction object for UI
       const bankAccount = bankAccounts.find(b => b.id === selectedBank);

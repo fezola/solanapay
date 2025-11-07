@@ -352,6 +352,23 @@ export const payoutsApi = {
   },
 
   /**
+   * Execute offramp in one step (simplified flow, no quote creation needed)
+   * @param params - Offramp parameters
+   */
+  async executeOfframp(params: {
+    asset: string;
+    chain: string;
+    amount: number;
+    beneficiary_id: string;
+    currency?: string;
+  }) {
+    return apiRequest<{ payout: any; quote: any; offramp: any }>('/api/payouts/execute', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  },
+
+  /**
    * Get payout history
    */
   async getHistory(limit?: number) {

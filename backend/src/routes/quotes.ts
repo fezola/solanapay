@@ -32,22 +32,24 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
    * Create a new quote
    */
   fastify.post('/', async (request, reply) => {
-    const userId = request.userId!;
-    const body = createQuoteSchema.parse(request.body);
+    try {
+      const userId = request.userId!;
+      request.log.info({ body: request.body }, '🔵 Creating quote...');
+      const body = createQuoteSchema.parse(request.body);
 
-    // Check KYC status
-    const { data: user } = await supabaseAdmin
-      .from('users')
-      .select('kyc_tier, kyc_status')
-      .eq('id', userId)
-      .single();
+      // Check KYC status
+      const { data: user } = await supabaseAdmin
+        .from('users')
+        .select('kyc_tier, kyc_status')
+        .eq('id', userId)
+        .single();
 
-    if (!user || user.kyc_tier < 1 || user.kyc_status !== 'approved') {
-      return reply.status(403).send({
-        error: 'KYC verification required',
-        message: 'You must complete KYC Tier 1 to create quotes',
-      });
-    }
+      if (!user || user.kyc_tier < 1 || user.kyc_status !== 'approved') {
+        return reply.status(403).send({
+          error: 'KYC verification required',
+          message: 'You must complete KYC Tier 1 to create quotes',
+        });
+      }
 
     // Check limits
     const { data: limits } = await supabaseAdmin
@@ -160,7 +162,7 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (error) {
       request.log.error({ error }, 'Failed to create quote');
-      return reply.status(500).send({ error: 'Failed to create quote' });
+      return reply.status(500).send({ error: 'Failed to create quote', details: error.message });
     }
 
     return {
@@ -180,6 +182,14 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
       expires_in_seconds: env.QUOTE_LOCK_SECONDS,
       expires_at: lockExpiresAt.toISOString(),
     };
+    } catch (error: any) {
+      request.log.error({ error: error.message, stack: error.stack }, '❌ Quote creation failed');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: error.message,
+        details: error.stack
+      });
+    }
   });
 
   /**
