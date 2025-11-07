@@ -92,9 +92,9 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
     throw new Error('Deposit wallet private key not found');
   }
 
-  // Decrypt the private key
-  const privateKeyHex = decrypt(depositAddress.private_key_encrypted);
-  const privateKeyBytes = Buffer.from(privateKeyHex, 'hex');
+  // Decrypt the private key (stored as base64)
+  const privateKeyBase64 = decrypt(depositAddress.private_key_encrypted);
+  const privateKeyBytes = Buffer.from(privateKeyBase64, 'base64');
   const fromWallet = Keypair.fromSecretKey(privateKeyBytes);
 
   const fromPubkey = new PublicKey(request.fromAddress);
