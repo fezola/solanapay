@@ -292,19 +292,23 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Step 6: Get user's deposit address
-      const { data: depositAddress } = await supabaseAdmin
+      const { data: depositAddress, error: depositAddressError } = await supabaseAdmin
         .from('deposit_addresses')
-        .select('address')
+        .select('address, private_key_encrypted')
         .eq('user_id', userId)
-        .eq('chain', body.chain)
+        .eq('network', body.chain)
+        .eq('asset_symbol', body.asset)
         .single();
 
-      if (!depositAddress) {
+      if (depositAddressError || !depositAddress) {
+        request.log.error({ error: depositAddressError }, 'Deposit address not found');
         return reply.status(404).send({
           error: 'Deposit address not found',
-          message: 'No deposit address found for this chain',
+          message: `No deposit address found for ${body.asset} on ${body.chain}`,
         });
       }
+
+      request.log.info({ depositAddress: depositAddress.address }, 'Deposit address found');
 
       // Step 7: Transfer crypto from deposit wallet to Bread wallet
       request.log.info('Transferring crypto to Bread wallet...');
