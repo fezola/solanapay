@@ -84,18 +84,19 @@ export function OfframpScreen({
       networkLogo: '/BASE.png',
       breadAsset: 'base:usdc',
     },
-    {
-      id: 'sol' as AssetId,
-      name: 'Solana',
-      symbol: 'SOL',
-      network: 'Solana',
-      balance: balance.sol,
-      rate: rates['sol'],
-      minAmount: 0.01,
-      logo: '/solana-sol-logo.svg',
-      networkLogo: '/solana-sol-logo.svg',
-      breadAsset: 'solana:sol',
-    },
+    // SOL removed - Bread Africa doesn't support SOL offramp
+    // {
+    //   id: 'sol' as AssetId,
+    //   name: 'Solana',
+    //   symbol: 'SOL',
+    //   network: 'Solana',
+    //   balance: balance.sol,
+    //   rate: rates['sol'],
+    //   minAmount: 0.01,
+    //   logo: '/solana-sol-logo.svg',
+    //   networkLogo: '/solana-sol-logo.svg',
+    //   breadAsset: 'solana:sol',
+    // },
     {
       id: 'usdt-solana' as AssetId,
       name: 'USDT (Solana)',
@@ -127,10 +128,10 @@ export function OfframpScreen({
         const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://crypto-offramp-backend.onrender.com';
 
         // Fetch rates for all assets using quote endpoint (gives actual rate with fees)
+        // Note: SOL removed - Bread Africa doesn't support SOL offramp
         const assetMappings = [
           { id: 'usdc-solana', breadAsset: 'solana:usdc', amount: 1 },
           { id: 'usdc-base', breadAsset: 'base:usdc', amount: 1 },
-          { id: 'sol', breadAsset: 'solana:sol', amount: 1 },
           { id: 'usdt-solana', breadAsset: 'solana:usdt', amount: 1 },
         ];
 

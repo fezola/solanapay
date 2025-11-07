@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Balance API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .result {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Balance API</h1>
+    
+    <div>
+        <label>Auth Token (from localStorage):</label>
+        <input type="text" id="token" placeholder="Paste your auth token here">
+        <button onclick="loadTokenFromStorage()">Load from localStorage</button>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <label>API URL:</label>
+        <input type="text" id="apiUrl" value="http://localhost:3001">
+    </div>
+
+    <button onclick="testBalance()" style="margin-top: 20px;">Test Balance API</button>
+    <button onclick="testDatabase()" style="margin-left: 10px;">Check Database Directly</button>
+
+    <div id="result" class="result" style="display: none;"></div>
+
+    <script>
+        function loadTokenFromStorage() {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                document.getElementById('token').value = token;
+                showResult('✅ Token loaded from localStorage', 'success');
+            } else {
+                showResult('❌ No token found in localStorage. Please login first.', 'error');
+            }
+        }
+
+        async function testBalance() {
+            const token = document.getElementById('token').value;
+            const apiUrl = document.getElementById('apiUrl').value;
+
+            if (!token) {
+                showResult('❌ Please enter an auth token', 'error');
+                return;
+            }
+
+            showResult('⏳ Testing balance API...', '');
+
+            try {
+                const response = await fetch(`${apiUrl}/api/deposits/balances`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(`
+                        <h3>✅ SUCCESS!</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Response:</strong></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                        <hr>
+                        <h4>Balance Breakdown:</h4>
+                        <ul>
+                            <li>USDC (Solana): ${data.balances.usdcSolana || 0} USDC</li>
+                            <li>USDC (Base): ${data.balances.usdcBase || 0} USDC</li>
+                            <li>SOL: ${data.balances.sol || 0} SOL</li>
+                            <li>USDT (Solana): ${data.balances.usdtSolana || 0} USDT</li>
+                        </ul>
+                    `, 'success');
+                } else {
+                    showResult(`
+                        <h3>❌ ERROR</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Response:</strong></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `, 'error');
+                }
+            } catch (error) {
+                showResult(`
+                    <h3>❌ NETWORK ERROR</h3>
+                    <p>${error.message}</p>
+                    <p>Make sure the backend is running on ${apiUrl}</p>
+                `, 'error');
+            }
+        }
+
+        async function testDatabase() {
+            showResult('⏳ Checking database...', '');
+
+            const userId = '3a6f2eb9-4138-4f3b-9c47-3fa26cdee341';
+            
+            showResult(`
+                <h3>📊 Database Check</h3>
+                <p>User ID: <code>${userId}</code></p>
+                <p>Expected deposit:</p>
+                <ul>
+                    <li>Amount: 0.5 USDC</li>
+                    <li>Chain: Solana</li>
+                    <li>Status: confirmed</li>
+                </ul>
+                <p>If balance API returns 0, the issue is in the backend code mapping.</p>
+                <p><strong>Check backend logs for any errors!</strong></p>
+            `, 'success');
+        }
+
+        function showResult(html, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = html;
+            resultDiv.className = 'result ' + type;
+            resultDiv.style.display = 'block';
+        }
+
+        // Auto-load token on page load
+        window.onload = function() {
+            loadTokenFromStorage();
+        };
+    </script>
+</body>
+</html>
+

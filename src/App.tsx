@@ -117,6 +117,37 @@ export default function App() {
   // Transactions - Real data from Supabase (currently empty until user makes transactions)
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
+  // Load user balance from backend
+  const loadBalance = async () => {
+    if (!isAuthenticated || !userId) return;
+
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+
+      const response = await fetch(`${API_URL}/api/deposits/balances`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Loaded balance from backend:', data.balances);
+
+        setBalance({
+          usdcSolana: data.balances.usdcSolana || 0,
+          usdcBase: data.balances.usdcBase || 0,
+          sol: data.balances.sol || 0,
+          usdtSolana: data.balances.usdtSolana || 0,
+          naira: 0,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load balance:', error);
+    }
+  };
+
   // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
@@ -259,6 +290,7 @@ export default function App() {
     loadBankAccounts();
     loadLimits();
     loadDepositAddresses();
+    loadBalance();
   }, [isAuthenticated, userId]);
 
   // Start/stop real-time notification listener when user is authenticated
