@@ -117,9 +117,22 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
     if (deposits) {
       for (const deposit of deposits) {
         const amount = parseFloat(deposit.amount);
-        const key = `${deposit.asset.toLowerCase()}${deposit.chain === 'solana' ? 'Solana' : deposit.chain === 'base' ? 'Base' : ''}`;
 
-        if (balances.hasOwnProperty(key)) {
+        // Map asset + chain to balance key
+        let key = '';
+        if (deposit.asset === 'USDC' && deposit.chain === 'solana') {
+          key = 'usdcSolana';
+        } else if (deposit.asset === 'USDC' && deposit.chain === 'base') {
+          key = 'usdcBase';
+        } else if (deposit.asset === 'SOL' && deposit.chain === 'solana') {
+          key = 'sol';
+        } else if (deposit.asset === 'USDT' && deposit.chain === 'solana') {
+          key = 'usdtSolana';
+        } else if (deposit.asset === 'ETH' && deposit.chain === 'base') {
+          key = 'eth';
+        }
+
+        if (key && balances.hasOwnProperty(key)) {
           balances[key] += amount;
         }
       }
