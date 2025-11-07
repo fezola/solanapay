@@ -24,7 +24,26 @@ export const sumsubWebhookRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * Sumsub Webhook Endpoint
    * POST /api/webhooks/sumsub
+   *
+   * Note: We need the raw body for signature verification
    */
+  fastify.addContentTypeParser(
+    'application/json',
+    { parseAs: 'buffer' },
+    (req, body, done) => {
+      try {
+        // Store raw body for signature verification
+        (req as any).rawBody = body;
+        // Parse JSON for request.body
+        const json = JSON.parse(body.toString('utf8'));
+        done(null, json);
+      } catch (err: any) {
+        err.statusCode = 400;
+        done(err, undefined);
+      }
+    }
+  );
+
   fastify.post('/', async (request, reply) => {
     if (!sumsubService) {
       logger.error('Sumsub webhook received but service not configured');
@@ -34,16 +53,18 @@ export const sumsubWebhookRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       // Get webhook signature from headers
       const signature = request.headers['x-payload-digest'] as string;
-      const rawBody = JSON.stringify(request.body);
+      // Use raw body bytes for signature verification (as required by Sumsub)
+      const rawBody = (request as any).rawBody as Buffer;
 
       // Verify webhook signature if secret is configured and not a placeholder
       if (
         env.SUMSUB_WEBHOOK_SECRET &&
         env.SUMSUB_WEBHOOK_SECRET !== 'your_webhook_secret_here' &&
-        signature
+        signature &&
+        rawBody
       ) {
         const isValid = sumsubService.verifyWebhookSignature(
-          rawBody,
+          rawBody.toString('utf8'), // Convert buffer to string for HMAC
           signature,
           env.SUMSUB_WEBHOOK_SECRET
         );
@@ -52,6 +73,7 @@ export const sumsubWebhookRoutes: FastifyPluginAsync = async (fastify) => {
           logger.warn({
             msg: 'Invalid Sumsub webhook signature',
             signature,
+            bodyPreview: rawBody.toString('utf8').substring(0, 100),
           });
           return reply.status(401).send({ error: 'Invalid signature' });
         }
@@ -59,7 +81,10 @@ export const sumsubWebhookRoutes: FastifyPluginAsync = async (fastify) => {
         logger.info({ msg: 'Webhook signature verified successfully' });
       } else {
         logger.warn({
-          msg: 'Webhook signature verification skipped - secret not configured',
+          msg: 'Webhook signature verification skipped - secret not configured or missing data',
+          hasSecret: !!env.SUMSUB_WEBHOOK_SECRET,
+          hasSignature: !!signature,
+          hasRawBody: !!rawBody,
         });
       }
 
