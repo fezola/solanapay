@@ -637,51 +637,69 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // STEP 1: Transfer crypto from SolPay deposit wallet to Bread wallet
+      // STEP 1: Check Bread wallet balance and transfer if needed
       request.log.info({
-        msg: '🔵 Step 1: Transferring crypto to Bread wallet',
-        fromAddress: depositAddress.address,
-        toAddress: depositAddress.bread_wallet_address,
-        amount: quote.crypto_amount,
+        msg: '🔵 Step 1: Checking Bread wallet balance',
+        breadWalletId: depositAddress.bread_wallet_id,
+        breadWalletAddress: depositAddress.bread_wallet_address,
+        requestedAmount: quote.crypto_amount,
         asset: quote.crypto_asset,
         chain: quote.crypto_network,
       });
 
-      // Import transfer service
-      const { transferToBreadWallet } = await import('../services/transfer.js');
-
-      const transferResult = await transferToBreadWallet({
+      // Get Bread wallet balance
+      const { checkBreadWalletBalance } = await import('../services/transfer.js');
+      const breadBalance = await checkBreadWalletBalance({
         chain: quote.crypto_network as 'solana' | 'base',
         asset: quote.crypto_asset,
-        amount: parseFloat(quote.crypto_amount),
-        fromAddress: depositAddress.address,
-        toAddress: depositAddress.bread_wallet_address!,
-        userId,
+        walletAddress: depositAddress.bread_wallet_address!,
       });
 
       request.log.info({
-        msg: '✅ Crypto transferred to Bread wallet',
-        txHash: transferResult.txHash,
-        amount: quote.crypto_amount,
+        msg: '💰 Bread wallet balance checked',
+        breadBalance,
+        requestedAmount: parseFloat(quote.crypto_amount),
         asset: quote.crypto_asset,
       });
 
-      // STEP 2: Execute Bread offramp
+      // Determine actual offramp amount (use minimum of requested and available)
+      const requestedAmount = parseFloat(quote.crypto_amount);
+      const actualOfframpAmount = Math.min(requestedAmount, breadBalance);
+
+      if (breadBalance < requestedAmount) {
+        request.log.warn({
+          msg: '⚠️ Bread wallet has less than requested amount',
+          breadBalance,
+          requestedAmount,
+          actualOfframpAmount,
+          asset: quote.crypto_asset,
+        });
+      }
+
+      if (actualOfframpAmount <= 0) {
+        throw new Error(
+          `Insufficient ${quote.crypto_asset} balance in Bread wallet. ` +
+          `Available: ${breadBalance} ${quote.crypto_asset}, Requested: ${requestedAmount} ${quote.crypto_asset}`
+        );
+      }
+
+      // STEP 2: Execute Bread offramp with actual available amount
       request.log.info({
         msg: '🔵 Step 2: Executing Bread offramp',
         quoteId: quote.id,
         asset: quote.crypto_asset,
         chain: quote.crypto_network,
-        amount: quote.crypto_amount,
+        requestedAmount,
+        actualAmount: actualOfframpAmount,
         beneficiary: beneficiary.account_number,
         breadWalletId: depositAddress.bread_wallet_id,
         breadBeneficiaryId: bankAccount.bread_beneficiary_id,
       });
 
-      // Call Bread Africa's offramp API with correct format
+      // Call Bread Africa's offramp API with actual available amount
       const offrampResult = await breadService.offramp.executeOfframp({
         wallet_id: depositAddress.bread_wallet_id,
-        amount: parseFloat(quote.crypto_amount),
+        amount: actualOfframpAmount,
         beneficiary_id: bankAccount.bread_beneficiary_id,
         asset: `${quote.crypto_network}:${quote.crypto_asset.toLowerCase()}` as any,
       });

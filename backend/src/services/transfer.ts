@@ -42,6 +42,34 @@ interface TransferResult {
   chain: string;
 }
 
+interface BalanceCheckRequest {
+  chain: 'solana' | 'base';
+  asset: string;
+  walletAddress: string;
+}
+
+/**
+ * Check Bread wallet balance
+ */
+export async function checkBreadWalletBalance(
+  request: BalanceCheckRequest
+): Promise<number> {
+  logger.info({
+    msg: 'Checking Bread wallet balance',
+    chain: request.chain,
+    asset: request.asset,
+    walletAddress: request.walletAddress,
+  });
+
+  if (request.chain === 'solana') {
+    return checkSolanaBalance(request);
+  } else if (request.chain === 'base') {
+    return checkBaseBalance(request);
+  } else {
+    throw new Error(`Unsupported chain: ${request.chain}`);
+  }
+}
+
 /**
  * Transfer crypto from SolPay deposit wallet to Bread wallet
  */
@@ -349,5 +377,116 @@ async function transferBase(request: TransferRequest): Promise<TransferResult> {
     asset: request.asset,
     chain: 'base',
   };
+}
+
+/**
+ * Check Solana wallet balance for a specific token
+ */
+async function checkSolanaBalance(request: BalanceCheckRequest): Promise<number> {
+  const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+  const walletPubkey = new PublicKey(request.walletAddress);
+
+  // Determine token mint based on asset
+  let mintAddress: string;
+  if (request.asset.toUpperCase() === 'USDC') {
+    mintAddress = SOLANA_USDC_MINT;
+  } else if (request.asset.toUpperCase() === 'USDT') {
+    mintAddress = SOLANA_USDT_MINT;
+  } else if (request.asset.toUpperCase() === 'SOL') {
+    // Check native SOL balance
+    const balance = await connection.getBalance(walletPubkey);
+    const solBalance = balance / LAMPORTS_PER_SOL;
+    logger.info({
+      msg: 'Solana native SOL balance',
+      walletAddress: request.walletAddress,
+      balance: solBalance,
+    });
+    return solBalance;
+  } else {
+    throw new Error(`Unsupported asset: ${request.asset}`);
+  }
+
+  const mintPubkey = new PublicKey(mintAddress);
+
+  // Get token account
+  const tokenAccount = await getAssociatedTokenAddress(
+    mintPubkey,
+    walletPubkey
+  );
+
+  // Check token account balance
+  try {
+    const accountInfo = await getAccount(connection, tokenAccount);
+    const decimals = 6; // USDC/USDT have 6 decimals
+    const balance = Number(accountInfo.amount) / Math.pow(10, decimals);
+
+    logger.info({
+      msg: 'Solana token balance',
+      walletAddress: request.walletAddress,
+      tokenAccount: tokenAccount.toBase58(),
+      asset: request.asset,
+      balance,
+    });
+
+    return balance;
+  } catch (error) {
+    logger.warn({
+      msg: 'Token account does not exist or has no balance',
+      walletAddress: request.walletAddress,
+      asset: request.asset,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return 0;
+  }
+}
+
+/**
+ * Check Base wallet balance for a specific token
+ */
+async function checkBaseBalance(request: BalanceCheckRequest): Promise<number> {
+  const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
+
+  // ERC20 ABI for balanceOf function
+  const erc20Abi = [
+    'function balanceOf(address owner) view returns (uint256)',
+    'function decimals() view returns (uint8)',
+  ];
+
+  // Determine token address based on asset
+  let tokenAddress: string;
+  if (request.asset.toUpperCase() === 'USDC') {
+    tokenAddress = BASE_USDC_ADDRESS;
+  } else {
+    throw new Error(`Unsupported asset on Base: ${request.asset}`);
+  }
+
+  const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, provider);
+
+  try {
+    const [balance, decimals] = await Promise.all([
+      tokenContract.balanceOf(request.walletAddress),
+      tokenContract.decimals(),
+    ]);
+
+    const balanceFormatted = Number(ethers.formatUnits(balance, decimals));
+
+    logger.info({
+      msg: 'Base token balance',
+      walletAddress: request.walletAddress,
+      asset: request.asset,
+      balance: balanceFormatted,
+      tokenAddress,
+    });
+
+    return balanceFormatted;
+  } catch (error) {
+    logger.error({
+      msg: 'Failed to check Base balance',
+      walletAddress: request.walletAddress,
+      asset: request.asset,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return 0;
+  }
 }
 
