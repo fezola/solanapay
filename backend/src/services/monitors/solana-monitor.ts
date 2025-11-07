@@ -6,7 +6,8 @@ import { env } from '../../config/env.js';
 
 export class SolanaMonitor {
   private isRunning = false;
-  private pollInterval = 10000; // 10 seconds
+  private pollInterval = 30000; // 30 seconds (reduced from 10s to avoid rate limits)
+  private rateLimitBackoff = 0; // Track consecutive rate limit errors
   // private lastProcessedSlot = 0; // Unused for now, but kept for future use
 
   /**
@@ -53,7 +54,17 @@ export class SolanaMonitor {
     while (this.isRunning) {
       try {
         await this.checkDeposits();
-      } catch (error) {
+        // Reset backoff on success
+        this.rateLimitBackoff = 0;
+      } catch (error: any) {
+        // Check if it's a rate limit error
+        if (error?.message?.includes('429') || error?.message?.includes('Too Many Requests')) {
+          this.rateLimitBackoff = Math.min(this.rateLimitBackoff + 1, 5);
+          const backoffDelay = this.pollInterval * Math.pow(2, this.rateLimitBackoff);
+          logger.warn(`Rate limit hit. Backing off for ${backoffDelay / 1000}s (attempt ${this.rateLimitBackoff})`);
+          await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+          continue;
+        }
         logger.error('Error in Solana monitor poll:', error);
       }
 
