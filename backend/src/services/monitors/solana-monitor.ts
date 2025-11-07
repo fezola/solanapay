@@ -6,7 +6,7 @@ import { env } from '../../config/env.js';
 
 export class SolanaMonitor {
   private isRunning = false;
-  private pollInterval = 30000; // 30 seconds (reduced from 10s to avoid rate limits)
+  private pollInterval = 60000; // 60 seconds (increased to reduce rate limits)
   private rateLimitBackoff = 0; // Track consecutive rate limit errors
   // private lastProcessedSlot = 0; // Unused for now, but kept for future use
 

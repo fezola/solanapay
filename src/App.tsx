@@ -122,9 +122,11 @@ export default function App() {
     if (!isAuthenticated || !userId) return;
 
     try {
-      const token = localStorage.getItem('authToken');
+      const session = await authService.getSession();
+      const token = session?.access_token;
       if (!token) return;
 
+      const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://crypto-offramp-backend.onrender.com';
       const response = await fetch(`${API_URL}/api/deposits/balances`, {
         headers: {
           'Authorization': `Bearer ${token}`,
