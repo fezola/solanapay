@@ -189,25 +189,20 @@ async function generateUserAddresses(userId: string) {
 
   const walletType = user?.offramp_mode || 'basic';
 
-  // Generate Solana addresses
-  const solAssets: Array<{ asset: Asset; chain: Chain }> = [
-    { asset: 'SOL', chain: 'solana' },
-    { asset: 'USDC', chain: 'solana' },
-    { asset: 'USDT', chain: 'solana' },
-  ];
+  // Generate ONE Solana wallet for SOL, USDC, and USDT
+  const solanaWallet = await solanaWalletService.generateWallet(userId, accountIndex++);
+  const solAssets: Asset[] = ['SOL', 'USDC', 'USDT'];
 
-  for (const { asset, chain } of solAssets) {
-    const wallet = await solanaWalletService.generateWallet(userId, accountIndex++);
-
+  for (const asset of solAssets) {
     const { data, error } = await supabaseAdmin
       .from('deposit_addresses')
       .insert({
         user_id: userId,
-        network: chain,
+        network: 'solana',
         asset_symbol: asset,
-        address: wallet.address,
-        derivation_path: wallet.derivationPath,
-        private_key_encrypted: wallet.encryptedPrivateKey,
+        address: solanaWallet.address, // SAME address for all Solana assets
+        derivation_path: solanaWallet.derivationPath,
+        private_key_encrypted: solanaWallet.encryptedPrivateKey,
         wallet_type: walletType,
       })
       .select()
@@ -223,23 +218,20 @@ async function generateUserAddresses(userId: string) {
     }
   }
 
-  // Generate Base addresses
-  const baseAssets: Array<{ asset: Asset; chain: Chain }> = [
-    { asset: 'USDC', chain: 'base' },
-  ];
+  // Generate ONE Base wallet for USDC and USDT
+  const baseWallet = await baseWalletService.generateWallet(userId, accountIndex++);
+  const baseAssets: Asset[] = ['USDC', 'USDT'];
 
-  for (const { asset, chain } of baseAssets) {
-    const wallet = await baseWalletService.generateWallet(userId, accountIndex++);
-
+  for (const asset of baseAssets) {
     const { data, error } = await supabaseAdmin
       .from('deposit_addresses')
       .insert({
         user_id: userId,
-        network: chain,
+        network: 'base',
         asset_symbol: asset,
-        address: wallet.address,
-        derivation_path: wallet.derivationPath,
-        private_key_encrypted: wallet.encryptedPrivateKey,
+        address: baseWallet.address, // SAME address for all Base assets
+        derivation_path: baseWallet.derivationPath,
+        private_key_encrypted: baseWallet.encryptedPrivateKey,
         wallet_type: walletType,
       })
       .select()

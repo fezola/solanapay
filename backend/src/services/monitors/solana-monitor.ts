@@ -6,7 +6,7 @@ import { env } from '../../config/env.js';
 
 export class SolanaMonitor {
   private isRunning = false;
-  private pollInterval = 60000; // 60 seconds (increased to reduce rate limits)
+  private pollInterval = 30000; // 30 seconds - faster detection
   private rateLimitBackoff = 0; // Track consecutive rate limit errors
   // private lastProcessedSlot = 0; // Unused for now, but kept for future use
 
@@ -85,6 +85,8 @@ export class SolanaMonitor {
 
     const connection = solanaWalletService.getConnection();
 
+    logger.info(`Checking ${addresses.length} Solana addresses for deposits...`);
+
     for (const depositAddress of addresses) {
       try {
         const publicKey = new PublicKey(depositAddress.address);
@@ -94,6 +96,8 @@ export class SolanaMonitor {
           const signatures = await connection.getSignaturesForAddress(publicKey, {
             limit: 10,
           });
+
+          logger.info(`Found ${signatures.length} transactions for SOL address ${depositAddress.address}`);
 
           for (const sig of signatures) {
             await this.processSOLTransaction(
@@ -111,6 +115,8 @@ export class SolanaMonitor {
             limit: 10,
           });
 
+          logger.info(`Found ${signatures.length} transactions for ${depositAddress.asset_symbol} address ${depositAddress.address}`);
+
           for (const sig of signatures) {
             await this.processSPLTransaction(
               sig.signature,
@@ -121,7 +127,12 @@ export class SolanaMonitor {
             );
           }
         }
-      } catch (error) {
+      } catch (error: any) {
+        // Check if it's a rate limit error - throw it to trigger backoff
+        if (error?.message?.includes('429') || error?.message?.includes('Too Many Requests')) {
+          logger.error(`Rate limit error checking address ${depositAddress.address}`);
+          throw error; // Re-throw to trigger backoff in poll()
+        }
         logger.error(`Error checking address ${depositAddress.address}:`, error);
       }
     }
