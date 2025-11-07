@@ -127,22 +127,40 @@ export class SumsubService {
 
     const { externalUserId, applicantId, reviewResult, reviewStatus, levelName } = payload;
 
-    if (!externalUserId) {
-      logger.warn({
-        msg: 'Webhook missing externalUserId',
-        applicantId,
-      });
-      return;
+    // Try to find user by externalUserId first, then by applicantId
+    let user = null;
+    let userId = null;
+
+    if (externalUserId) {
+      const { data } = await supabaseAdmin
+        .from('users')
+        .select('id, kyc_status, kyc_tier')
+        .eq('id', externalUserId)
+        .single();
+
+      user = data;
+      userId = externalUserId;
     }
 
-    // Get user from database
-    const { data: user } = await supabaseAdmin
-      .from('users')
-      .select('id, kyc_status, kyc_tier')
-      .eq('id', externalUserId)
-      .single();
+    // If not found by externalUserId, try by applicantId
+    if (!user && applicantId) {
+      const { data } = await supabaseAdmin
+        .from('users')
+        .select('id, kyc_status, kyc_tier')
+        .eq('sumsub_applicant_id', applicantId)
+        .single();
 
-    if (!user) {
+      user = data;
+      userId = data?.id;
+
+      logger.info({
+        msg: 'User found by applicantId',
+        applicantId,
+        userId,
+      });
+    }
+
+    if (!user || !userId) {
       logger.warn({
         msg: 'User not found for webhook',
         externalUserId,
@@ -176,11 +194,11 @@ export class SumsubService {
         kyc_tier: kycTier,
         kyc_verified_at: kycStatus === 'approved' ? new Date().toISOString() : null,
       })
-      .eq('id', externalUserId);
+      .eq('id', userId);
 
     logger.info({
       msg: 'User KYC status updated from webhook',
-      userId: externalUserId,
+      userId,
       kycStatus,
       kycTier,
       reviewAnswer: reviewResult?.reviewAnswer,
