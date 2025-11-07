@@ -6,6 +6,7 @@ const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().optional(),
+  offrampMode: z.enum(['automatic', 'basic']).optional().default('basic'),
 });
 
 const loginSchema = z.object({
@@ -22,6 +23,10 @@ const otpVerifySchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   token: z.string(),
+});
+
+const updateOfframpModeSchema = z.object({
+  offrampMode: z.enum(['automatic', 'basic']),
 });
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
@@ -52,12 +57,14 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         email: body.email,
         kyc_tier: 0,
         kyc_status: 'not_started',
+        offramp_mode: body.offrampMode || 'basic',
       });
     }
 
     return {
       user: data.user,
       session: data.session,
+      offrampMode: body.offrampMode || 'basic',
     };
   });
 
@@ -203,6 +210,52 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     return {
       session: data.session,
+    };
+  });
+
+  /**
+   * Update offramp mode preference
+   */
+  fastify.patch('/offramp-mode', async (request, reply) => {
+    const userId = request.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const body = updateOfframpModeSchema.parse(request.body);
+
+    const { error } = await supabaseAdmin
+      .from('users')
+      .update({ offramp_mode: body.offrampMode })
+      .eq('id', userId);
+
+    if (error) {
+      return reply.status(500).send({ error: 'Failed to update offramp mode' });
+    }
+
+    return {
+      message: 'Offramp mode updated successfully',
+      offrampMode: body.offrampMode,
+    };
+  });
+
+  /**
+   * Get user preferences
+   */
+  fastify.get('/preferences', async (request, reply) => {
+    const userId = request.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('offramp_mode')
+      .eq('id', userId)
+      .single();
+
+    return {
+      offrampMode: user?.offramp_mode || 'basic',
     };
   });
 };

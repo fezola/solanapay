@@ -130,14 +130,51 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
 
     return { balances };
   });
+
+  /**
+   * Get crypto balances (for basic mode users)
+   * Shows actual crypto amounts, not fiat equivalent
+   */
+  fastify.get('/crypto-balances', async (request, reply) => {
+    const userId = request.userId!;
+
+    // Get all confirmed deposits that haven't been used for offramp
+    const { data: deposits } = await supabaseAdmin
+      .from('onchain_deposits')
+      .select('asset, chain, amount')
+      .eq('user_id', userId)
+      .eq('status', 'confirmed'); // Only confirmed, not swept
+
+    // Calculate crypto balances
+    const balances: Record<string, number> = {};
+
+    if (deposits) {
+      for (const deposit of deposits) {
+        const key = `${deposit.asset.toLowerCase()}-${deposit.chain}`;
+        balances[key] = (balances[key] || 0) + parseFloat(deposit.amount);
+      }
+    }
+
+    return { balances };
+  });
 };
 
 /**
  * Generate deposit addresses for a new user
+ * Respects user's offramp_mode preference (automatic vs basic)
  */
 async function generateUserAddresses(userId: string) {
   const addresses = [];
   let accountIndex = 0;
+
+  // Get user's offramp mode preference
+  const { data: user } = await supabaseAdmin
+    .from('users')
+    .select('offramp_mode')
+    .eq('id', userId)
+    .single();
+
+  const walletType = user?.offramp_mode || 'basic';
 
   // Generate Solana addresses
   const solAssets: Array<{ asset: Asset; chain: Chain }> = [
@@ -158,6 +195,7 @@ async function generateUserAddresses(userId: string) {
         address: wallet.address,
         derivation_path: wallet.derivationPath,
         private_key_encrypted: wallet.encryptedPrivateKey,
+        wallet_type: walletType,
       })
       .select()
       .single();
@@ -167,6 +205,7 @@ async function generateUserAddresses(userId: string) {
         chain: data.network,
         asset: data.asset_symbol,
         address: data.address,
+        walletType: data.wallet_type,
       });
     }
   }
@@ -188,6 +227,7 @@ async function generateUserAddresses(userId: string) {
         address: wallet.address,
         derivation_path: wallet.derivationPath,
         private_key_encrypted: wallet.encryptedPrivateKey,
+        wallet_type: walletType,
       })
       .select()
       .single();
@@ -197,6 +237,7 @@ async function generateUserAddresses(userId: string) {
         chain: data.network,
         asset: data.asset_symbol,
         address: data.address,
+        walletType: data.wallet_type,
       });
     }
   }

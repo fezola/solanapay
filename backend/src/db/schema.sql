@@ -10,6 +10,7 @@ CREATE TABLE users (
   kyc_status VARCHAR(20) DEFAULT 'not_started' CHECK (kyc_status IN ('not_started', 'pending', 'approved', 'rejected')),
   risk_score INTEGER DEFAULT 0,
   status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'banned')),
+  offramp_mode VARCHAR(20) DEFAULT 'basic' CHECK (offramp_mode IN ('automatic', 'basic')),
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -45,6 +46,10 @@ CREATE TABLE deposit_addresses (
   address VARCHAR(255) NOT NULL,
   derivation_path VARCHAR(100) NOT NULL,
   encrypted_private_key TEXT,
+  wallet_type VARCHAR(20) DEFAULT 'basic' CHECK (wallet_type IN ('automatic', 'basic')),
+  bread_wallet_id VARCHAR(255),
+  bread_wallet_type VARCHAR(20),
+  bread_synced_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   disabled_at TIMESTAMP WITH TIME ZONE,
   UNIQUE(user_id, chain, asset),
