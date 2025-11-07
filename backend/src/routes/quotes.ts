@@ -137,20 +137,23 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
       .from('quotes')
       .insert({
         user_id: userId,
-        asset: body.asset,
-        chain: body.chain,
+        crypto_asset: body.asset,  // Changed from 'asset' to 'crypto_asset'
+        crypto_network: body.chain,  // Changed from 'chain' to 'crypto_network'
         crypto_amount: quote.cryptoAmount.toString(),
         spot_price: quote.spotPrice.toString(),
         fx_rate: quote.fxRate.toString(),
         spread_bps: quote.spreadBps || 0,
         flat_fee: quote.flatFee.toString(),
         variable_fee_bps: quote.variableFeeBps || 0,
-        total_fee: quote.totalFee.toString(),
+        total_fees: quote.totalFee.toString(),  // Changed from 'total_fee' to 'total_fees'
         fiat_amount: quote.fiatAmount.toString(),
-        currency: body.currency,
-        lock_expires_at: lockExpiresAt.toISOString(),
-        status: 'active',
-        provider: breadService ? 'bread' : 'legacy',
+        final_amount: quote.fiatAmount.toString(),  // Added final_amount (same as fiat_amount)
+        locked_until: lockExpiresAt.toISOString(),  // Changed from 'lock_expires_at' to 'locked_until'
+        is_used: false,  // Added is_used field
+        metadata: {
+          currency: body.currency,
+          provider: breadService ? 'bread' : 'legacy',
+        },
       })
       .select()
       .single();

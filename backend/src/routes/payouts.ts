@@ -464,11 +464,11 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // Validate quote
-    if (quote.status !== 'active') {
-      return reply.status(400).send({ error: 'Quote is not active' });
+    if (quote.is_used) {
+      return reply.status(400).send({ error: 'Quote has already been used' });
     }
 
-    const isExpired = new Date(quote.lock_expires_at) < new Date();
+    const isExpired = new Date(quote.locked_until) < new Date();
     if (isExpired) {
       return reply.status(400).send({ error: 'Quote has expired' });
     }
@@ -490,8 +490,8 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       .from('onchain_deposits')
       .select('id, amount')
       .eq('user_id', userId)
-      .eq('asset', quote.asset)
-      .eq('chain', quote.chain)
+      .eq('asset', quote.crypto_asset)  // Changed from quote.asset
+      .eq('chain', quote.crypto_network)  // Changed from quote.chain
       .in('status', ['confirmed']);
 
     const totalDeposits = deposits?.reduce((sum, d) => sum + parseFloat(d.amount), 0) || 0;
@@ -500,7 +500,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
     if (totalDeposits < requiredAmount) {
       return reply.status(400).send({
         error: 'Insufficient balance',
-        message: `You need ${requiredAmount} ${quote.asset} but only have ${totalDeposits} ${quote.asset}`,
+        message: `You need ${requiredAmount} ${quote.crypto_asset} but only have ${totalDeposits} ${quote.crypto_asset}`,
         available: totalDeposits,
         required: requiredAmount,
       });
@@ -530,12 +530,12 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         .from('deposit_addresses')
         .select('bread_wallet_id')
         .eq('user_id', userId)
-        .eq('network', quote.chain)
-        .eq('asset_symbol', quote.asset)
+        .eq('network', quote.crypto_network)  // Changed from quote.chain
+        .eq('asset_symbol', quote.crypto_asset)  // Changed from quote.asset
         .single();
 
       if (walletError || !depositAddress?.bread_wallet_id) {
-        request.log.error({ error: walletError, chain: quote.chain, asset: quote.asset }, 'Wallet not synced with Bread');
+        request.log.error({ error: walletError, chain: quote.crypto_network, asset: quote.crypto_asset }, 'Wallet not synced with Bread');
         return reply.status(400).send({
           error: 'Wallet not synced',
           message: 'Your wallet is not synced with Bread Africa. Please contact support.',
@@ -545,8 +545,8 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       // Execute Bread offramp
       request.log.info({
         quoteId: quote.id,
-        asset: quote.asset,
-        chain: quote.chain,
+        asset: quote.crypto_asset,
+        chain: quote.crypto_network,
         amount: quote.crypto_amount,
         beneficiary: beneficiary.account_number,
         breadWalletId: depositAddress.bread_wallet_id,
@@ -558,7 +558,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         wallet_id: depositAddress.bread_wallet_id,
         amount: parseFloat(quote.crypto_amount),
         beneficiary_id: bankAccount.bread_beneficiary_id,
-        asset: `${quote.chain}:${quote.asset.toLowerCase()}` as any,
+        asset: `${quote.crypto_network}:${quote.crypto_asset.toLowerCase()}` as any,
       });
 
       request.log.info({
@@ -573,8 +573,8 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           user_id: userId,
           quote_id: quote.id,
           beneficiary_id: beneficiary.id,
-          fiat_amount: quote.fiat_amount,
-          currency: quote.currency,
+          fiat_amount: quote.final_amount,  // Changed from quote.fiat_amount to quote.final_amount
+          currency: quote.metadata?.currency || 'NGN',  // Get currency from metadata
           provider,
           provider_reference: offrampResult.data?.id || reference,
           status: 'processing',
@@ -587,12 +587,12 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(500).send({ error: 'Failed to create payout' });
       }
 
-      // Mark quote as executed
+      // Mark quote as used
       await supabaseAdmin
         .from('quotes')
         .update({
-          status: 'executed',
-          executed_at: new Date().toISOString(),
+          is_used: true,
+          used_at: new Date().toISOString(),
         })
         .eq('id', quote.id);
 
