@@ -221,8 +221,8 @@ export class BreadOfframpService {
       msg: 'Executing Bread offramp',
       asset: request.asset,
       amount: request.amount,
-      bankCode: request.bank_code,
-      accountNumber: request.account_number,
+      walletId: request.wallet_id,
+      beneficiaryId: request.beneficiary_id,
     });
 
     try {

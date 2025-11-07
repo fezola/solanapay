@@ -329,13 +329,12 @@ export class BreadIntegrationService {
         throw new Error('Beneficiary not synced with Bread');
       }
 
-      // Execute offramp
+      // Execute offramp with correct Bread API format
       const offramp = await this.breadService.offramp.executeOfframp({
-        asset: `${quote.chain}:${quote.asset.toLowerCase()}` as any,
+        wallet_id: quote.deposit_addresses.bread_wallet_id,
         amount: parseFloat(quote.crypto_amount),
-        currency: 'NGN',
-        bank_code: beneficiary.bank_code,
-        account_number: beneficiary.account_number,
+        beneficiary_id: beneficiary.bread_beneficiary_id,
+        asset: `${quote.chain}:${quote.asset.toLowerCase()}` as any,
       });
 
       // Update payout with Bread offramp ID
