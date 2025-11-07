@@ -65,10 +65,23 @@ export class BreadWalletService {
     // Generate a unique reference for the wallet
     const reference = `wallet_${identityId}_${chain}_${Date.now()}`;
 
-    // Bread API only requires a reference field to create a wallet
-    const breadRequest = {
+    // Build Bread API request based on wallet type
+    // For offramp wallets, we need to include offramp: true and beneficiary_id
+    const breadRequest: any = {
       reference,
     };
+
+    // If this is an offramp wallet, include offramp flag and beneficiary
+    if (type === 'offramp' && beneficiaryId) {
+      breadRequest.offramp = true;
+      breadRequest.beneficiary_id = beneficiaryId;
+
+      logger.info({
+        msg: 'Creating offramp wallet with beneficiary',
+        reference,
+        beneficiaryId,
+      });
+    }
 
     logger.debug({
       msg: 'Bread API request payload',
@@ -79,28 +92,6 @@ export class BreadWalletService {
       '/wallet',
       breadRequest
     );
-
-    // If this is an offramp wallet, enable automation
-    if (type === 'offramp' && beneficiaryId) {
-      logger.info({
-        msg: 'Enabling offramp automation for wallet',
-        walletId: response.wallet.id,
-        beneficiaryId,
-      });
-
-      await this.client.post('/automate', {
-        wallet_id: response.wallet.id,
-        transfer: false,
-        swap: false,
-        offramp: true,
-        beneficiary_id: beneficiaryId,
-      });
-
-      logger.info({
-        msg: 'Offramp automation enabled',
-        walletId: response.wallet.id,
-      });
-    }
 
     logger.info({
       msg: 'Bread wallet created',

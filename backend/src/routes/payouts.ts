@@ -363,6 +363,80 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           beneficiaryId: breadBeneficiaryId,
           accountName,
         });
+
+        // 🔥 CRITICAL: Create Bread wallet for offramp after beneficiary is created
+        // This wallet is required for the offramp to work
+        request.log.info({
+          msg: '🔵 Creating Bread offramp wallet',
+          identityId: breadIdentityId,
+          beneficiaryId: breadBeneficiaryId,
+        });
+
+        try {
+          // Create wallet for each supported chain (Solana and Base)
+          const solanaWallet = await breadService.wallet.createWallet(
+            breadIdentityId,
+            'solana',
+            'offramp',
+            breadBeneficiaryId
+          );
+
+          const baseWallet = await breadService.wallet.createWallet(
+            breadIdentityId,
+            'base',
+            'offramp',
+            breadBeneficiaryId
+          );
+
+          request.log.info({
+            msg: '✅ Bread wallets created successfully',
+            solanaWalletId: solanaWallet.id,
+            solanaAddress: solanaWallet.address,
+            baseWalletId: baseWallet.id,
+            baseAddress: baseWallet.address,
+          });
+
+          // Update deposit_addresses table with Bread wallet IDs
+          // Solana wallet
+          await supabaseAdmin
+            .from('deposit_addresses')
+            .update({
+              bread_wallet_id: solanaWallet.id,
+              bread_wallet_address: solanaWallet.address.svm || solanaWallet.address,
+              bread_wallet_type: 'offramp',
+              bread_synced_at: new Date().toISOString(),
+            })
+            .eq('user_id', userId)
+            .eq('network', 'solana');
+
+          // Base wallet
+          await supabaseAdmin
+            .from('deposit_addresses')
+            .update({
+              bread_wallet_id: baseWallet.id,
+              bread_wallet_address: baseWallet.address.evm || baseWallet.address,
+              bread_wallet_type: 'offramp',
+              bread_synced_at: new Date().toISOString(),
+            })
+            .eq('user_id', userId)
+            .eq('network', 'base');
+
+          request.log.info({
+            msg: '✅ Deposit addresses updated with Bread wallet IDs',
+          });
+        } catch (walletError: any) {
+          request.log.error({
+            error: walletError,
+            message: walletError.message,
+            response: walletError.response?.data,
+          }, '❌ Failed to create Bread wallets');
+
+          // Don't fail the beneficiary creation if wallet creation fails
+          // User can still add the bank, but offramp won't work until wallets are created
+          request.log.warn({
+            msg: '⚠️ Beneficiary created but Bread wallets failed. Offramp will not work until wallets are created.',
+          });
+        }
       }
 
       // Save beneficiary to our database with verified account name from Bread
@@ -535,10 +609,22 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         .single();
 
       if (walletError || !depositAddress?.bread_wallet_id) {
-        request.log.error({ error: walletError, chain: quote.crypto_network, asset: quote.crypto_asset }, 'Wallet not synced with Bread');
+        request.log.error({
+          error: walletError,
+          chain: quote.crypto_network,
+          asset: quote.crypto_asset,
+          depositAddress,
+        }, '❌ Wallet not synced with Bread');
+
         return reply.status(400).send({
           error: 'Wallet not synced',
-          message: 'Your wallet is not synced with Bread Africa. Please contact support.',
+          message: 'No Bread wallet found. Please re-add your bank account to create the required Bread wallet.',
+          details: {
+            chain: quote.crypto_network,
+            asset: quote.crypto_asset,
+            hasDepositAddress: !!depositAddress,
+            hasBreadWalletId: !!depositAddress?.bread_wallet_id,
+          },
         });
       }
 
@@ -625,10 +711,21 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         },
       };
     } catch (error: any) {
-      request.log.error('Payout failed:', error);
+      // Log the REAL Bread error for debugging
+      request.log.error({
+        msg: 'Payout failed:',
+        error: error.message,
+        breadError: error.response?.data,
+        breadStatus: error.response?.status,
+        stack: error.stack,
+      });
+
+      // Return detailed error to frontend
       return reply.status(500).send({
         error: 'Payout failed',
         message: error.message,
+        breadError: error.response?.data,
+        details: error.response?.data?.message || error.message,
       });
     }
   });
