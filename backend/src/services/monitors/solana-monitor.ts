@@ -215,16 +215,31 @@ export class SolanaMonitor {
 
     if (!tx || !tx.meta) return;
 
-    // Parse token transfers
-    const tokenTransfers = tx.meta.postTokenBalances?.filter(
-      (balance) => balance.owner === address
-    );
+    // Get the correct mint address for the asset
+    const mintAddress = asset === 'USDC' ? env.USDC_SOL_MINT : env.USDT_SOL_MINT;
 
-    if (!tokenTransfers || tokenTransfers.length === 0) return;
+    // Compare pre and post token balances to detect deposits
+    const preBalances = tx.meta.preTokenBalances || [];
+    const postBalances = tx.meta.postTokenBalances || [];
 
-    for (const transfer of tokenTransfers) {
-      const amount = transfer.uiTokenAmount.uiAmount;
-      if (!amount || amount <= 0) continue;
+    // Find token accounts for our address and the correct mint
+    for (const postBalance of postBalances) {
+      // Check if this is our address and the correct token mint
+      if (postBalance.owner !== address || postBalance.mint !== mintAddress) {
+        continue;
+      }
+
+      // Find the corresponding pre-balance
+      const preBalance = preBalances.find(
+        (pre) => pre.accountIndex === postBalance.accountIndex
+      );
+
+      const preAmount = preBalance?.uiTokenAmount?.uiAmount || 0;
+      const postAmount = postBalance.uiTokenAmount?.uiAmount || 0;
+      const depositAmount = postAmount - preAmount;
+
+      // Only process if there was an increase (deposit)
+      if (depositAmount <= 0) continue;
 
       // Record deposit
       const { error } = await supabaseAdmin.from('onchain_deposits').insert({
@@ -234,7 +249,7 @@ export class SolanaMonitor {
         asset,
         address,
         tx_hash: signature,
-        amount: amount.toString(),
+        amount: depositAmount.toString(),
         confirmations: 1,
         required_confirmations: env.MIN_CONFIRMATIONS_SOLANA,
         status: 'confirmed',
@@ -247,11 +262,11 @@ export class SolanaMonitor {
         continue;
       }
 
-      logger.info(`✅ Detected ${asset} deposit: ${amount} ${asset} (${signature})`);
+      logger.info(`✅ Detected ${asset} deposit: ${depositAmount} ${asset} (${signature})`);
 
       // Trigger sweep
-      if (amount >= 10) {
-        await this.triggerSweep(depositAddressId, asset, amount);
+      if (depositAmount >= 10) {
+        await this.triggerSweep(depositAddressId, asset, depositAmount);
       }
     }
   }
