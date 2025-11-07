@@ -88,19 +88,46 @@ export class BreadWalletService {
       payload: breadRequest,
     });
 
-    const response = await this.client.post<CreateWalletResponse>(
+    const response = await this.client.post<any>(
       '/wallet',
       breadRequest
     );
 
     logger.info({
-      msg: 'Bread wallet created',
-      walletId: response.wallet.id,
-      address: response.wallet.address,
-      type: response.wallet.type,
+      msg: 'Bread wallet created - raw response',
+      response: JSON.stringify(response),
     });
 
-    return response.wallet;
+    // Bread API returns: { success, status, message, timestamp, data: { wallet_id, address: { svm, evm }, ... } }
+    const walletData = response.data || response;
+    const walletId = walletData.wallet_id || walletData.id;
+    const address = walletData.address?.svm || walletData.address?.evm || walletData.address;
+
+    if (!walletId) {
+      logger.error({ response }, 'Failed to extract wallet ID from Bread response');
+      throw new Error('Invalid wallet creation response from Bread API');
+    }
+
+    const wallet: BreadWallet = {
+      id: walletId,
+      identityId,
+      type,
+      network,
+      chain: breadChain,
+      address: address || '',
+      beneficiaryId,
+      status: 'active',
+      createdAt: walletData.created_at || new Date().toISOString(),
+    };
+
+    logger.info({
+      msg: 'Bread wallet created',
+      walletId: wallet.id,
+      address: wallet.address,
+      type: wallet.type,
+    });
+
+    return wallet;
   }
 
   /**
