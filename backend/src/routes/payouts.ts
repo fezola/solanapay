@@ -205,23 +205,65 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       request.log.info({ quote: quoteResponse.data }, 'Quote received from Bread');
 
-      // Step 2: Get beneficiary
-      const { data: beneficiary } = await supabaseAdmin
-        .from('beneficiaries')
+      // Step 2: Get bank account (beneficiary)
+      const { data: bankAccount, error: bankAccountError } = await supabaseAdmin
+        .from('bank_accounts')
         .select('*')
         .eq('id', body.beneficiary_id)
         .eq('user_id', userId)
         .single();
 
-      if (!beneficiary) {
-        return reply.status(404).send({ error: 'Beneficiary not found' });
+      if (bankAccountError || !bankAccount) {
+        request.log.error({ error: bankAccountError }, 'Bank account not found');
+        return reply.status(404).send({
+          error: 'Bank account not found',
+          message: 'The selected bank account does not exist or does not belong to you',
+        });
       }
 
-      // Step 3: Execute offramp via Bread
+      // Step 3: Get user's Bread identity ID
+      const { data: user } = await supabaseAdmin
+        .from('users')
+        .select('bread_identity_id')
+        .eq('id', userId)
+        .single();
+
+      if (!user?.bread_identity_id) {
+        return reply.status(400).send({
+          error: 'Bread identity not found',
+          message: 'Please complete KYC verification first',
+        });
+      }
+
+      // Step 4: Create Bread wallet if it doesn't exist
+      let walletId = bankAccount.bread_wallet_id;
+
+      if (!walletId) {
+        request.log.info('Creating Bread wallet for beneficiary...');
+
+        const wallet = await breadService.wallet.createWallet(
+          user.bread_identity_id,
+          body.chain as Chain,
+          'offramp',
+          bankAccount.bread_beneficiary_id
+        );
+
+        walletId = wallet.id;
+
+        // Update bank account with wallet ID
+        await supabaseAdmin
+          .from('bank_accounts')
+          .update({ bread_wallet_id: walletId })
+          .eq('id', body.beneficiary_id);
+
+        request.log.info({ walletId }, 'Bread wallet created and saved');
+      }
+
+      // Step 4: Execute offramp via Bread
       const offrampResult = await breadService.offramp.executeOfframp({
-        wallet_id: beneficiary.bread_wallet_id,
+        wallet_id: walletId,
         amount: body.amount,
-        beneficiary_id: beneficiary.bread_beneficiary_id,
+        beneficiary_id: bankAccount.bread_beneficiary_id,
         asset: breadService.offramp.mapAssetToBread(body.asset as Asset, body.chain as Chain),
       });
 
