@@ -25,8 +25,7 @@ export class SolanaMonitor {
     const { data: addresses, error } = await supabaseAdmin
       .from('deposit_addresses')
       .select('*')
-      .eq('chain', 'solana')
-      .is('disabled_at', null);
+      .eq('network', 'solana');
 
     if (error) {
       logger.error('Failed to fetch deposit addresses:', error);
@@ -69,8 +68,7 @@ export class SolanaMonitor {
     const { data: addresses } = await supabaseAdmin
       .from('deposit_addresses')
       .select('*')
-      .eq('chain', 'solana')
-      .is('disabled_at', null);
+      .eq('network', 'solana');
 
     if (!addresses || addresses.length === 0) return;
 
@@ -81,7 +79,7 @@ export class SolanaMonitor {
         const publicKey = new PublicKey(depositAddress.address);
 
         // Check SOL deposits
-        if (depositAddress.asset === 'SOL') {
+        if (depositAddress.asset_symbol === 'SOL') {
           const signatures = await connection.getSignaturesForAddress(publicKey, {
             limit: 10,
           });
@@ -97,7 +95,7 @@ export class SolanaMonitor {
         }
 
         // Check USDC/USDT deposits (SPL tokens)
-        if (depositAddress.asset === 'USDC' || depositAddress.asset === 'USDT') {
+        if (depositAddress.asset_symbol === 'USDC' || depositAddress.asset_symbol === 'USDT') {
           const signatures = await connection.getSignaturesForAddress(publicKey, {
             limit: 10,
           });
@@ -108,7 +106,7 @@ export class SolanaMonitor {
               depositAddress.user_id,
               depositAddress.id,
               depositAddress.address,
-              depositAddress.asset
+              depositAddress.asset_symbol
             );
           }
         }

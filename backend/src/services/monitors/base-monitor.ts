@@ -71,8 +71,7 @@ export class BaseMonitor {
     const { data: addresses } = await supabaseAdmin
       .from('deposit_addresses')
       .select('*')
-      .eq('chain', 'base')
-      .is('disabled_at', null);
+      .eq('network', 'base');
 
     if (!addresses || addresses.length === 0) {
       this.lastProcessedBlock = currentBlock;

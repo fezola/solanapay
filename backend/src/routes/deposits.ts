@@ -18,8 +18,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
     const { data: addresses, error } = await supabaseAdmin
       .from('deposit_addresses')
       .select('*')
-      .eq('user_id', userId)
-      .is('disabled_at', null);
+      .eq('user_id', userId);
 
     if (error) {
       return reply.status(500).send({ error: 'Failed to fetch addresses' });
@@ -33,8 +32,8 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
 
     return {
       addresses: addresses.map((addr) => ({
-        chain: addr.chain,
-        asset: addr.asset,
+        chain: addr.network,
+        asset: addr.asset_symbol,
         address: addr.address,
       })),
     };
@@ -155,24 +154,24 @@ async function generateUserAddresses(userId: string) {
 
   for (const { asset, chain } of solAssets) {
     const wallet = await solanaWalletService.generateWallet(userId, accountIndex++);
-    
+
     const { data, error } = await supabaseAdmin
       .from('deposit_addresses')
       .insert({
         user_id: userId,
-        chain,
-        asset,
+        network: chain,
+        asset_symbol: asset,
         address: wallet.address,
         derivation_path: wallet.derivationPath,
-        encrypted_private_key: wallet.encryptedPrivateKey,
+        private_key_encrypted: wallet.encryptedPrivateKey,
       })
       .select()
       .single();
 
     if (!error && data) {
       addresses.push({
-        chain: data.chain,
-        asset: data.asset,
+        chain: data.network,
+        asset: data.asset_symbol,
         address: data.address,
       });
     }
@@ -185,24 +184,24 @@ async function generateUserAddresses(userId: string) {
 
   for (const { asset, chain } of baseAssets) {
     const wallet = await baseWalletService.generateWallet(userId, accountIndex++);
-    
+
     const { data, error } = await supabaseAdmin
       .from('deposit_addresses')
       .insert({
         user_id: userId,
-        chain,
-        asset,
+        network: chain,
+        asset_symbol: asset,
         address: wallet.address,
         derivation_path: wallet.derivationPath,
-        encrypted_private_key: wallet.encryptedPrivateKey,
+        private_key_encrypted: wallet.encryptedPrivateKey,
       })
       .select()
       .single();
 
     if (!error && data) {
       addresses.push({
-        chain: data.chain,
-        asset: data.asset,
+        chain: data.network,
+        asset: data.asset_symbol,
         address: data.address,
       });
     }

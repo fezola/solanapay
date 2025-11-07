@@ -84,13 +84,13 @@ export default function App() {
     naira: 0,
   });
 
-  // Deposit addresses for all supported assets
-  const depositAddresses = {
-    usdcSolana: 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK',
-    usdcBase: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-    sol: 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK',
-    usdtSolana: 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK',
-  };
+  // Deposit addresses for all supported assets (fetched from backend)
+  const [depositAddresses, setDepositAddresses] = useState({
+    usdcSolana: '',
+    usdcBase: '',
+    sol: '',
+    usdtSolana: '',
+  });
 
   // Bank accounts
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -144,7 +144,7 @@ export default function App() {
     checkSession();
   }, []);
 
-  // Load bank accounts and limits when user is authenticated
+  // Load bank accounts, limits, and deposit addresses when user is authenticated
   useEffect(() => {
     const loadBankAccounts = async () => {
       if (isAuthenticated && userId) {
@@ -215,8 +215,50 @@ export default function App() {
       }
     };
 
+    const loadDepositAddresses = async () => {
+      if (isAuthenticated && userId) {
+        try {
+          const session = await authService.getSession();
+          const token = session?.access_token;
+          if (!token) return;
+
+          const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://crypto-offramp-backend.onrender.com';
+          const response = await fetch(`${API_URL}/api/deposits/addresses`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.addresses && data.addresses.length > 0) {
+              const newAddresses: any = {};
+
+              data.addresses.forEach((addr: any) => {
+                if (addr.asset === 'USDC' && addr.chain === 'solana') {
+                  newAddresses.usdcSolana = addr.address;
+                } else if (addr.asset === 'USDC' && addr.chain === 'base') {
+                  newAddresses.usdcBase = addr.address;
+                } else if (addr.asset === 'SOL' && addr.chain === 'solana') {
+                  newAddresses.sol = addr.address;
+                } else if (addr.asset === 'USDT' && addr.chain === 'solana') {
+                  newAddresses.usdtSolana = addr.address;
+                }
+              });
+
+              setDepositAddresses(newAddresses);
+              console.log('✅ Loaded deposit addresses from backend');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load deposit addresses:', error);
+        }
+      }
+    };
+
     loadBankAccounts();
     loadLimits();
+    loadDepositAddresses();
   }, [isAuthenticated, userId]);
 
   // Start/stop real-time notification listener when user is authenticated
