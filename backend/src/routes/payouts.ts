@@ -237,6 +237,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Step 4: Create Bread wallet if it doesn't exist
       let walletId = bankAccount.bread_wallet_id;
+      let breadWalletAddress: string;
 
       if (!walletId) {
         request.log.info('Creating Bread wallet for beneficiary...');
@@ -249,6 +250,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         );
 
         walletId = wallet.id;
+        breadWalletAddress = wallet.address;
 
         // Update bank account with wallet ID
         await supabaseAdmin
@@ -256,14 +258,14 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           .update({ bread_wallet_id: walletId })
           .eq('id', body.beneficiary_id);
 
-        request.log.info({ walletId }, 'Bread wallet created and saved');
+        request.log.info({ walletId, breadWalletAddress }, 'Bread wallet created and saved');
+      } else {
+        // Wallet already exists, fetch it to get the address
+        request.log.info({ walletId }, 'Using existing Bread wallet');
+        const breadWallet = await breadService.wallet.getWallet(walletId);
+        breadWalletAddress = breadWallet.address;
+        request.log.info({ breadWalletAddress }, 'Bread wallet address retrieved');
       }
-
-      // Step 5: Get Bread wallet address
-      const breadWallet = await breadService.wallet.getWallet(walletId);
-      const breadWalletAddress = breadWallet.address;
-
-      request.log.info({ breadWalletAddress, walletNetwork: breadWallet.network }, 'Bread wallet address retrieved');
 
       // Step 6: Get user's deposit address
       const { data: depositAddress } = await supabaseAdmin
