@@ -486,13 +486,28 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // Check user has sufficient balance
-    // This would check the onchain_deposits table for confirmed, unswept deposits
-    // For now, we'll assume balance is sufficient
+    const { data: deposits } = await supabaseAdmin
+      .from('onchain_deposits')
+      .select('id, amount')
+      .eq('user_id', userId)
+      .eq('asset', quote.asset)
+      .eq('chain', quote.chain)
+      .in('status', ['confirmed']);
+
+    const totalDeposits = deposits?.reduce((sum, d) => sum + parseFloat(d.amount), 0) || 0;
+    const requiredAmount = parseFloat(quote.crypto_amount);
+
+    if (totalDeposits < requiredAmount) {
+      return reply.status(400).send({
+        error: 'Insufficient balance',
+        message: `You need ${requiredAmount} ${quote.asset} but only have ${totalDeposits} ${quote.asset}`,
+        available: totalDeposits,
+        required: requiredAmount,
+      });
+    }
 
     try {
       const reference = `PAYOUT_${nanoid(16)}`;
-      let providerReference = reference;
-      let transferStatus = 'pending';
       let provider = 'bread';
 
       // Execute Bread offramp
@@ -501,11 +516,22 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         asset: quote.asset,
         chain: quote.chain,
         amount: quote.crypto_amount,
+        beneficiary: beneficiary.account_number,
       }, 'Executing Bread offramp');
 
-      // TODO: Implement actual Bread offramp execution
-      // For now, we'll create the payout record and mark it as pending
-      transferStatus = 'pending_execution';
+      // Call Bread Africa's offramp API
+      const offrampResult = await breadService.offramp.executeOfframp({
+        asset: `${quote.chain}:${quote.asset.toLowerCase()}` as any,
+        amount: parseFloat(quote.crypto_amount),
+        currency: 'NGN',
+        bank_code: beneficiary.bank_code,
+        account_number: beneficiary.account_number,
+      });
+
+      request.log.info({
+        offrampId: offrampResult.data?.id,
+        status: offrampResult.data?.status,
+      }, 'Bread offramp executed successfully');
 
       // Create payout record
       const { data: payout, error: payoutError } = await supabaseAdmin
@@ -517,8 +543,8 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           fiat_amount: quote.fiat_amount,
           currency: quote.currency,
           provider,
-          provider_reference: providerReference,
-          status: 'pending',
+          provider_reference: offrampResult.data?.id || reference,
+          status: 'processing',
         })
         .select()
         .single();
@@ -537,14 +563,31 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         })
         .eq('id', quote.id);
 
+      // Mark deposits as used (swept status)
+      // This prevents double-spending
+      let remainingAmount = requiredAmount;
+      for (const deposit of deposits || []) {
+        if (remainingAmount <= 0) break;
+
+        const depositAmount = parseFloat(deposit.amount);
+        if (depositAmount > 0) {
+          await supabaseAdmin
+            .from('onchain_deposits')
+            .update({ status: 'swept', swept_at: new Date().toISOString() })
+            .eq('id', (deposit as any).id);
+
+          remainingAmount -= depositAmount;
+        }
+      }
+
       // Update limits
       await updateUserLimits(userId, parseFloat(quote.fiat_amount));
 
       return {
         payout,
         transfer: {
-          reference: providerReference,
-          status: transferStatus,
+          reference: offrampResult.data?.id || reference,
+          status: offrampResult.data?.status || 'processing',
           provider,
         },
       };

@@ -37,6 +37,14 @@ export class BreadWalletService {
 
   /**
    * Create a new wallet
+   *
+   * @param identityId - Bread identity ID
+   * @param chain - Blockchain (solana, base, ethereum)
+   * @param type - Wallet type:
+   *   - 'offramp': Auto-converts crypto to fiat when received (requires beneficiary)
+   *   - 'basic': Manual operations, crypto stays in wallet until you trigger offramp
+   *   - 'onramp': For buying crypto (not commonly used)
+   * @param beneficiaryId - Required for 'offramp' type wallets
    */
   async createWallet(
     identityId: string,
@@ -54,9 +62,10 @@ export class BreadWalletService {
       chain: breadChain,
     });
 
-    // Offramp wallets require a beneficiary
+    // Offramp wallets require a beneficiary (automatic mode)
+    // Basic wallets don't need a beneficiary upfront (manual mode)
     if (type === 'offramp' && !beneficiaryId) {
-      throw new Error('Beneficiary ID is required for offramp wallets');
+      throw new Error('Beneficiary ID is required for automatic offramp wallets');
     }
 
     const request: CreateWalletRequest = {

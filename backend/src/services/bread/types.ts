@@ -159,7 +159,7 @@ export type OfframpStatusResponse = BreadAPIResponse<OfframpStatusData>;
 // Legacy Types (kept for backward compatibility, will be removed)
 // ============================================================================
 
-export type BreadWalletType = 'onramp' | 'offramp';
+export type BreadWalletType = 'onramp' | 'offramp' | 'basic';
 export type BreadNetwork = 'svm' | 'evm' | 'solana' | 'base' | 'ethereum' | 'polygon';
 export type BreadChain = 'mainnet' | 'testnet' | 'devnet' | 'solana' | 'base' | 'ethereum';
 

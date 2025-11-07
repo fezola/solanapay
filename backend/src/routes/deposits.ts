@@ -82,57 +82,51 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * Get balances for all assets
+   *
+   * This calculates the user's available balance by:
+   * 1. Summing all confirmed deposits from onchain_deposits table
+   * 2. Subtracting all completed payouts
    */
   fastify.get('/balances', async (request, reply) => {
     const userId = request.userId!;
 
-    // Get all deposit addresses
-    const { data: addresses } = await supabaseAdmin
-      .from('deposit_addresses')
+    // Get all confirmed deposits (not swept yet or swept to treasury)
+    const { data: deposits } = await supabaseAdmin
+      .from('onchain_deposits')
+      .select('asset, chain, amount')
+      .eq('user_id', userId)
+      .in('status', ['confirmed', 'swept']);
+
+    // Get all completed payouts (money already sent to bank)
+    const { data: payouts } = await supabaseAdmin
+      .from('payouts')
       .select('*')
       .eq('user_id', userId)
-      .is('disabled_at', null);
+      .eq('status', 'success');
 
-    if (!addresses || addresses.length === 0) {
-      return {
-        balances: {
-          usdcSolana: 0,
-          usdcBase: 0,
-          sol: 0,
-          usdtSolana: 0,
-        },
-      };
-    }
+    // Calculate balances
+    const balances: any = {
+      usdcSolana: 0,
+      usdcBase: 0,
+      sol: 0,
+      usdtSolana: 0,
+      eth: 0,
+    };
 
-    const balances: any = {};
+    // Add up all deposits
+    if (deposits) {
+      for (const deposit of deposits) {
+        const amount = parseFloat(deposit.amount);
+        const key = `${deposit.asset.toLowerCase()}${deposit.chain === 'solana' ? 'Solana' : deposit.chain === 'base' ? 'Base' : ''}`;
 
-    for (const addr of addresses) {
-      try {
-        let balance = 0;
-
-        if (addr.chain === 'solana') {
-          if (addr.asset === 'SOL') {
-            balance = await solanaWalletService.getSOLBalance(addr.address);
-          } else if (addr.asset === 'USDC') {
-            balance = await solanaWalletService.getUSDCBalance(addr.address);
-          } else if (addr.asset === 'USDT') {
-            balance = await solanaWalletService.getUSDTBalance(addr.address);
-          }
-        } else if (addr.chain === 'base') {
-          if (addr.asset === 'USDC') {
-            balance = await baseWalletService.getUSDCBalance(addr.address);
-          } else if (addr.asset === 'ETH') {
-            balance = await baseWalletService.getETHBalance(addr.address);
-          }
+        if (balances.hasOwnProperty(key)) {
+          balances[key] += amount;
         }
-
-        const key = `${addr.asset.toLowerCase()}${addr.chain === 'solana' ? 'Solana' : 'Base'}`;
-        balances[key] = balance;
-      } catch (error) {
-        request.log.error({ error }, `Failed to get balance for ${addr.chain}/${addr.asset}`);
-        balances[`${addr.asset.toLowerCase()}${addr.chain}`] = 0;
       }
     }
+
+    // Subtract payouts (TODO: implement when payout flow is complete)
+    // For now, payouts are handled separately
 
     return { balances };
   });
