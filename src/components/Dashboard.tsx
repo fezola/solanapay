@@ -3,7 +3,6 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import {
   Bell,
-  ChevronDown,
   ArrowDownLeft,
   Building2,
   ChevronRight,
@@ -29,7 +28,6 @@ interface DashboardProps {
 }
 
 export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, notifications = [] }: DashboardProps) {
-  const [selectedCurrency, setSelectedCurrency] = useState<'naira' | 'usd'>('naira');
   const [showNotifications, setShowNotifications] = useState(false);
   const [rates, setRates] = useState({
     usdcSolana: 1600,
@@ -60,12 +58,8 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
     return () => clearInterval(interval);
   }, []);
 
-  const totalInNaira = (balance.usdcSolana * rates.usdcSolana) + (balance.usdcBase * rates.usdcBase) + (balance.sol * rates.sol) + (balance.usdtSolana * rates.usdtSolana) + balance.naira;
-  const totalInUSD = totalInNaira / rates.usdcSolana; // Use USDC rate as USD reference
-
-  const displayBalance = selectedCurrency === 'naira'
-    ? `₦${totalInNaira.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : `$${totalInUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // SHOW ONLY REAL NGN WALLET BALANCE - NO FAKE CONVERSIONS!
+  const displayBalance = `₦${balance.naira.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 
 
@@ -214,16 +208,12 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
             {displayBalance.split('.')[0]}.<span style={{ fontSize: '40px' }}>{displayBalance.split('.')[1]}</span>
           </h1>
 
-          <button
-            onClick={() => setSelectedCurrency(selectedCurrency === 'naira' ? 'usd' : 'naira')}
-            className="flex items-center gap-2 text-white hover:text-white/90 transition-colors drop-shadow"
-          >
+          <div className="flex items-center gap-2 text-white drop-shadow">
             <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-xs font-bold">
-              {selectedCurrency === 'naira' ? '₦' : '$'}
+              ₦
             </div>
-            <span className="font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>{selectedCurrency === 'naira' ? 'NGN' : 'USD'}</span>
-            <ChevronDown className="w-4 h-4" />
-          </button>
+            <span className="font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>NGN Wallet Balance</span>
+          </div>
         </motion.div>
       </div>
 

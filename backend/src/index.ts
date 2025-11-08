@@ -18,6 +18,7 @@ import { adminRoutes } from './routes/admin.js';
 import { healthRoutes } from './routes/health.js';
 import { walletRoutes } from './routes/wallet.js';
 import { initializeServices, shutdownServices } from './services/index.js';
+import { runMigrations } from './db/migrate.js';
 
 const fastify = Fastify({
   logger: true,
@@ -98,11 +99,21 @@ await initializeServices();
 // Start server
 const start = async () => {
   try {
-    await fastify.listen({ 
-      port: env.PORT, 
-      host: '0.0.0.0' 
+    // Run database migrations before starting server
+    logger.info('🔄 Running database migrations...');
+    try {
+      await runMigrations();
+      logger.info('✅ Database migrations completed');
+    } catch (migrationError) {
+      logger.error('⚠️ Migration failed, but continuing server startup:', migrationError);
+      // Don't exit - migrations might fail if already applied
+    }
+
+    await fastify.listen({
+      port: env.PORT,
+      host: '0.0.0.0'
     });
-    
+
     logger.info(`🚀 Server running on port ${env.PORT}`);
     logger.info(`📊 Environment: ${env.NODE_ENV}`);
     logger.info(`🔗 Solana Network: ${env.SOLANA_NETWORK}`);
