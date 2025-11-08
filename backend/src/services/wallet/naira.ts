@@ -8,9 +8,9 @@
  * - Get transaction history
  */
 
-import { supabaseAdmin } from '../../utils/supabase';
-import { logger } from '../../utils/logger';
-import { calculatePlatformFee } from '../../config/fees';
+import { supabaseAdmin } from '../../utils/supabase.js';
+import { logger } from '../../utils/logger.js';
+import { calculatePlatformFee } from '../../config/fees.js';
 
 // ============================================================================
 // TYPES

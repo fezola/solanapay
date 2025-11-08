@@ -8,10 +8,10 @@
  */
 
 import { FastifyPluginAsync } from 'fastify';
-import { nairaWalletService } from '../services/wallet/naira';
-import { BreadOfframpService } from '../services/bread/offramp';
-import { supabaseAdmin } from '../utils/supabase';
-import { logger } from '../utils/logger';
+import { nairaWalletService } from '../services/wallet/naira.js';
+import { BreadOfframpService } from '../services/bread/offramp.js';
+import { supabaseAdmin } from '../utils/supabase.js';
+import { logger } from '../utils/logger.js';
 
 export const walletRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================================================
