@@ -15,6 +15,7 @@ import { LimitsScreen } from './components/LimitsScreen';
 import { BottomNavigation } from './components/BottomNavigation';
 import { PINSetupScreen } from './components/PINSetupScreen';
 import { UserProfileScreen } from './components/UserProfileScreen';
+import { WithdrawScreen } from './components/WithdrawScreen';
 import { authService, userService, bankAccountService } from './services/supabase';
 import { NotificationListener, notificationService } from './services/notifications';
 import { transactionsApi } from './services/api';
@@ -481,15 +482,15 @@ export default function App() {
   };
 
   const handleNavigate = (screen: string) => {
-    if (screen === 'kyc' || screen === 'limits' || screen === 'transaction-detail' || screen === 'banks') {
+    if (screen === 'kyc' || screen === 'limits' || screen === 'transaction-detail' || screen === 'banks' || screen === 'withdraw') {
       setCurrentScreen(screen);
     } else {
       setActiveTab(screen);
       setCurrentScreen(screen);
     }
 
-    // Refresh balance when navigating to home screen
-    if (screen === 'home') {
+    // Refresh balance when navigating to home screen or withdraw screen
+    if (screen === 'home' || screen === 'withdraw') {
       loadBalance();
     }
   };
@@ -502,6 +503,9 @@ export default function App() {
     } else if (currentScreen === 'banks') {
       setCurrentScreen('offramp');
       setActiveTab('offramp');
+    } else if (currentScreen === 'withdraw') {
+      setCurrentScreen('home');
+      setActiveTab('home');
     } else if (currentScreen === 'transaction-detail') {
       setCurrentScreen('transactions');
       setActiveTab('transactions');
@@ -594,7 +598,20 @@ export default function App() {
             onBack={handleBack}
           />
         )}
-        
+
+        {currentScreen === 'withdraw' && (
+          <WithdrawScreen
+            nairaBalance={balance.naira}
+            bankAccounts={bankAccounts}
+            onBack={handleBack}
+            onWithdrawSuccess={() => {
+              loadBalance();
+              loadTransactions();
+            }}
+            userId={userId}
+          />
+        )}
+
         {currentScreen === 'transactions' && (
           <TransactionsScreen 
             transactions={transactions}

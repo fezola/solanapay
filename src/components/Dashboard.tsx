@@ -277,7 +277,7 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
               transition={{ delay: 0.2 + (index * 0.05) }}
             >
               <button
-                onClick={() => onNavigate('wallets')}
+                onClick={() => onNavigate(asset.isFiat ? 'withdraw' : 'wallets')}
                 className="w-full p-4 hover:bg-gray-50 transition-colors flex items-center gap-3"
               >
                 <img
