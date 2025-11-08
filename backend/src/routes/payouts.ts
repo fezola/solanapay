@@ -388,11 +388,49 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       request.log.info({ offramp: offrampResult }, 'Offramp executed via Bread');
 
-      // Step 4: Create payout record
+      // Step 9: Create quote record (required for payout)
+      const lockExpiresAt = quoteResponse.data.expiry
+        ? new Date(quoteResponse.data.expiry)
+        : new Date(Date.now() + 300 * 1000); // 5 minutes default
+
+      const { data: quoteRecord, error: quoteError } = await supabaseAdmin
+        .from('quotes')
+        .insert({
+          user_id: userId,
+          crypto_asset: body.asset,
+          crypto_network: body.chain,
+          crypto_amount: body.amount.toString(),
+          spot_price: quoteResponse.data.rate.toString(),
+          fx_rate: quoteResponse.data.rate.toString(),
+          spread_bps: 0,
+          flat_fee: (quoteResponse.data.fee * body.amount).toString(),
+          variable_fee_bps: Math.floor(quoteResponse.data.fee * 10000),
+          total_fees: (quoteResponse.data.fee * body.amount).toString(),
+          fiat_amount: quoteResponse.data.output_amount.toString(),
+          final_amount: quoteResponse.data.output_amount.toString(),
+          locked_until: lockExpiresAt.toISOString(),
+          is_used: true,
+          used_at: new Date().toISOString(),
+          metadata: {
+            currency: body.currency,
+            provider: 'bread',
+            bread_quote_type: quoteResponse.data.type,
+          },
+        })
+        .select()
+        .single();
+
+      if (quoteError) {
+        request.log.error({ error: quoteError }, 'Failed to create quote record');
+        return reply.status(500).send({ error: 'Failed to create quote record' });
+      }
+
+      // Step 10: Create payout record
       const { data: payout, error: payoutError } = await supabaseAdmin
         .from('payouts')
         .insert({
           user_id: userId,
+          quote_id: quoteRecord.id,
           beneficiary_id: body.beneficiary_id,
           fiat_amount: quoteResponse.data.output_amount.toString(),
           currency: body.currency,
