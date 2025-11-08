@@ -6,16 +6,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 // Helper to format crypto amounts properly (no scientific notation)
 const formatCryptoAmount = (amount: number, symbol: string): string => {
-  if (amount === 0) return '0.00';
+  if (!amount || amount === 0 || isNaN(amount)) return '0.00';
 
   // For very small amounts (< 0.0001), show more decimals
   if (amount < 0.0001) {
-    return amount.toFixed(8).replace(/\.?0+$/, '');
+    const formatted = amount.toFixed(8).replace(/\.?0+$/, '');
+    return formatted === '0' ? '0.00' : formatted;
   }
 
   // For normal amounts, show appropriate decimals
   if (amount < 1) {
-    return amount.toFixed(6).replace(/\.?0+$/, '');
+    const formatted = amount.toFixed(6).replace(/\.?0+$/, '');
+    return formatted === '0' ? '0.00' : formatted;
   }
 
   return amount.toLocaleString(undefined, {
@@ -75,6 +77,11 @@ interface TransactionsScreenProps {
 }
 
 export function TransactionsScreen({ transactions, onViewTransaction }: TransactionsScreenProps) {
+  console.log('📊 TransactionsScreen - All transactions:', transactions);
+  console.log('📊 Total transactions:', transactions.length);
+  console.log('📊 Deposits:', transactions.filter(t => t.type === 'deposit').length);
+  console.log('📊 Offramps:', transactions.filter(t => t.type === 'offramp').length);
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
@@ -134,6 +141,14 @@ export function TransactionsScreen({ transactions, onViewTransaction }: Transact
     const assetLogo = getAssetLogo(transaction.crypto || 'USDC', transaction.network);
     const networkLogo = getNetworkLogo(transaction.network);
 
+    console.log('Transaction card data:', {
+      id: transaction.id,
+      type: transaction.type,
+      crypto: transaction.crypto,
+      amount: transaction.amount,
+      nairaAmount: transaction.nairaAmount
+    });
+
     return (
       <motion.div
         initial={{ y: 20, opacity: 0 }}
@@ -141,71 +156,68 @@ export function TransactionsScreen({ transactions, onViewTransaction }: Transact
         transition={{ delay: index * 0.05 }}
       >
         <Card
-          className="relative overflow-hidden border-0 shadow-sm hover:shadow-md transition-all cursor-pointer"
+          className="relative overflow-hidden border border-gray-200 hover:border-gray-300 transition-all cursor-pointer bg-white"
           onClick={() => onViewTransaction && onViewTransaction(transaction)}
-          style={{
-            background: isDeposit
-              ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
-              : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'
-          }}
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent pointer-events-none" />
-
-          <div className="relative p-4">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-start gap-3">
-                <div className="relative">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${
-                    isDeposit ? 'bg-green-500' : 'bg-yellow-500'
+          <div className="p-4">
+            <div className="flex items-center justify-between">
+              {/* Left side: Icon + Info */}
+              <div className="flex items-center gap-3">
+                {/* Asset Icon - SMALLER */}
+                <div className="relative flex-shrink-0">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    isDeposit
+                      ? 'bg-gradient-to-br from-emerald-500 to-emerald-600'
+                      : 'bg-gradient-to-br from-purple-500 to-purple-600'
                   }`}>
                     <img
                       src={assetLogo}
                       alt={transaction.crypto}
-                      className="w-7 h-7 rounded-full"
+                      className="w-5 h-5"
                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
                   </div>
+                  {/* Network badge - SMALLER */}
                   {transaction.network && (
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100">
-                      <img src={networkLogo} alt={transaction.network} className="w-3 h-3 rounded-full" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200">
+                      <img src={networkLogo} alt={transaction.network} className="w-2.5 h-2.5" />
                     </div>
                   )}
                 </div>
 
+                {/* Transaction Info */}
                 <div>
-                  <p className="text-gray-900 font-bold text-base mb-0.5">
+                  <p className="text-gray-900 font-semibold text-sm mb-0.5">
                     {isDeposit ? 'Deposit' : 'Off-ramp'} {transaction.crypto}
                   </p>
-                  <p className="text-gray-600 text-sm font-medium">{formatDate(transaction.date)}</p>
-                  <p className="text-gray-400 text-xs mt-1 font-mono">
-                    ID: {transaction.id.substring(0, 8)}...{transaction.id.substring(transaction.id.length - 8)}
-                  </p>
+                  <p className="text-gray-500 text-xs">{formatDate(transaction.date)}</p>
                 </div>
               </div>
 
+              {/* Right side: Amount + Status */}
               <div className="text-right">
-                <p className={`font-bold text-lg mb-1 ${isDeposit ? 'text-green-700' : 'text-yellow-800'}`}>
-                  {isDeposit ? '+' : ''}{formatCryptoAmount(transaction.amount, transaction.crypto || 'USDC')} {transaction.crypto}
+                <p className={`font-bold text-sm mb-1 ${
+                  isDeposit ? 'text-emerald-600' : 'text-purple-600'
+                }`}>
+                  {isDeposit ? '+' : '-'}{formatCryptoAmount(transaction.amount, transaction.crypto || 'USDC')} {transaction.crypto}
                 </p>
                 {transaction.nairaAmount && (
-                  <p className="text-gray-700 text-sm font-semibold">
+                  <p className="text-gray-600 text-xs">
                     ₦{transaction.nairaAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 )}
               </div>
             </div>
 
+            {/* Status Badge */}
             <div className="flex items-center justify-between">
-              <Badge className={`${getStatusColor(transaction.status)} flex items-center gap-1.5 px-3 py-1 font-semibold`}>
+              <Badge className={`${getStatusColor(transaction.status)} flex items-center gap-1.5 px-2.5 py-0.5 text-xs`}>
                 {getStatusIcon(transaction.status)}
                 {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1).replace('_', ' ')}
               </Badge>
 
               {transaction.network && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/60 rounded-full">
-                  <img src={networkLogo} alt={transaction.network} className="w-3.5 h-3.5 rounded-full" />
-                  <span className="text-xs font-semibold text-gray-700 capitalize">{transaction.network}</span>
-                </div>
+                <span className="text-xs text-gray-500 capitalize">{transaction.network}</span>
               )}
             </div>
           </div>

@@ -297,24 +297,18 @@ export function TransactionDetailScreen({ transaction, onBack }: TransactionDeta
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <Card className="relative overflow-hidden border-0 shadow-md"
-            style={{
-              background: transaction.type === 'deposit'
-                ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
-                : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'
-            }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent pointer-events-none" />
-
-            <div className="relative p-6">
+          <Card className="border border-gray-200 bg-white">
+            <div className="p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-md ${
-                  transaction.type === 'deposit' ? 'bg-green-500' : 'bg-yellow-500'
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  transaction.type === 'deposit'
+                    ? 'bg-gradient-to-br from-emerald-500 to-emerald-600'
+                    : 'bg-gradient-to-br from-purple-500 to-purple-600'
                 }`}>
                   <img
                     src={getAssetLogo(transaction.crypto || 'USDC')}
                     alt={transaction.crypto}
-                    className="w-8 h-8 rounded-full"
+                    className="w-6 h-6"
                   />
                 </div>
                 <div>
@@ -323,18 +317,18 @@ export function TransactionDetailScreen({ transaction, onBack }: TransactionDeta
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl">
-                  <p className="text-gray-700 font-semibold">Crypto Amount</p>
-                  <p className="text-gray-900 font-bold text-lg">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <p className="text-gray-600 text-sm">Crypto Amount</p>
+                  <p className="text-gray-900 font-bold">
                     {formatCryptoAmount(transaction.amount, transaction.crypto || 'USDC')} {transaction.crypto}
                   </p>
                 </div>
 
                 {transaction.rate && (
-                  <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl">
-                    <p className="text-gray-700 font-semibold">Exchange Rate</p>
-                    <p className="text-gray-900 font-bold">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600 text-sm">Exchange Rate</p>
+                    <p className="text-gray-900 font-semibold">
                       ₦{transaction.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
@@ -342,25 +336,25 @@ export function TransactionDetailScreen({ transaction, onBack }: TransactionDeta
 
                 {transaction.nairaAmount && (
                   <>
-                    <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl">
-                      <p className="text-gray-700 font-semibold">Naira Amount</p>
-                      <p className="text-gray-900 font-bold text-lg">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <p className="text-gray-600 text-sm">Naira Amount</p>
+                      <p className="text-gray-900 font-bold">
                         ₦{transaction.nairaAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
 
                     {transaction.fee && (
-                      <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl">
-                        <p className="text-gray-700 font-semibold">Platform Fee</p>
-                        <p className="text-gray-900 font-bold">
-                          ₦{transaction.fee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <p className="text-gray-600 text-sm">Platform Fee</p>
+                        <p className="text-gray-900 font-semibold">
+                          -₦{transaction.fee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl shadow-md">
-                      <p className="text-white font-bold text-lg">You Receive</p>
-                      <p className="text-white font-bold text-xl">
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg mt-4">
+                      <p className="text-white font-semibold">You Receive</p>
+                      <p className="text-white font-bold text-lg">
                         ₦{((transaction.nairaAmount || 0) - (transaction.fee || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
