@@ -6,7 +6,7 @@ import { baseWalletService } from '../services/wallet/base.js';
 import { BreadService } from '../services/bread/index.js';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
-import type { Chain, Asset } from '../types/index.js';
+import type { Asset } from '../types/index.js';
 
 // Initialize Bread service
 const breadService = new BreadService({
@@ -92,65 +92,93 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * Get balances for all assets
    *
-   * This calculates the user's available balance by:
-   * 1. Summing all confirmed deposits from onchain_deposits table
-   * 2. Subtracting all completed payouts
+   * This fetches REAL-TIME balances from the blockchain:
+   * 1. Gets user's deposit addresses from database
+   * 2. Queries Solana/Base blockchain for actual token balances
+   * 3. Returns current balances for all supported assets
    */
   fastify.get('/balances', async (request, reply) => {
     const userId = request.userId!;
 
-    // Get all confirmed deposits (not swept yet or swept to treasury)
-    const { data: deposits } = await supabaseAdmin
-      .from('onchain_deposits')
-      .select('asset, chain, amount')
-      .eq('user_id', userId)
-      .in('status', ['confirmed', 'swept']);
+    try {
+      // Get user's deposit addresses
+      const { data: addresses, error } = await supabaseAdmin
+        .from('deposit_addresses')
+        .select('network, asset_symbol, address')
+        .eq('user_id', userId);
 
-    // Get all completed payouts (money already sent to bank)
-    const { data: payouts } = await supabaseAdmin
-      .from('payouts')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'success');
+      if (error) {
+        logger.error({ error, userId }, 'Failed to fetch deposit addresses');
+        return reply.status(500).send({ error: 'Failed to fetch addresses' });
+      }
 
-    // Calculate balances
-    const balances: any = {
-      usdcSolana: 0,
-      usdcBase: 0,
-      sol: 0,
-      usdtSolana: 0,
-      eth: 0,
-    };
+      // Initialize balances
+      const balances: any = {
+        usdcSolana: 0,
+        usdcBase: 0,
+        sol: 0,
+        usdtSolana: 0,
+        eth: 0,
+      };
 
-    // Add up all deposits
-    if (deposits) {
-      for (const deposit of deposits) {
-        const amount = parseFloat(deposit.amount);
+      // If no addresses, return zero balances
+      if (!addresses || addresses.length === 0) {
+        return { balances };
+      }
 
-        // Map asset + chain to balance key
-        let key = '';
-        if (deposit.asset === 'USDC' && deposit.chain === 'solana') {
-          key = 'usdcSolana';
-        } else if (deposit.asset === 'USDC' && deposit.chain === 'base') {
-          key = 'usdcBase';
-        } else if (deposit.asset === 'SOL' && deposit.chain === 'solana') {
-          key = 'sol';
-        } else if (deposit.asset === 'USDT' && deposit.chain === 'solana') {
-          key = 'usdtSolana';
-        } else if (deposit.asset === 'ETH' && deposit.chain === 'base') {
-          key = 'eth';
-        }
+      // Fetch real-time balances from blockchain
+      for (const addr of addresses) {
+        const { network, asset_symbol, address } = addr;
 
-        if (key && balances.hasOwnProperty(key)) {
-          balances[key] += amount;
+        try {
+          let balance = 0;
+
+          // Fetch balance based on network and asset
+          if (network === 'solana') {
+            if (asset_symbol === 'SOL') {
+              balance = await solanaWalletService.getSOLBalance(address);
+              balances.sol = balance;
+            } else if (asset_symbol === 'USDC') {
+              balance = await solanaWalletService.getUSDCBalance(address);
+              balances.usdcSolana = balance;
+            } else if (asset_symbol === 'USDT') {
+              balance = await solanaWalletService.getUSDTBalance(address);
+              balances.usdtSolana = balance;
+            }
+          } else if (network === 'base') {
+            if (asset_symbol === 'USDC') {
+              balance = await baseWalletService.getUSDCBalance(address);
+              balances.usdcBase = balance;
+            } else if (asset_symbol === 'ETH') {
+              balance = await baseWalletService.getETHBalance(address);
+              balances.eth = balance;
+            }
+          }
+
+          logger.debug({
+            network,
+            asset: asset_symbol,
+            address,
+            balance,
+          }, 'Fetched balance from blockchain');
+
+        } catch (balanceError: any) {
+          logger.error({
+            error: balanceError.message,
+            network,
+            asset: asset_symbol,
+            address,
+          }, 'Failed to fetch balance for asset');
+          // Continue with other assets even if one fails
         }
       }
+
+      return { balances };
+
+    } catch (error: any) {
+      logger.error({ error: error.message, userId }, 'Failed to fetch balances');
+      return reply.status(500).send({ error: 'Failed to fetch balances' });
     }
-
-    // Subtract payouts (TODO: implement when payout flow is complete)
-    // For now, payouts are handled separately
-
-    return { balances };
   });
 
   /**

@@ -7,9 +7,11 @@ import {
   ArrowDownLeft,
   Building2,
   ChevronRight,
-  User
+  User,
+  History
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { priceService } from '../services/priceService';
 
 interface DashboardProps {
   userName: string;
@@ -29,17 +31,46 @@ interface DashboardProps {
 export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, notifications = [] }: DashboardProps) {
   const [selectedCurrency, setSelectedCurrency] = useState<'naira' | 'usd'>('naira');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [rates, setRates] = useState({
+    usdcSolana: 1600,
+    usdcBase: 1600,
+    usdtSolana: 1600,
+    sol: 250000,
+  });
 
   const hasUnreadNotifications = notifications.length > 0;
 
-  const totalInNaira = (balance.usdcSolana * 1600) + (balance.usdcBase * 1600) + (balance.sol * 250000) + (balance.usdtSolana * 1600) + balance.naira;
-  const totalInUSD = totalInNaira / 1600;
+  // Fetch exchange rates from Bread Africa on mount and every minute
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const freshRates = await priceService.getAllRates();
+        setRates(freshRates);
+        console.log('✅ Fetched exchange rates:', freshRates);
+      } catch (error) {
+        console.error('Failed to fetch rates:', error);
+      }
+    };
 
-  const displayBalance = selectedCurrency === 'naira' 
-    ? `₦${totalInNaira.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+    fetchRates(); // Initial fetch
+
+    // Refresh rates every minute
+    const interval = setInterval(fetchRates, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const totalInNaira = (balance.usdcSolana * rates.usdcSolana) + (balance.usdcBase * rates.usdcBase) + (balance.sol * rates.sol) + (balance.usdtSolana * rates.usdtSolana) + balance.naira;
+  const totalInUSD = totalInNaira / rates.usdcSolana; // Use USDC rate as USD reference
+
+  const displayBalance = selectedCurrency === 'naira'
+    ? `₦${totalInNaira.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : `$${totalInUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 
+
+  // Calculate USD values for each asset using Bread rates
+  const solPriceUSD = rates.sol / rates.usdcSolana; // Dynamic SOL price in USD
 
   const cryptoAssets = [
     {
@@ -47,6 +78,8 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       name: 'USDC',
       symbol: 'USDC',
       amount: balance.usdcSolana,
+      usdValue: balance.usdcSolana * (rates.usdcSolana / rates.usdcSolana), // USDC rate in USD
+      ngnValue: balance.usdcSolana * rates.usdcSolana,
       logo: '/usd-coin-usdc-logo.svg',
       network: 'Solana',
       networkLogo: '/solana-sol-logo.svg',
@@ -56,6 +89,8 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       name: 'USDC',
       symbol: 'USDC',
       amount: balance.usdcBase,
+      usdValue: balance.usdcBase * (rates.usdcBase / rates.usdcSolana), // USDC rate in USD
+      ngnValue: balance.usdcBase * rates.usdcBase,
       logo: '/usd-coin-usdc-logo.svg',
       network: 'Base',
       networkLogo: '/BASE.png',
@@ -65,6 +100,8 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       name: 'SOL',
       symbol: 'SOL',
       amount: balance.sol,
+      usdValue: balance.sol * solPriceUSD,
+      ngnValue: balance.sol * rates.sol,
       logo: '/solana-sol-logo.svg',
       network: 'Solana',
       networkLogo: '/solana-sol-logo.svg',
@@ -74,6 +111,8 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       name: 'USDT',
       symbol: 'USDT',
       amount: balance.usdtSolana,
+      usdValue: balance.usdtSolana * (rates.usdtSolana / rates.usdcSolana), // USDT rate in USD
+      ngnValue: balance.usdtSolana * rates.usdtSolana,
       logo: '/tether-usdt-logo.svg',
       network: 'Solana',
       networkLogo: '/solana-sol-logo.svg',
@@ -252,11 +291,33 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
                   </p>
                 </div>
 
-                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                <div className="text-right flex-shrink-0">
+                  <p className="text-gray-900 font-semibold">
+                    ${asset.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <ChevronRight className="w-5 h-5 text-gray-400 mt-1 ml-auto" />
+                </div>
               </button>
             </motion.div>
           ))}
         </Card>
+
+        {/* View All Transactions Button */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="mt-4"
+        >
+          <Button
+            onClick={() => onNavigate('history')}
+            variant="outline"
+            className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 border-gray-200 hover:bg-gray-50"
+          >
+            <History className="w-5 h-5" />
+            <span>View All Transactions</span>
+          </Button>
+        </motion.div>
       </div>
     </div>
   );

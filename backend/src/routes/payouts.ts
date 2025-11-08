@@ -66,11 +66,63 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * Get current exchange rate for crypto → NGN
    * GET /api/payouts/rate?asset=USDC&chain=solana&currency=NGN
+   *
+   * Note: Bread Africa doesn't support SOL offramp, so we use CoinGecko for SOL pricing
    */
   fastify.get('/rate', async (request, reply) => {
     const query = getRateSchema.parse(request.query);
 
     try {
+      // Special handling for SOL - Bread doesn't support SOL offramp
+      if (query.asset.toUpperCase() === 'SOL') {
+        request.log.info({
+          msg: 'Fetching SOL price from CoinGecko (Bread does not support SOL)',
+          asset: query.asset,
+          chain: query.chain,
+        });
+
+        try {
+          // Fetch SOL price from CoinGecko
+          const response = await fetch(
+            'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'
+          );
+          const data = await response.json();
+          const solPriceUSD = data.solana?.usd || 157; // Fallback to ~$157
+
+          // Convert to NGN (using approximate rate of 1600 NGN/USD)
+          const usdToNgnRate = 1600;
+          const solPriceNGN = solPriceUSD * usdToNgnRate;
+
+          request.log.info({
+            msg: 'SOL price fetched from CoinGecko',
+            solPriceUSD,
+            solPriceNGN,
+          });
+
+          return {
+            asset: query.asset,
+            chain: query.chain,
+            currency: query.currency,
+            rate: solPriceNGN,
+            provider: 'coingecko',
+            timestamp: new Date().toISOString(),
+          };
+        } catch (coinGeckoError: any) {
+          request.log.error({ error: coinGeckoError }, 'Failed to fetch SOL price from CoinGecko');
+
+          // Fallback to hardcoded SOL price
+          return {
+            asset: query.asset,
+            chain: query.chain,
+            currency: query.currency,
+            rate: 250000, // ~$157 * 1600 NGN/USD
+            provider: 'fallback',
+            timestamp: new Date().toISOString(),
+          };
+        }
+      }
+
+      // For other assets (USDC, USDT), use Bread Africa
       request.log.info({
         msg: 'Fetching Bread exchange rate',
         asset: query.asset,

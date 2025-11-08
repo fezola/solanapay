@@ -171,7 +171,26 @@ export const depositsApi = {
    * Get deposit history
    */
   async getHistory() {
-    return apiRequest<{ deposits: any[] }>('/api/deposits/history');
+    return apiRequest<{
+      deposits: Array<{
+        id: string;
+        user_id: string;
+        deposit_address_id: string;
+        chain: string;
+        asset: string;
+        address: string;
+        tx_hash: string;
+        amount: string;
+        confirmations: number;
+        required_confirmations: number;
+        detected_at: string;
+        confirmed_at: string | null;
+        swept_at: string | null;
+        status: 'detected' | 'confirming' | 'confirmed' | 'swept' | 'failed';
+        from_address: string | null;
+        block_number: number | null;
+      }>;
+    }>('/api/deposits/history');
   },
 
   /**

@@ -8,6 +8,7 @@ import { WalletScreen } from './components/WalletScreen';
 import { BankAccountScreen } from './components/BankAccountScreen';
 import { TransactionsScreen } from './components/TransactionsScreen';
 import { TransactionDetailScreen } from './components/TransactionDetailScreen';
+import { TransactionHistory } from './components/TransactionHistory';
 import { SettingsScreen } from './components/SettingsScreen';
 import { KYCScreen } from './components/KYCScreen';
 import { LimitsScreen } from './components/LimitsScreen';
@@ -454,6 +455,9 @@ export default function App() {
     } else if (currentScreen === 'transaction-detail') {
       setCurrentScreen('transactions');
       setActiveTab('transactions');
+    } else if (currentScreen === 'history') {
+      setCurrentScreen('home');
+      setActiveTab('home');
     } else {
       setCurrentScreen('home');
       setActiveTab('home');
@@ -590,6 +594,12 @@ export default function App() {
             userPhone={userPhone}
             onBack={handleBack}
             onUpdateProfile={handleUpdateProfile}
+          />
+        )}
+
+        {currentScreen === 'history' && (
+          <TransactionHistory
+            onBack={handleBack}
           />
         )}
 
