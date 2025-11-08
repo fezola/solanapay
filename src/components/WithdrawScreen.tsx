@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { ArrowLeft, Wallet, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { PINVerificationModal } from './PINVerificationModal';
-import { userService } from '../services/supabase';
+import { authService, userService } from '../services/supabase';
 
 interface WithdrawScreenProps {
   nairaBalance: number;
@@ -71,9 +71,9 @@ export function WithdrawScreen({
 
     try {
       const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://crypto-offramp-backend.onrender.com';
-      
+
       // Get auth token
-      const session = await userService.getSession();
+      const session = await authService.getSession();
       const token = session?.access_token;
 
       if (!token) {
