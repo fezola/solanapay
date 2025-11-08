@@ -86,7 +86,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           const response = await fetch(
             'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'
           );
-          const data = await response.json();
+          const data = (await response.json()) as { solana?: { usd?: number } };
           const solPriceUSD = data.solana?.usd || 157; // Fallback to ~$157
 
           // Convert to NGN (using approximate rate of 1600 NGN/USD)
