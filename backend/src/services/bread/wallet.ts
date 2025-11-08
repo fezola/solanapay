@@ -139,7 +139,33 @@ export class BreadWalletService {
       walletId,
     });
 
-    const wallet = await this.client.get<BreadWallet>(`/wallet/${walletId}`);
+    const response = await this.client.get<any>(`/wallet/${walletId}`);
+
+    // Bread API wraps response in { success, status, message, data: {...} }
+    const walletData = response.data || response;
+
+    // Extract the address based on network type
+    const address = walletData.address?.svm || walletData.address?.evm || walletData.address || '';
+
+    logger.debug({
+      msg: 'Bread wallet fetched',
+      walletId,
+      address,
+      rawResponse: JSON.stringify(response),
+    });
+
+    // Map to our BreadWallet interface
+    const wallet: BreadWallet = {
+      id: walletData.wallet_id || walletData.id || walletId,
+      identityId: walletData.identity_id || walletData.identityId || '',
+      type: walletData.type || 'offramp',
+      network: walletData.network || 'svm',
+      chain: walletData.chain || 'solana',
+      address,
+      beneficiaryId: walletData.beneficiary_id || walletData.beneficiaryId,
+      status: walletData.status || 'active',
+      createdAt: walletData.created_at || walletData.createdAt || new Date().toISOString(),
+    };
 
     return wallet;
   }
