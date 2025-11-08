@@ -372,16 +372,16 @@ export const payoutsApi = {
 
   /**
    * Execute offramp in one step (simplified flow, no quote creation needed)
+   * Credits the user's NGN wallet, NOT their bank account.
    * @param params - Offramp parameters
    */
   async executeOfframp(params: {
     asset: string;
     chain: string;
     amount: number;
-    beneficiary_id: string;
     currency?: string;
   }) {
-    return apiRequest<{ payout: any; quote: any; offramp: any }>('/api/payouts/execute', {
+    return apiRequest<{ payout: any; quote: any; wallet: any }>('/api/payouts/execute', {
       method: 'POST',
       body: JSON.stringify(params),
     });

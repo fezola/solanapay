@@ -30,7 +30,6 @@ const executeOfframpSchema = z.object({
   asset: z.string(),
   chain: z.string(),
   amount: z.number().positive(),
-  beneficiary_id: z.string().uuid(),
   currency: z.string().default('NGN'),
 });
 
@@ -232,13 +231,16 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * Execute offramp in one step (no quote creation needed)
    * POST /api/payouts/execute
-   * Body: { asset: 'USDC', chain: 'solana', amount: 1, beneficiary_id: 'uuid', currency: 'NGN' }
+   * Body: { asset: 'USDC', chain: 'solana', amount: 1, currency: 'NGN' }
+   *
+   * This endpoint credits the user's NGN wallet, NOT their bank account.
+   * Users can later withdraw from their NGN wallet to their bank account.
    */
   fastify.post('/execute', async (request, reply) => {
     const userId = request.userId!;
     const body = executeOfframpSchema.parse(request.body);
 
-    request.log.info({ body }, '🚀 Executing offramp (simplified flow)');
+    request.log.info({ body }, '🚀 Executing offramp to NGN wallet');
 
     // Minimum offramp amount check
     if (body.amount < 1) {
@@ -258,45 +260,59 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       request.log.info({ quote: quoteResponse.data }, 'Quote received from Bread');
 
-      // Step 2: Get bank account (beneficiary)
-      const { data: bankAccount, error: bankAccountError } = await supabaseAdmin
-        .from('bank_accounts')
-        .select('*')
-        .eq('id', body.beneficiary_id)
-        .eq('user_id', userId)
-        .single();
-
-      if (bankAccountError || !bankAccount) {
-        request.log.error({ error: bankAccountError, beneficiaryId: body.beneficiary_id }, 'Bank account not found');
-        return reply.status(404).send({
-          error: 'Bank account not found',
-          message: 'The selected bank account does not exist or does not belong to you',
-        });
-      }
-
-      request.log.info({
-        beneficiaryId: bankAccount.id,
-        bankName: bankAccount.bank_name,
-        accountNumber: bankAccount.account_number,
-        accountName: bankAccount.account_name,
-      }, '✅ Selected bank account verified');
-
-      // Step 3: Get user's Bread identity ID
+      // Step 2: Get user's Bread identity ID (create if doesn't exist)
       const { data: user } = await supabaseAdmin
         .from('users')
-        .select('bread_identity_id')
+        .select('bread_identity_id, bread_wallet_id, email, full_name, phone_number')
         .eq('id', userId)
         .single();
 
-      if (!user?.bread_identity_id) {
-        return reply.status(400).send({
-          error: 'Bread identity not found',
-          message: 'Please complete KYC verification first',
-        });
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' });
       }
 
-      // Step 4: Create Bread wallet if it doesn't exist
-      let walletId = bankAccount.bread_wallet_id;
+      let breadIdentityId = user.bread_identity_id;
+
+      // Create Bread identity if it doesn't exist
+      if (!breadIdentityId) {
+        request.log.info('Creating Bread identity for user...');
+
+        // Parse full name into first and last name
+        const fullName = user.full_name || user.email.split('@')[0];
+        const nameParts = fullName.trim().split(' ');
+        const firstName = nameParts[0] || 'User';
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Name';
+
+        // Use phone number or placeholder
+        let phoneNumber = user.phone_number;
+        if (!phoneNumber) {
+          phoneNumber = '+2348000000000'; // Placeholder if no phone
+        }
+
+        // Create Bread identity
+        const breadIdentity = await breadService.identity.createIdentity({
+          firstName,
+          lastName,
+          email: user.email,
+          phoneNumber,
+          address: {
+            country: 'NG',
+          },
+        });
+
+        breadIdentityId = breadIdentity.id;
+
+        // Save Bread identity ID to user record
+        await supabaseAdmin
+          .from('users')
+          .update({ bread_identity_id: breadIdentityId })
+          .eq('id', userId);
+
+        request.log.info({ breadIdentityId }, '✅ Bread identity created successfully');
+      }
+
+      // Step 3: Create or get Bread wallet (WITHOUT beneficiary - just for receiving crypto)
+      let walletId = user.bread_wallet_id;
       let breadWalletAddress: string = '';
 
       if (walletId) {
@@ -320,14 +336,14 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       if (!walletId) {
-        // No wallet or invalid wallet - create a new one
-        request.log.info('Creating Bread wallet for beneficiary...');
+        // No wallet or invalid wallet - create a new one WITHOUT beneficiary
+        request.log.info('Creating Bread wallet for offramp (no beneficiary)...');
 
         const wallet = await breadService.wallet.createWallet(
-          user.bread_identity_id,
+          breadIdentityId,
           body.chain as Chain,
-          'offramp',
-          bankAccount.bread_beneficiary_id
+          'offramp'
+          // NO beneficiary_id - we're just crediting the NGN wallet
         );
 
         walletId = wallet.id;
@@ -339,16 +355,16 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
             breadWalletAddress,
             rawWalletData: JSON.stringify(wallet)
           },
-          'Bread wallet created - saving to database'
+          'Bread wallet created - saving to user record'
         );
 
-        // Update bank account with the REAL Bread wallet ID
+        // Update user record with the Bread wallet ID
         await supabaseAdmin
-          .from('bank_accounts')
+          .from('users')
           .update({ bread_wallet_id: walletId })
-          .eq('id', body.beneficiary_id);
+          .eq('id', userId);
 
-        request.log.info({ walletId }, 'Bread wallet ID saved to database');
+        request.log.info({ walletId }, 'Bread wallet ID saved to user record');
       }
 
       // Step 6: Get user's deposit address
@@ -469,20 +485,21 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       // Step 11: Create payout record (status: completed since NGN is in wallet)
+      // NOTE: No beneficiary_id - money goes to NGN wallet, not bank account
       request.log.info({
         userId,
         quoteId: quoteRecord.id,
-        beneficiaryId: body.beneficiary_id,
         fiatAmount: netAmount,
         currency: body.currency,
-      }, 'Creating payout record...');
+        destination: 'NGN Wallet',
+      }, 'Creating payout record for wallet credit...');
 
       const { data: payout, error: payoutError } = await supabaseAdmin
         .from('payouts')
         .insert({
           user_id: userId,
           quote_id: quoteRecord.id,
-          beneficiary_id: body.beneficiary_id,
+          beneficiary_id: null, // No beneficiary - money goes to NGN wallet
           fiat_amount: netAmount.toString(),
           currency: body.currency,
           provider: 'bread',

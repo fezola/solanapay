@@ -152,60 +152,65 @@ export function WithdrawScreen({
 
   return (
     <>
-      <div className="pb-safe-nav bg-white min-h-screen">
-        {/* Header */}
-        <div className="px-6 pb-6 mb-6 bg-gradient-to-br from-green-600 to-green-700" style={{ paddingTop: `calc(3rem + env(safe-area-inset-top))` }}>
-          <motion.div
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+      <div className="pb-safe-nav min-h-screen overflow-y-auto" style={{ backgroundColor: 'white' }}>
+        {/* Header - Black gradient with title */}
+        <div
+          className="px-6 pb-6"
+          style={{
+            background: 'linear-gradient(to bottom right, #111827, #1f2937)',
+            paddingTop: `calc(2rem + env(safe-area-inset-top))`,
+            minHeight: '180px'
+          }}
+        >
+          <button
+            onClick={onBack}
+            style={{ color: 'white' }}
+            className="mb-4 hover:opacity-90 transition-opacity flex items-center gap-2"
           >
-            <button
-              onClick={onBack}
-              className="mb-4 text-white hover:text-white/90 transition-colors flex items-center gap-2"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Back</span>
-            </button>
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">Back</span>
+          </button>
 
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <Wallet className="w-6 h-6 text-white" />
-              </div>
-              <h1 className="text-2xl font-bold text-white">Withdraw to Bank</h1>
+          <div className="flex items-center gap-3 mb-2">
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+            >
+              <Wallet className="w-6 h-6" style={{ color: 'white' }} />
             </div>
-            <p className="text-white/90 text-sm">Send money from your NGN wallet to your bank account</p>
-          </motion.div>
+            <h1 className="text-2xl font-bold" style={{ color: 'white' }}>Withdraw to Bank</h1>
+          </div>
+          <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+            Send money from your NGN wallet to your bank account
+          </p>
         </div>
 
-        {/* Available Balance Card */}
-        <div className="px-6 mb-6">
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 border border-green-200"
-          >
+        {/* Content - continues white background */}
+        <div className="px-6 space-y-6 pb-8">
+          {/* Available Balance */}
+          <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
             <div className="flex items-center gap-2 mb-2">
-              <Wallet className="w-5 h-5 text-green-700" />
-              <p className="text-sm text-green-700 font-medium">Available Balance</p>
+              <Wallet className="w-5 h-5 text-gray-700" />
+              <p className="text-sm text-gray-600 font-medium">Available Balance</p>
             </div>
-            <p className="text-3xl font-bold text-green-900">
+            <p className="text-3xl font-bold text-gray-900">
               ₦{nairaBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-          </motion.div>
-        </div>
-
-        {/* Withdrawal Form */}
-        <div className="px-6 space-y-6">
+          </div>
           {/* Amount Input */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Label htmlFor="amount" className="text-gray-700 font-semibold mb-2 block">
-              Amount (NGN)
-            </Label>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label htmlFor="amount" className="text-gray-700 font-semibold">
+                Amount (NGN)
+              </Label>
+              <button
+                onClick={handleMaxClick}
+                className="px-2 py-1 text-xs font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                disabled={isProcessing}
+              >
+                Use Max
+              </button>
+            </div>
             <div className="relative">
               <Input
                 id="amount"
@@ -214,16 +219,9 @@ export function WithdrawScreen({
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => handleAmountChange(e.target.value)}
-                className="h-14 text-lg pr-20"
+                className="h-14 text-lg"
                 disabled={isProcessing}
               />
-              <button
-                onClick={handleMaxClick}
-                className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
-                disabled={isProcessing}
-              >
-                MAX
-              </button>
             </div>
             {amount && parseFloat(amount) > nairaBalance && (
               <div className="flex items-center gap-2 mt-2 text-red-600 text-sm">
@@ -231,14 +229,10 @@ export function WithdrawScreen({
                 <span>Insufficient balance</span>
               </div>
             )}
-          </motion.div>
+          </div>
 
           {/* Bank Account Selection */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
+          <div>
             <Label htmlFor="bank" className="text-gray-700 font-semibold mb-2 block">
               Bank Account
             </Label>
@@ -267,19 +261,14 @@ export function WithdrawScreen({
                 </SelectContent>
               </Select>
             )}
-          </motion.div>
+          </div>
 
           {/* Summary */}
           {amount && selectedBank && parseFloat(amount) <= nairaBalance && (
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="bg-gray-50 rounded-xl p-4 space-y-2"
-            >
+            <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-200">
               <div className="flex items-center gap-2 mb-3">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                <p className="text-sm font-semibold text-gray-700">Withdrawal Summary</p>
+                <CheckCircle2 className="w-5 h-5 text-gray-700" />
+                <p className="text-sm font-semibold text-gray-900">Withdrawal Summary</p>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Amount</span>
@@ -299,15 +288,11 @@ export function WithdrawScreen({
                   {bankAccounts.find(b => b.id === selectedBank)?.accountNumber}
                 </span>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {/* Withdraw Button */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.5 }}
-          >
+          <div>
             <Button
               onClick={handleWithdrawClick}
               disabled={
@@ -318,11 +303,11 @@ export function WithdrawScreen({
                 !selectedBank ||
                 bankAccounts.length === 0
               }
-              className="w-full h-14 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-xl"
+              className="w-full h-14 bg-gray-900 hover:bg-black text-white text-lg font-semibold rounded-xl"
             >
               {isProcessing ? 'Processing...' : 'Withdraw to Bank'}
             </Button>
-          </motion.div>
+          </div>
         </div>
       </div>
 

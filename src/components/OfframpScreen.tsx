@@ -54,7 +54,6 @@ export function OfframpScreen({
 }: OfframpScreenProps) {
   const [selectedAsset, setSelectedAsset] = useState<AssetId>('usdc-solana');
   const [amount, setAmount] = useState('');
-  const [selectedBank, setSelectedBank] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [quoteLockTime, setQuoteLockTime] = useState(120); // 120 seconds quote lock
   const [rates, setRates] = useState<Record<string, number>>({
@@ -243,11 +242,6 @@ export function OfframpScreen({
       return;
     }
 
-    if (!selectedBank) {
-      toast.error('Please select a bank account');
-      return;
-    }
-
     // Show PIN verification modal
     setShowPINModal(true);
   };
@@ -272,33 +266,28 @@ export function OfframpScreen({
 
       console.log('✅ Quote received:', quoteResponse);
 
-      // Step 2: Execute the offramp directly
-      console.log('🔵 Executing offramp...', {
+      // Step 2: Execute the offramp directly (credits NGN wallet)
+      console.log('🔵 Executing offramp to NGN wallet...', {
         asset: currentAsset.symbol,
         chain: currentAsset.network.toLowerCase(),
         amount: parseFloat(amount),
-        beneficiaryId: selectedBank,
       });
 
       const payoutResponse = await payoutsApi.executeOfframp({
         asset: currentAsset.symbol,
         chain: currentAsset.network.toLowerCase(),
         amount: parseFloat(amount),
-        beneficiary_id: selectedBank,
         currency: 'NGN',
       });
 
       console.log('✅ Offramp executed:', payoutResponse);
 
       // Step 3: Create transaction object for UI
-      const bankAccount = bankAccounts.find(b => b.id === selectedBank);
-
       console.log('📝 Creating transaction object:', {
         payoutId: payoutResponse.payout.id,
-        beneficiaryId: selectedBank,
-        bankAccount: bankAccount,
         amount: parseFloat(amount),
         nairaAmount: youReceive,
+        destination: 'NGN Wallet',
       });
 
       const transaction = {
@@ -312,25 +301,22 @@ export function OfframpScreen({
         fee: fee,
         status: payoutResponse.payout.status,
         date: new Date().toISOString(),
-        bankAccountId: selectedBank,
-        bankAccount: bankAccount,
         confirmations: 0,
         requiredConfirmations: currentAsset.network === 'Solana' ? 1 : 12,
       };
 
       console.log('✅ Transaction object created:', transaction);
 
-      // Show success notification with bank details
-      const bankName = bankAccount?.bankName || 'your bank';
-      const accountNumber = bankAccount?.accountNumber || '';
-      toast.success(`₦${youReceive.toLocaleString()} sent to ${bankName} (${accountNumber})!`);
+      // Show success notification - money goes to NGN wallet
+      toast.success(`₦${youReceive.toLocaleString()} added to your NGN Wallet!`, {
+        description: 'You can withdraw to your bank account anytime',
+      });
 
       // Call parent success handler
       onOfframpSuccess(transaction);
 
       setIsProcessing(false);
       setAmount('');
-      setSelectedBank('');
       setQuoteLockTime(120);
     } catch (error: any) {
       console.error('❌ Offramp failed:', error);
@@ -532,41 +518,15 @@ export function OfframpScreen({
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label>Bank Account</Label>
-                {bankAccounts.length === 0 ? (
-                  <button
-                    onClick={onNavigateToBankAccounts}
-                    className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-gray-400 hover:bg-gray-50 transition-colors flex items-center justify-between"
-                  >
-                    <span className="text-gray-600">Add a bank account</span>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
-                  </button>
-                ) : (
-                  <Select value={selectedBank} onValueChange={setSelectedBank}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select bank account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bankAccounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.bankName} - {account.accountNumber}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
               <div className="bg-blue-50 p-4 rounded-xl flex gap-3 border border-blue-100">
                 <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-blue-900 mb-1">Processing Time</p>
-                  <p className="text-blue-800">
-                    • {currentAsset.network === 'Solana' ? '~30 seconds' : '~2 minutes'} for confirmation
+                  <p className="text-blue-900 font-semibold mb-1">Money goes to your NGN Wallet</p>
+                  <p className="text-blue-800 text-sm">
+                    • Instant credit to your wallet
                   </p>
-                  <p className="text-blue-800">
-                    • 5-10 minutes for Naira payout (business hours)
+                  <p className="text-blue-800 text-sm">
+                    • Withdraw to your bank account anytime
                   </p>
                 </div>
               </div>
@@ -574,16 +534,15 @@ export function OfframpScreen({
               <Button
                 onClick={handleOfframp}
                 disabled={
-                  isProcessing || 
-                  !amount || 
-                  !selectedBank || 
+                  isProcessing ||
+                  !amount ||
                   parseFloat(amount) > currentAsset.balance ||
                   parseFloat(amount) < currentAsset.minAmount ||
                   exceedsLimit
                 }
                 className="w-full"
               >
-                {isProcessing ? 'Processing...' : 'Off-ramp Now'}
+                {isProcessing ? 'Processing...' : 'Convert to NGN'}
               </Button>
             </div>
           </Card>
