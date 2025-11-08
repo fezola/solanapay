@@ -1,6 +1,6 @@
 /**
  * NGN Wallet API Routes
- * 
+ *
  * Endpoints:
  * - GET /api/wallet/balance - Get NGN wallet balance
  * - GET /api/wallet/transactions - Get wallet transaction history
@@ -8,17 +8,21 @@
  */
 
 import { FastifyPluginAsync } from 'fastify';
+import { authMiddleware } from '../middleware/auth.js';
 import { nairaWalletService } from '../services/wallet/naira.js';
 import { BreadOfframpService } from '../services/bread/offramp.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
 
 export const walletRoutes: FastifyPluginAsync = async (fastify) => {
+  // Apply auth middleware to all routes
+  fastify.addHook('onRequest', authMiddleware);
+
   // ============================================================================
   // GET /api/wallet/balance
   // ============================================================================
   fastify.get('/balance', async (request, reply) => {
-    const userId = (request.user as any)?.id;
+    const userId = request.userId!;
 
     if (!userId) {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -53,11 +57,7 @@ export const walletRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/wallet/transactions
   // ============================================================================
   fastify.get('/transactions', async (request, reply) => {
-    const userId = (request.user as any)?.id;
-
-    if (!userId) {
-      return reply.code(401).send({ error: 'Unauthorized' });
-    }
+    const userId = request.userId!;
 
     const { limit = 50, offset = 0 } = request.query as any;
 
@@ -111,11 +111,7 @@ export const walletRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/wallet/withdraw
   // ============================================================================
   fastify.post('/withdraw', async (request, reply) => {
-    const userId = (request.user as any)?.id;
-
-    if (!userId) {
-      return reply.code(401).send({ error: 'Unauthorized' });
-    }
+    const userId = request.userId!;
 
     const { amount, beneficiaryId } = request.body as any;
 
