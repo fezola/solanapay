@@ -267,12 +267,19 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         .single();
 
       if (bankAccountError || !bankAccount) {
-        request.log.error({ error: bankAccountError }, 'Bank account not found');
+        request.log.error({ error: bankAccountError, beneficiaryId: body.beneficiary_id }, 'Bank account not found');
         return reply.status(404).send({
           error: 'Bank account not found',
           message: 'The selected bank account does not exist or does not belong to you',
         });
       }
+
+      request.log.info({
+        beneficiaryId: bankAccount.id,
+        bankName: bankAccount.bank_name,
+        accountNumber: bankAccount.account_number,
+        accountName: bankAccount.account_name,
+      }, '✅ Selected bank account verified');
 
       // Step 3: Get user's Bread identity ID
       const { data: user } = await supabaseAdmin
@@ -389,6 +396,15 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         ? new Date(quoteResponse.data.expiry)
         : new Date(Date.now() + 300 * 1000); // 5 minutes default
 
+      request.log.info({
+        userId,
+        asset: body.asset,
+        chain: body.chain,
+        amount: body.amount,
+        rate: quoteResponse.data.rate,
+        outputAmount: quoteResponse.data.output_amount,
+      }, 'Creating quote record...');
+
       const { data: quoteRecord, error: quoteError } = await supabaseAdmin
         .from('quotes')
         .insert({
@@ -417,9 +433,19 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         .single();
 
       if (quoteError) {
-        request.log.error({ error: quoteError }, 'Failed to create quote record');
-        return reply.status(500).send({ error: 'Failed to create quote record' });
+        request.log.error({
+          error: quoteError,
+          errorDetails: quoteError.details,
+          errorMessage: quoteError.message,
+        }, 'Failed to create quote record');
+        return reply.status(500).send({
+          error: 'Failed to create quote record',
+          message: quoteError.message,
+          details: quoteError.details,
+        });
       }
+
+      request.log.info({ quoteId: quoteRecord.id }, '✅ Quote record created successfully');
 
       // Step 10: Credit NGN wallet (instead of immediate payout)
       const grossAmountNaira = quoteResponse.data.output_amount;
@@ -443,6 +469,14 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       // Step 11: Create payout record (status: completed since NGN is in wallet)
+      request.log.info({
+        userId,
+        quoteId: quoteRecord.id,
+        beneficiaryId: body.beneficiary_id,
+        fiatAmount: netAmount,
+        currency: body.currency,
+      }, 'Creating payout record...');
+
       const { data: payout, error: payoutError } = await supabaseAdmin
         .from('payouts')
         .insert({
@@ -459,9 +493,15 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         .single();
 
       if (payoutError) {
-        request.log.error({ error: payoutError }, 'Failed to create payout record');
-        return reply.status(500).send({ error: 'Failed to create payout record' });
+        request.log.error({ error: payoutError, errorDetails: payoutError.details }, 'Failed to create payout record');
+        return reply.status(500).send({
+          error: 'Failed to create payout record',
+          message: payoutError.message,
+          details: payoutError.details,
+        });
       }
+
+      request.log.info({ payoutId: payout.id }, '✅ Payout record created successfully');
 
       return {
         success: true,

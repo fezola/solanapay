@@ -184,6 +184,11 @@ export default function App() {
     try {
       const response = await transactionsApi.getAll();
       console.log('✅ Loaded transactions from backend:', response.transactions.length);
+      console.log('📊 Transaction breakdown:', {
+        total: response.transactions.length,
+        deposits: response.transactions.filter((t: any) => t.type === 'deposit').length,
+        offramps: response.transactions.filter((t: any) => t.type === 'offramp').length,
+      });
       setTransactions(response.transactions);
     } catch (error) {
       console.error('Failed to load transactions:', error);

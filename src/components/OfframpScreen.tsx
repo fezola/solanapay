@@ -292,9 +292,18 @@ export function OfframpScreen({
 
       // Step 3: Create transaction object for UI
       const bankAccount = bankAccounts.find(b => b.id === selectedBank);
+
+      console.log('📝 Creating transaction object:', {
+        payoutId: payoutResponse.payout.id,
+        beneficiaryId: selectedBank,
+        bankAccount: bankAccount,
+        amount: parseFloat(amount),
+        nairaAmount: youReceive,
+      });
+
       const transaction = {
         id: payoutResponse.payout.id,
-        type: 'offramp',
+        type: 'offramp' as const,
         crypto: currentAsset.symbol,
         network: currentAsset.network,
         amount: parseFloat(amount),
@@ -309,8 +318,16 @@ export function OfframpScreen({
         requiredConfirmations: currentAsset.network === 'Solana' ? 1 : 12,
       };
 
+      console.log('✅ Transaction object created:', transaction);
+
+      // Show success notification with bank details
+      const bankName = bankAccount?.bankName || 'your bank';
+      const accountNumber = bankAccount?.accountNumber || '';
+      toast.success(`₦${youReceive.toLocaleString()} sent to ${bankName} (${accountNumber})!`);
+
+      // Call parent success handler
       onOfframpSuccess(transaction);
-      toast.success('Off-ramp executed successfully! Money is on the way to your bank.');
+
       setIsProcessing(false);
       setAmount('');
       setSelectedBank('');

@@ -44,7 +44,7 @@ export const transactionRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Get payouts if requested
     if (!type || type === 'offramp') {
-      const { data: payouts } = await supabaseAdmin
+      const { data: payouts, error: payoutsError } = await supabaseAdmin
         .from('payouts')
         .select(`
           *,
@@ -55,17 +55,35 @@ export const transactionRoutes: FastifyPluginAsync = async (fastify) => {
         .order('created_at', { ascending: false })
         .limit(limit);
 
-      if (payouts) {
+      if (payoutsError) {
+        request.log.error({ error: payoutsError }, 'Failed to fetch payouts');
+      }
+
+      request.log.info({
+        payoutsCount: payouts?.length || 0,
+        userId,
+      }, 'Fetched payouts for user');
+
+      if (payouts && payouts.length > 0) {
+        request.log.info({
+          firstPayout: {
+            id: payouts[0].id,
+            hasQuote: !!payouts[0].quote,
+            hasBeneficiary: !!payouts[0].beneficiary,
+            status: payouts[0].status,
+          }
+        }, 'Sample payout data');
+
         transactions.push(
           ...payouts.map((p: any) => ({
             id: p.id,
             type: 'offramp' as const,
-            crypto: p.quote?.asset,
-            network: p.quote?.chain,
+            crypto: p.quote?.crypto_asset || p.quote?.asset,
+            network: p.quote?.crypto_network || p.quote?.chain,
             amount: parseFloat(p.quote?.crypto_amount || 0),
             nairaAmount: parseFloat(p.fiat_amount),
-            rate: parseFloat(p.quote?.spot_price || 0),
-            fee: parseFloat(p.quote?.total_fee || 0),
+            rate: parseFloat(p.quote?.spot_price || p.quote?.fx_rate || 0),
+            fee: parseFloat(p.quote?.total_fees || p.quote?.total_fee || 0),
             status: mapPayoutStatus(p.status),
             date: p.created_at,
             bankAccount: {
