@@ -10,6 +10,7 @@ import {
 import {
   getAssociatedTokenAddress,
   createTransferInstruction,
+  createAssociatedTokenAccountInstruction,
   TOKEN_PROGRAM_ID,
   getAccount,
 } from '@solana/spl-token';
@@ -171,15 +172,19 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
     );
   }
 
-  // Check if destination token account exists
+  // Check if destination token account exists, create if it doesn't
+  let destinationAccountExists = false;
   try {
     await getAccount(connection, toTokenAccount);
+    destinationAccountExists = true;
     logger.info({ msg: 'Destination token account exists', toTokenAccount: toTokenAccount.toBase58() });
   } catch (error) {
-    throw new Error(
-      `Destination token account does not exist for ${request.toAddress}. ` +
-      `Bread wallet may not be initialized for ${request.asset}.`
-    );
+    logger.warn({
+      msg: 'Destination token account does not exist, will create it',
+      toTokenAccount: toTokenAccount.toBase58(),
+      toAddress: request.toAddress,
+      asset: request.asset,
+    });
   }
 
   // Convert amount to token units (USDC/USDT have 6 decimals)
@@ -202,10 +207,34 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
     amount: request.amount,
     amountInTokenUnits,
     availableBalance: Number(fromAccountInfo.amount) / Math.pow(10, decimals),
+    willCreateDestinationAccount: !destinationAccountExists,
   });
 
-  // Create transfer instruction
-  const transaction = new Transaction().add(
+  // Create transaction
+  const transaction = new Transaction();
+
+  // Add instruction to create destination token account if it doesn't exist
+  if (!destinationAccountExists) {
+    logger.info({
+      msg: 'Adding instruction to create destination token account',
+      payer: fromPubkey.toBase58(),
+      ata: toTokenAccount.toBase58(),
+      owner: toPubkey.toBase58(),
+      mint: mintPubkey.toBase58(),
+    });
+
+    transaction.add(
+      createAssociatedTokenAccountInstruction(
+        fromPubkey,      // payer (must have SOL for rent)
+        toTokenAccount,  // ata to create
+        toPubkey,        // owner of that ata (Bread wallet)
+        mintPubkey       // token mint
+      )
+    );
+  }
+
+  // Add transfer instruction
+  transaction.add(
     createTransferInstruction(
       fromTokenAccount,
       toTokenAccount,
