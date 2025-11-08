@@ -16,7 +16,8 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { PINSetupScreen } from './components/PINSetupScreen';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { authService, userService, bankAccountService } from './services/supabase';
-import { NotificationListener } from './services/notifications';
+import { NotificationListener, notificationService } from './services/notifications';
+import { transactionsApi } from './services/api';
 
 interface BankAccount {
   id: string;
@@ -148,6 +149,19 @@ export default function App() {
       }
     } catch (error) {
       console.error('Failed to load balance:', error);
+    }
+  };
+
+  // Load transactions from backend
+  const loadTransactions = async () => {
+    if (!isAuthenticated || !userId) return;
+
+    try {
+      const response = await transactionsApi.getAll();
+      console.log('✅ Loaded transactions from backend:', response.transactions.length);
+      setTransactions(response.transactions);
+    } catch (error) {
+      console.error('Failed to load transactions:', error);
     }
   };
 
@@ -300,6 +314,7 @@ export default function App() {
     loadLimits();
     loadDepositAddresses();
     loadBalance();
+    loadTransactions();
   }, [isAuthenticated, userId]);
 
   // Start/stop real-time notification listener when user is authenticated
@@ -414,11 +429,16 @@ export default function App() {
     // Refresh balance from backend to get accurate data
     loadBalance();
 
-    // Add transaction
-    setTransactions([transaction, ...transactions]);
+    // Reload transactions from backend to get the latest data
+    loadTransactions();
+
+    // Show success notification
+    const nairaAmount = transaction.nairaAmount || 0;
+    notificationService.offrampProcessing(
+      `₦${nairaAmount.toLocaleString()}`
+    );
 
     // Update limits
-    const nairaAmount = transaction.nairaAmount || 0;
     setLimits({
       ...limits,
       daily: { ...limits.daily, used: limits.daily.used + nairaAmount },

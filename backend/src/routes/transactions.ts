@@ -49,7 +49,7 @@ export const transactionRoutes: FastifyPluginAsync = async (fastify) => {
         .select(`
           *,
           quote:quotes(*),
-          beneficiary:payout_beneficiaries(*)
+          beneficiary:bank_accounts(*)
         `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
@@ -128,7 +128,7 @@ export const transactionRoutes: FastifyPluginAsync = async (fastify) => {
       .select(`
         *,
         quote:quotes(*),
-        beneficiary:payout_beneficiaries(*)
+        beneficiary:bank_accounts(*)
       `)
       .eq('id', id)
       .eq('user_id', userId)

@@ -310,7 +310,7 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
           className="mt-4"
         >
           <Button
-            onClick={() => onNavigate('history')}
+            onClick={() => onNavigate('transactions')}
             variant="outline"
             className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 border-gray-200 hover:bg-gray-50"
           >

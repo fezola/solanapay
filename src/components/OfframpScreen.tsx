@@ -9,6 +9,7 @@ import { Badge } from './ui/badge';
 import { ArrowDownUp, Info, ChevronRight, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { quotesApi, payoutsApi } from '../services/api';
+import { calculatePlatformFee } from '../config/fees';
 
 interface OfframpScreenProps {
   balance: {
@@ -114,8 +115,9 @@ export function OfframpScreen({
 
   const currentAsset = assets.find(a => a.id === selectedAsset) || assets[0];
   const nairaAmount = amount ? parseFloat(amount) * currentAsset.rate : 0;
-  const feeBps = kycTier >= 2 ? 0.008 : 0.01; // 0.8% for tier 2, 1% otherwise
-  const fee = nairaAmount * feeBps;
+
+  // Calculate platform fee using centralized config
+  const fee = calculatePlatformFee(nairaAmount);
   const youReceive = nairaAmount - fee;
 
   const dailyRemaining = limits.daily.limit - limits.daily.used;
@@ -450,17 +452,19 @@ export function OfframpScreen({
               </div>
 
               <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">You get</span>
                   <span className="text-gray-900">₦{nairaAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Fee ({(feeBps * 100).toFixed(1)}%)</span>
-                  <span className="text-gray-900">-₦{fee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
+                {fee > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Platform fee</span>
+                    <span className="text-gray-900">-₦{fee.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="border-t pt-2 flex items-center justify-between">
-                  <span>You receive</span>
-                  <span className={exceedsLimit ? 'text-red-600' : ''}>
+                  <span className="font-medium">You receive</span>
+                  <span className={`text-2xl font-semibold ${exceedsLimit ? 'text-red-600' : 'text-gray-900'}`}>
                     ₦{youReceive.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
