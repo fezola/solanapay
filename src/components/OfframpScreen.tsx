@@ -10,6 +10,8 @@ import { ArrowDownUp, Info, ChevronRight, Clock, AlertCircle } from 'lucide-reac
 import { toast } from 'sonner@2.0.3';
 import { quotesApi, payoutsApi } from '../services/api';
 import { calculatePlatformFee } from '../config/fees';
+import { PINVerificationModal } from './PINVerificationModal';
+import { userService } from '../services/supabase';
 
 interface OfframpScreenProps {
   balance: {
@@ -35,6 +37,7 @@ interface OfframpScreenProps {
       used: number;
     };
   };
+  userId: string;
 }
 
 type AssetId = 'usdc-solana' | 'usdc-base' | 'sol' | 'usdt-solana';
@@ -46,7 +49,8 @@ export function OfframpScreen({
   onNavigateToKYC,
   onOfframpSuccess,
   kycTier,
-  limits
+  limits,
+  userId
 }: OfframpScreenProps) {
   const [selectedAsset, setSelectedAsset] = useState<AssetId>('usdc-solana');
   const [amount, setAmount] = useState('');
@@ -60,6 +64,8 @@ export function OfframpScreen({
     'usdt-solana': 1600,
   });
   const [loadingRates, setLoadingRates] = useState(false);
+  const [showPINModal, setShowPINModal] = useState(false);
+  const [pendingTransaction, setPendingTransaction] = useState<any>(null);
 
   const assets = [
     {
@@ -216,6 +222,7 @@ export function OfframpScreen({
   }, [amount, quoteLockTime]);
 
   const handleOfframp = async () => {
+    // Validation checks
     if (!amount || parseFloat(amount) <= 0) {
       toast.error('Please enter an amount');
       return;
@@ -241,6 +248,11 @@ export function OfframpScreen({
       return;
     }
 
+    // Show PIN verification modal
+    setShowPINModal(true);
+  };
+
+  const executeOfframp = async () => {
     setIsProcessing(true);
 
     try {
@@ -314,6 +326,25 @@ export function OfframpScreen({
 
       toast.error(errorMessage);
       setIsProcessing(false);
+    }
+  };
+
+  const handlePINVerify = async (pin: string): Promise<boolean> => {
+    try {
+      // Verify PIN
+      const isValid = await userService.verifyTransactionPIN(userId, pin);
+
+      if (isValid) {
+        // PIN verified - execute the offramp
+        setShowPINModal(false);
+        await executeOfframp();
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error('PIN verification error:', error);
+      return false;
     }
   };
 
@@ -541,6 +572,15 @@ export function OfframpScreen({
           </Card>
         </motion.div>
       </div>
+
+      {/* PIN Verification Modal */}
+      <PINVerificationModal
+        isOpen={showPINModal}
+        onClose={() => setShowPINModal(false)}
+        onVerify={handlePINVerify}
+        title="Confirm Transaction"
+        description="Enter your PIN to authorize this off-ramp"
+      />
     </div>
   );
 }

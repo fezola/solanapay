@@ -570,6 +570,7 @@ export default function App() {
             onOfframpSuccess={handleOfframpSuccess}
             kycTier={kycTier}
             limits={limits}
+            userId={userId}
           />
         )}
         
