@@ -549,7 +549,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-lg mx-auto bg-white min-h-screen relative">
+      <div className="max-w-lg mx-auto bg-white min-h-screen relative flex flex-col">
+        {/* Main content area - scrollable, with padding for fixed navbar */}
+        <div className="flex-1 overflow-y-auto pb-20">
         {currentScreen === 'home' && (
           <Dashboard
             userName={userName}
@@ -648,8 +650,12 @@ export default function App() {
             onBack={handleBack}
           />
         )}
+        </div>
 
-        <BottomNavigation activeTab={activeTab} onTabChange={handleNavigate} />
+        {/* Fixed Bottom Navigation - stays at bottom even with keyboard */}
+        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto">
+          <BottomNavigation activeTab={activeTab} onTabChange={handleNavigate} />
+        </div>
       </div>
       <Toaster />
     </div>

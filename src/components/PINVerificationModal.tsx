@@ -75,24 +75,24 @@ export function PINVerificationModal({
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop - DON'T close on click to prevent accidental dismissal */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={handleClose}
-            className="fixed inset-0 bg-black/50 z-50"
+            className="fixed inset-0 bg-black/60 z-50"
           />
 
-          {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none">
+          {/* Modal - Fixed to bottom for mobile keyboard */}
+          <div className="fixed inset-x-0 bottom-0 z-50 flex items-end justify-center pointer-events-none">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-md pointer-events-auto"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="w-full pointer-events-auto"
             >
-              <Card className="p-6 bg-white shadow-2xl">
+              <Card className="p-6 bg-white shadow-2xl rounded-t-3xl rounded-b-none border-t-4 border-blue-500">
                 {/* Header */}
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-3">
@@ -106,28 +106,28 @@ export function PINVerificationModal({
                   </div>
                   <button
                     onClick={handleClose}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    className="text-gray-400 hover:text-gray-600 transition-colors p-2"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-6 h-6" />
                   </button>
                 </div>
 
-                {/* PIN Display */}
-                <div className="flex justify-center gap-2 mb-6">
+                {/* PIN Display - Bigger boxes */}
+                <div className="flex justify-center gap-3 mb-6">
                   {[0, 1, 2, 3, 4, 5].map((index) => (
                     <motion.div
                       key={index}
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ delay: index * 0.03 }}
-                      className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center ${
+                      className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center ${
                         pin.length > index
                           ? 'border-blue-600 bg-blue-50'
-                          : 'border-gray-200 bg-white'
-                      } ${error ? 'border-red-300 bg-red-50' : ''}`}
+                          : 'border-gray-300 bg-white'
+                      } ${error ? 'border-red-400 bg-red-50' : ''}`}
                     >
                       {pin.length > index && (
-                        <div className={`w-2.5 h-2.5 rounded-full ${error ? 'bg-red-600' : 'bg-blue-600'}`} />
+                        <div className={`w-3 h-3 rounded-full ${error ? 'bg-red-600' : 'bg-blue-600'}`} />
                       )}
                     </motion.div>
                   ))}
@@ -156,15 +156,15 @@ export function PINVerificationModal({
                   </motion.div>
                 )}
 
-                {/* Number Pad */}
-                <div className="grid grid-cols-3 gap-3">
+                {/* Number Pad - BIGGER buttons for better touch */}
+                <div className="grid grid-cols-3 gap-4 mb-4">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <motion.button
                       key={num}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => handleNumberClick(num.toString())}
                       disabled={isVerifying}
-                      className="h-14 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-900 text-xl font-semibold transition-colors disabled:opacity-50"
+                      className="h-16 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 text-2xl font-semibold transition-colors disabled:opacity-50 shadow-sm"
                     >
                       {num}
                     </motion.button>
@@ -174,7 +174,7 @@ export function PINVerificationModal({
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleNumberClick('0')}
                     disabled={isVerifying}
-                    className="h-14 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-900 text-xl font-semibold transition-colors disabled:opacity-50"
+                    className="h-16 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 text-2xl font-semibold transition-colors disabled:opacity-50 shadow-sm"
                   >
                     0
                   </motion.button>
@@ -182,7 +182,7 @@ export function PINVerificationModal({
                     whileTap={{ scale: 0.95 }}
                     onClick={handleDelete}
                     disabled={isVerifying}
-                    className="h-14 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-900 text-lg font-semibold transition-colors disabled:opacity-50"
+                    className="h-16 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 text-xl font-semibold transition-colors disabled:opacity-50 shadow-sm"
                   >
                     ⌫
                   </motion.button>
@@ -192,14 +192,14 @@ export function PINVerificationModal({
                 <Button
                   onClick={handleClose}
                   variant="outline"
-                  className="w-full mt-4"
+                  className="w-full h-12 text-base font-semibold"
                   disabled={isVerifying}
                 >
                   Cancel
                 </Button>
 
                 {/* Security Note */}
-                <p className="text-center text-gray-500 text-xs mt-4">
+                <p className="text-center text-gray-500 text-xs mt-3 mb-2">
                   🔒 Your PIN is required to authorize this transaction
                 </p>
               </Card>
