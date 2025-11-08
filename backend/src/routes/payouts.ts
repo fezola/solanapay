@@ -304,8 +304,31 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       request.log.info({ depositAddress: depositAddress.address }, 'Deposit address found');
 
-      // Step 4: Check Bread wallet balance
-      const { checkBreadWalletBalance } = await import('../services/transfer.js');
+      // Step 4: Transfer crypto from deposit address to Bread wallet
+      const { transferToBreadWallet, checkBreadWalletBalance } = await import('../services/transfer.js');
+
+      request.log.info({
+        from: depositAddress.address,
+        to: depositAddress.bread_wallet_address,
+        amount: body.amount,
+        asset: body.asset,
+      }, '🔄 Transferring crypto to Bread wallet');
+
+      const transferResult = await transferToBreadWallet({
+        chain: body.chain as 'solana' | 'base',
+        asset: body.asset,
+        amount: body.amount,
+        fromAddress: depositAddress.address,
+        toAddress: depositAddress.bread_wallet_address!,
+        userId,
+      });
+
+      request.log.info({
+        txHash: transferResult.txHash,
+        amount: transferResult.amount,
+      }, '✅ Transfer to Bread wallet completed');
+
+      // Step 5: Check Bread wallet balance
       const breadBalance = await checkBreadWalletBalance({
         chain: body.chain as 'solana' | 'base',
         asset: body.asset,
@@ -336,7 +359,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         }, '⚠️ Using partial amount due to insufficient balance');
       }
 
-      // Step 5: Execute Bread offramp to bank account
+      // Step 6: Execute Bread offramp to bank account
       request.log.info({
         breadWalletId: depositAddress.bread_wallet_id,
         amount: actualOfframpAmount,
@@ -356,7 +379,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         status: offrampResult.data?.status,
       }, '✅ Bread offramp executed successfully');
 
-      // Step 6: Create quote record
+      // Step 7: Create quote record
       const lockExpiresAt = quoteResponse.data.expiry
         ? new Date(quoteResponse.data.expiry)
         : new Date(Date.now() + 300 * 1000);
@@ -396,7 +419,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Step 7: Create payout record
+      // Step 8: Create payout record
       const { data: payout, error: payoutError } = await supabaseAdmin
         .from('payouts')
         .insert({
