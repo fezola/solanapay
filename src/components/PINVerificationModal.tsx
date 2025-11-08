@@ -23,16 +23,23 @@ export function PINVerificationModal({
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
 
+  console.log('🔐 PIN Modal - isOpen:', isOpen, 'PIN:', pin, 'isVerifying:', isVerifying);
+
   const handleNumberClick = (num: string) => {
+    console.log('🔢 Number clicked:', num, 'Current PIN length:', pin.length);
     if (pin.length < 6) {
       const newPin = pin + num;
+      console.log('✅ New PIN:', newPin);
       setPin(newPin);
       setError('');
 
       // Auto-verify when 6 digits entered
       if (newPin.length === 6) {
+        console.log('🔐 6 digits entered, verifying...');
         verifyPin(newPin);
       }
+    } else {
+      console.log('⚠️ PIN already 6 digits, ignoring');
     }
   };
 
@@ -75,22 +82,22 @@ export function PINVerificationModal({
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop - DON'T close on click to prevent accidental dismissal */}
+          {/* Backdrop - Lower z-index so it doesn't block modal */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50"
+            className="fixed inset-0 bg-black/60 z-[100]"
           />
 
-          {/* Modal - Fixed to bottom for mobile keyboard */}
-          <div className="fixed inset-x-0 bottom-0 z-50 flex items-end justify-center pointer-events-none">
+          {/* Modal - Higher z-index to be above backdrop */}
+          <div className="fixed inset-x-0 bottom-0 z-[110] flex items-end justify-center">
             <motion.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="w-full pointer-events-auto"
+              className="w-full"
             >
               <Card className="p-6 bg-white shadow-2xl rounded-t-3xl rounded-b-none border-t-4 border-blue-500">
                 {/* Header */}
@@ -110,6 +117,11 @@ export function PINVerificationModal({
                   >
                     <X className="w-6 h-6" />
                   </button>
+                </div>
+
+                {/* Debug - Remove this later */}
+                <div className="text-center mb-2">
+                  <p className="text-xs text-gray-500">PIN Length: {pin.length} | PIN: {pin || '(empty)'}</p>
                 </div>
 
                 {/* PIN Display - Bigger boxes */}
@@ -159,33 +171,48 @@ export function PINVerificationModal({
                 {/* Number Pad - BIGGER buttons for better touch */}
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                    <motion.button
+                    <button
                       key={num}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleNumberClick(num.toString())}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Button clicked:', num);
+                        handleNumberClick(num.toString());
+                      }}
                       disabled={isVerifying}
-                      className="h-16 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 text-2xl font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                      className="h-16 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 text-2xl font-semibold transition-colors disabled:opacity-50 shadow-sm border-2 border-transparent active:border-blue-500"
                     >
                       {num}
-                    </motion.button>
+                    </button>
                   ))}
                   <div /> {/* Empty space */}
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleNumberClick('0')}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('Button clicked: 0');
+                      handleNumberClick('0');
+                    }}
                     disabled={isVerifying}
-                    className="h-16 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 text-2xl font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                    className="h-16 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 text-2xl font-semibold transition-colors disabled:opacity-50 shadow-sm border-2 border-transparent active:border-blue-500"
                   >
                     0
-                  </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleDelete}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('Delete clicked');
+                      handleDelete();
+                    }}
                     disabled={isVerifying}
-                    className="h-16 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 text-xl font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                    className="h-16 rounded-xl bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 text-xl font-semibold transition-colors disabled:opacity-50 shadow-sm border-2 border-transparent active:border-blue-500"
                   >
                     ⌫
-                  </motion.button>
+                  </button>
                 </div>
 
                 {/* Cancel Button */}
