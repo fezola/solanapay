@@ -58,27 +58,10 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
     return () => clearInterval(interval);
   }, []);
 
-  // SHOW ONLY REAL NGN WALLET BALANCE - NO FAKE CONVERSIONS!
-  const displayBalance = `₦${balance.naira.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-
-
   // Calculate USD values for each asset using Bread rates
   const solPriceUSD = rates.sol / rates.usdcSolana; // Dynamic SOL price in USD
 
   const cryptoAssets = [
-    {
-      id: 'ngn-wallet',
-      name: 'NGN Wallet',
-      symbol: 'NGN',
-      amount: balance.naira,
-      usdValue: balance.naira / rates.usdcSolana, // Convert NGN to USD
-      ngnValue: balance.naira,
-      logo: '/nigeria-flag.svg', // You can add a naira icon
-      network: 'Fiat',
-      networkLogo: '/nigeria-flag.svg',
-      isFiat: true,
-    },
     {
       id: 'usdc-solana',
       name: 'USDC',
@@ -129,11 +112,15 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
     },
   ];
 
+  // Calculate total assets in USDC
+  const totalUSDC = cryptoAssets.reduce((sum, asset) => sum + asset.usdValue, 0);
+  const displayBalance = `$${totalUSDC.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   return (
     <div className="pb-safe-nav bg-white min-h-screen">
       {/* Header with Background - Only greeting and balance */}
       <div
-        className="px-6 pb-8 bg-cover bg-center bg-no-repeat rounded-b-3xl"
+        className="px-6 pb-20 bg-cover bg-center bg-no-repeat rounded-b-3xl"
         style={{
           backgroundImage: 'url(/background.png)',
           paddingTop: `calc(3rem + env(safe-area-inset-top))`
@@ -208,11 +195,8 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
             {displayBalance.split('.')[0]}.<span style={{ fontSize: '40px' }}>{displayBalance.split('.')[1]}</span>
           </h1>
 
-          <div className="flex items-center gap-2 text-white drop-shadow">
-            <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-xs font-bold">
-              ₦
-            </div>
-            <span className="font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>NGN Wallet Balance</span>
+          <div className="flex items-center gap-2 text-white drop-shadow mb-12">
+            <span className="font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>Total Assets (USDC)</span>
           </div>
         </motion.div>
       </div>
@@ -267,7 +251,7 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
               transition={{ delay: 0.2 + (index * 0.05) }}
             >
               <button
-                onClick={() => onNavigate(asset.isFiat ? 'withdraw' : 'wallets')}
+                onClick={() => onNavigate('wallets')}
                 className="w-full p-4 hover:bg-gray-50 transition-colors flex items-center gap-3"
               >
                 <img
@@ -283,37 +267,23 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
                 <div className="flex-1 text-left min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <p className="text-gray-900 font-semibold">{asset.name}</p>
-                    {!asset.isFiat && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded-full">
-                        <img
-                          src={asset.networkLogo}
-                          alt={asset.network}
-                          className="w-3 h-3 rounded-full"
-                        />
-                        <span className="text-xs text-gray-600 font-medium">{asset.network}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded-full">
+                      <img
+                        src={asset.networkLogo}
+                        alt={asset.network}
+                        className="w-3 h-3 rounded-full"
+                      />
+                      <span className="text-xs text-gray-600 font-medium">{asset.network}</span>
+                    </div>
                   </div>
                   <p className="text-gray-500 text-sm">
-                    {asset.isFiat ? (
-                      // For NGN Wallet, show actual NGN amount
-                      `₦${asset.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    ) : (
-                      // For crypto, show crypto amount
-                      `${asset.amount === 0 ? '0.00' : asset.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} ${asset.symbol}`
-                    )}
+                    {asset.amount === 0 ? '0.00' : asset.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} {asset.symbol}
                   </p>
                 </div>
 
                 <div className="text-right flex-shrink-0">
                   <p className="text-gray-900 font-semibold">
-                    {asset.isFiat ? (
-                      // For NGN, show USD equivalent
-                      `$${asset.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    ) : (
-                      // For crypto, show USD value
-                      `$${asset.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    )}
+                    ${asset.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                   <ChevronRight className="w-5 h-5 text-gray-400 mt-1 ml-auto" />
                 </div>

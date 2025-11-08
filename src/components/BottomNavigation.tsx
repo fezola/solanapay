@@ -32,8 +32,8 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
                 paddingBottom: `calc(0.75rem + env(safe-area-inset-bottom))`,
               }}
             >
-              <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
-              <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{tab.label}</span>
+              <Icon className={`w-4 h-4 ${isActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
+              <span className={`text-[9px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{tab.label}</span>
             </button>
           );
         })}
