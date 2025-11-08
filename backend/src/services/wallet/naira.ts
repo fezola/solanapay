@@ -8,8 +8,8 @@
  * - Get transaction history
  */
 
-import { supabaseAdmin } from '../utils/supabase';
-import { logger } from '../utils/logger';
+import { supabaseAdmin } from '../../utils/supabase';
+import { logger } from '../../utils/logger';
 import { calculatePlatformFee } from '../../config/fees';
 
 // ============================================================================

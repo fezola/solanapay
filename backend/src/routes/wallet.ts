@@ -9,7 +9,7 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { nairaWalletService } from '../services/wallet/naira';
-import { breadOfframpService } from '../services/bread/offramp';
+import { BreadOfframpService } from '../services/bread/offramp';
 import { supabaseAdmin } from '../utils/supabase';
 import { logger } from '../utils/logger';
 
