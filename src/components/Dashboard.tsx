@@ -74,6 +74,18 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
 
   const cryptoAssets = [
     {
+      id: 'ngn-wallet',
+      name: 'NGN Wallet',
+      symbol: 'NGN',
+      amount: balance.naira,
+      usdValue: balance.naira / rates.usdcSolana, // Convert NGN to USD
+      ngnValue: balance.naira,
+      logo: '/nigeria-flag.svg', // You can add a naira icon
+      network: 'Fiat',
+      networkLogo: '/nigeria-flag.svg',
+      isFiat: true,
+    },
+    {
       id: 'usdc-solana',
       name: 'USDC',
       symbol: 'USDC',
@@ -83,6 +95,7 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       logo: '/usd-coin-usdc-logo.svg',
       network: 'Solana',
       networkLogo: '/solana-sol-logo.svg',
+      isFiat: false,
     },
     {
       id: 'usdc-base',
@@ -94,6 +107,7 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       logo: '/usd-coin-usdc-logo.svg',
       network: 'Base',
       networkLogo: '/BASE.png',
+      isFiat: false,
     },
     {
       id: 'sol',
@@ -105,6 +119,7 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       logo: '/solana-sol-logo.svg',
       network: 'Solana',
       networkLogo: '/solana-sol-logo.svg',
+      isFiat: false,
     },
     {
       id: 'usdt-solana',
@@ -116,6 +131,7 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       logo: '/tether-usdt-logo.svg',
       network: 'Solana',
       networkLogo: '/solana-sol-logo.svg',
+      isFiat: false,
     },
   ];
 
@@ -277,23 +293,37 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
                 <div className="flex-1 text-left min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <p className="text-gray-900 font-semibold">{asset.name}</p>
-                    <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded-full">
-                      <img
-                        src={asset.networkLogo}
-                        alt={asset.network}
-                        className="w-3 h-3 rounded-full"
-                      />
-                      <span className="text-xs text-gray-600 font-medium">{asset.network}</span>
-                    </div>
+                    {!asset.isFiat && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded-full">
+                        <img
+                          src={asset.networkLogo}
+                          alt={asset.network}
+                          className="w-3 h-3 rounded-full"
+                        />
+                        <span className="text-xs text-gray-600 font-medium">{asset.network}</span>
+                      </div>
+                    )}
                   </div>
                   <p className="text-gray-500 text-sm">
-                    {asset.amount === 0 ? '0.00' : asset.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} {asset.symbol}
+                    {asset.isFiat ? (
+                      // For NGN Wallet, show actual NGN amount
+                      `₦${asset.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    ) : (
+                      // For crypto, show crypto amount
+                      `${asset.amount === 0 ? '0.00' : asset.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} ${asset.symbol}`
+                    )}
                   </p>
                 </div>
 
                 <div className="text-right flex-shrink-0">
                   <p className="text-gray-900 font-semibold">
-                    ${asset.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {asset.isFiat ? (
+                      // For NGN, show USD equivalent
+                      `$${asset.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    ) : (
+                      // For crypto, show USD value
+                      `$${asset.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    )}
                   </p>
                   <ChevronRight className="w-5 h-5 text-gray-400 mt-1 ml-auto" />
                 </div>

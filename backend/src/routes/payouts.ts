@@ -6,6 +6,7 @@ import { BreadService } from '../services/bread/index.js';
 import { env } from '../config/env.js';
 import { nanoid } from 'nanoid';
 import type { Asset, Chain } from '../types/index.js';
+import { nairaWalletService } from '../services/wallet/naira.js';
 
 // Initialize Bread service
 const breadService = new BreadService({
@@ -378,15 +379,10 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       request.log.info({ transfer: transferResult }, 'Transfer completed');
 
-      // Step 8: Execute offramp via Bread
-      const offrampResult = await breadService.offramp.executeOfframp({
-        wallet_id: walletId,
-        amount: body.amount,
-        beneficiary_id: bankAccount.bread_beneficiary_id,
-        asset: breadService.offramp.mapAssetToBread(body.asset as Asset, body.chain as Chain),
-      });
+      // Step 8: Generate reference for wallet credit
+      const walletReference = `OFFRAMP-${nanoid(16)}`;
 
-      request.log.info({ offramp: offrampResult }, 'Offramp executed via Bread');
+      request.log.info({ walletReference }, 'Skipping immediate Bread payout - will credit NGN wallet instead');
 
       // Step 9: Create quote record (required for payout)
       const lockExpiresAt = quoteResponse.data.expiry
@@ -425,18 +421,39 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(500).send({ error: 'Failed to create quote record' });
       }
 
-      // Step 10: Create payout record
+      // Step 10: Credit NGN wallet (instead of immediate payout)
+      const grossAmountNaira = quoteResponse.data.output_amount;
+
+      const { transactionId, netAmount, fee } = await nairaWalletService.creditFromOfframp({
+        userId,
+        grossAmountNaira,
+        breadReference: walletReference,
+        quoteId: quoteRecord.id,
+      });
+
+      request.log.info(
+        {
+          transactionId,
+          grossAmountNaira,
+          netAmount,
+          fee,
+          walletReference
+        },
+        'NGN wallet credited successfully'
+      );
+
+      // Step 11: Create payout record (status: completed since NGN is in wallet)
       const { data: payout, error: payoutError } = await supabaseAdmin
         .from('payouts')
         .insert({
           user_id: userId,
           quote_id: quoteRecord.id,
           beneficiary_id: body.beneficiary_id,
-          fiat_amount: quoteResponse.data.output_amount.toString(),
+          fiat_amount: netAmount.toString(),
           currency: body.currency,
           provider: 'bread',
-          provider_reference: offrampResult.data.id,
-          status: 'processing',
+          provider_reference: walletReference,
+          status: 'completed',
         })
         .select()
         .single();
@@ -447,9 +464,17 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       return {
+        success: true,
+        message: 'NGN credited to your wallet',
         payout,
+        wallet: {
+          transactionId,
+          grossAmount: grossAmountNaira,
+          platformFee: fee,
+          netAmount,
+          currency: 'NGN',
+        },
         quote: quoteResponse.data,
-        offramp: offrampResult.data,
       };
     } catch (error: any) {
       request.log.error({ error: error.message, stack: error.stack }, 'Offramp execution failed');

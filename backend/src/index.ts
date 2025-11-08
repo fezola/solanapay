@@ -16,6 +16,7 @@ import { sumsubWebhookRoutes } from './routes/sumsub-webhooks.js';
 import { breadRateRoutes } from './routes/bread-rates.js';
 import { adminRoutes } from './routes/admin.js';
 import { healthRoutes } from './routes/health.js';
+import { walletRoutes } from './routes/wallet.js';
 import { initializeServices, shutdownServices } from './services/index.js';
 
 const fastify = Fastify({
@@ -68,6 +69,7 @@ await fastify.register(payoutRoutes, { prefix: '/api/payouts' });
 await fastify.register(kycRoutes, { prefix: '/api/kyc' });
 await fastify.register(transactionRoutes, { prefix: '/api/transactions' });
 await fastify.register(breadRateRoutes, { prefix: '/api/rates' });
+await fastify.register(walletRoutes, { prefix: '/api/wallet' });
 
 // Admin routes (require admin auth)
 await fastify.register(adminRoutes, { prefix: '/api/admin' });

@@ -129,21 +129,46 @@ export default function App() {
       if (!token) return;
 
       const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://crypto-offramp-backend.onrender.com';
-      const response = await fetch(`${API_URL}/api/deposits/balances`, {
+
+      // Fetch crypto balances
+      const cryptoResponse = await fetch(`${API_URL}/api/deposits/balances`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Loaded balance from backend:', data.balances);
+      // Fetch NGN wallet balance
+      const walletResponse = await fetch(`${API_URL}/api/wallet/balance`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (cryptoResponse.ok && walletResponse.ok) {
+        const cryptoData = await cryptoResponse.json();
+        const walletData = await walletResponse.json();
+
+        console.log('✅ Loaded crypto balance:', cryptoData.balances);
+        console.log('✅ Loaded NGN wallet balance:', walletData.balance);
 
         setBalance({
-          usdcSolana: data.balances.usdcSolana || 0,
-          usdcBase: data.balances.usdcBase || 0,
-          sol: data.balances.sol || 0,
-          usdtSolana: data.balances.usdtSolana || 0,
+          usdcSolana: cryptoData.balances.usdcSolana || 0,
+          usdcBase: cryptoData.balances.usdcBase || 0,
+          sol: cryptoData.balances.sol || 0,
+          usdtSolana: cryptoData.balances.usdtSolana || 0,
+          naira: walletData.balance?.naira || 0,
+        });
+      } else if (cryptoResponse.ok) {
+        // Fallback if wallet endpoint fails
+        const cryptoData = await cryptoResponse.json();
+        console.log('✅ Loaded crypto balance:', cryptoData.balances);
+        console.warn('⚠️ Failed to load NGN wallet balance');
+
+        setBalance({
+          usdcSolana: cryptoData.balances.usdcSolana || 0,
+          usdcBase: cryptoData.balances.usdcBase || 0,
+          sol: cryptoData.balances.sol || 0,
+          usdtSolana: cryptoData.balances.usdtSolana || 0,
           naira: 0,
         });
       }

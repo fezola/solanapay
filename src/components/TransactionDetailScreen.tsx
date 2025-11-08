@@ -2,17 +2,60 @@ import { motion } from 'motion/react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { 
-  ArrowLeft, 
-  CheckCircle2, 
-  Clock, 
-  XCircle, 
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  XCircle,
   AlertCircle,
   ExternalLink,
   Copy,
   Download
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+
+// Helper to format crypto amounts properly (no scientific notation)
+const formatCryptoAmount = (amount: number, symbol: string): string => {
+  if (amount === 0) return '0.00';
+
+  // For very small amounts (< 0.0001), show more decimals
+  if (amount < 0.0001) {
+    return amount.toFixed(8).replace(/\.?0+$/, '');
+  }
+
+  // For normal amounts, show appropriate decimals
+  if (amount < 1) {
+    return amount.toFixed(6).replace(/\.?0+$/, '');
+  }
+
+  return amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6
+  });
+};
+
+// Get asset logo
+const getAssetLogo = (crypto: string): string => {
+  const cryptoUpper = crypto?.toUpperCase();
+
+  if (cryptoUpper === 'USDC') return '/usd-coin-usdc-logo.svg';
+  if (cryptoUpper === 'SOL') return '/solana-sol-logo.svg';
+  if (cryptoUpper === 'USDT') return '/tether-usdt-logo.svg';
+  if (cryptoUpper === 'ETH') return '/ethereum-eth-logo.svg';
+
+  return '/usd-coin-usdc-logo.svg';
+};
+
+// Get network logo
+const getNetworkLogo = (network?: string): string => {
+  const networkLower = network?.toLowerCase();
+
+  if (networkLower === 'solana') return '/solana-sol-logo.svg';
+  if (networkLower === 'base') return '/BASE.png';
+  if (networkLower === 'ethereum') return '/ethereum-eth-logo.svg';
+
+  return '/solana-sol-logo.svg';
+};
 
 interface TransactionDetailScreenProps {
   transaction: {
@@ -254,43 +297,76 @@ export function TransactionDetailScreen({ transaction, onBack }: TransactionDeta
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <Card className="p-6 border border-gray-100">
-            <h3 className="mb-4">Amount Details</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-gray-600">Crypto Amount</p>
-                <p className="text-gray-900">{transaction.amount} {transaction.crypto}</p>
-              </div>
-              
-              {transaction.rate && (
-                <div className="flex items-center justify-between">
-                  <p className="text-gray-600">Exchange Rate</p>
-                  <p className="text-gray-900">₦{transaction.rate.toLocaleString()}</p>
+          <Card className="relative overflow-hidden border-0 shadow-md"
+            style={{
+              background: transaction.type === 'deposit'
+                ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
+                : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent pointer-events-none" />
+
+            <div className="relative p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-md ${
+                  transaction.type === 'deposit' ? 'bg-green-500' : 'bg-yellow-500'
+                }`}>
+                  <img
+                    src={getAssetLogo(transaction.crypto || 'USDC')}
+                    alt={transaction.crypto}
+                    className="w-8 h-8 rounded-full"
+                  />
                 </div>
-              )}
-              
-              {transaction.nairaAmount && (
-                <>
-                  <div className="flex items-center justify-between">
-                    <p className="text-gray-600">Naira Amount</p>
-                    <p className="text-gray-900">₦{transaction.nairaAmount.toLocaleString()}</p>
-                  </div>
-                  
-                  {transaction.fee && (
-                    <div className="flex items-center justify-between">
-                      <p className="text-gray-600">Fee (1%)</p>
-                      <p className="text-gray-900">₦{transaction.fee.toLocaleString()}</p>
-                    </div>
-                  )}
-                  
-                  <div className="border-t pt-3 flex items-center justify-between">
-                    <p className="text-gray-900">You Receive</p>
-                    <p className="text-gray-900">
-                      ₦{((transaction.nairaAmount || 0) - (transaction.fee || 0)).toLocaleString()}
+                <div>
+                  <h3 className="text-gray-900 font-bold text-lg">Amount Details</h3>
+                  <p className="text-gray-600 text-sm">Transaction breakdown</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl">
+                  <p className="text-gray-700 font-semibold">Crypto Amount</p>
+                  <p className="text-gray-900 font-bold text-lg">
+                    {formatCryptoAmount(transaction.amount, transaction.crypto || 'USDC')} {transaction.crypto}
+                  </p>
+                </div>
+
+                {transaction.rate && (
+                  <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl">
+                    <p className="text-gray-700 font-semibold">Exchange Rate</p>
+                    <p className="text-gray-900 font-bold">
+                      ₦{transaction.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
-                </>
-              )}
+                )}
+
+                {transaction.nairaAmount && (
+                  <>
+                    <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl">
+                      <p className="text-gray-700 font-semibold">Naira Amount</p>
+                      <p className="text-gray-900 font-bold text-lg">
+                        ₦{transaction.nairaAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+
+                    {transaction.fee && (
+                      <div className="flex items-center justify-between p-3 bg-white/60 rounded-xl">
+                        <p className="text-gray-700 font-semibold">Platform Fee</p>
+                        <p className="text-gray-900 font-bold">
+                          ₦{transaction.fee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl shadow-md">
+                      <p className="text-white font-bold text-lg">You Receive</p>
+                      <p className="text-white font-bold text-xl">
+                        ₦{((transaction.nairaAmount || 0) - (transaction.fee || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </Card>
         </motion.div>
@@ -301,16 +377,16 @@ export function TransactionDetailScreen({ transaction, onBack }: TransactionDeta
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <Card className="p-6 border border-gray-100">
-            <h3 className="mb-4">Transaction Information</h3>
-            <div className="space-y-3">
+          <Card className="p-6 border-0 shadow-md bg-white">
+            <h3 className="mb-4 text-gray-900 font-bold">Transaction Information</h3>
+            <div className="space-y-4">
               <div>
-                <p className="text-gray-600 mb-1">Transaction ID</p>
-                <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                  <p className="text-gray-900 break-all">{transaction.id}</p>
+                <p className="text-gray-600 mb-2 font-semibold text-sm">Transaction ID</p>
+                <div className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 p-3 rounded-xl border border-gray-200">
+                  <p className="text-gray-900 break-all font-mono text-sm">{transaction.id}</p>
                   <button
                     onClick={() => copyToClipboard(transaction.id, 'Transaction ID')}
-                    className="ml-2 text-gray-600 hover:text-gray-900"
+                    className="ml-2 text-gray-600 hover:text-gray-900 p-2 hover:bg-white rounded-lg transition-colors"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
@@ -319,21 +395,21 @@ export function TransactionDetailScreen({ transaction, onBack }: TransactionDeta
 
               {transaction.txHash && (
                 <div>
-                  <p className="text-gray-600 mb-1">Transaction Hash</p>
-                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                    <p className="text-gray-900 break-all font-mono text-sm">{transaction.txHash}</p>
+                  <p className="text-gray-600 mb-2 font-semibold text-sm">Transaction Hash</p>
+                  <div className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 p-3 rounded-xl border border-gray-200">
+                    <p className="text-gray-900 break-all font-mono text-xs">{transaction.txHash}</p>
                     <div className="flex items-center gap-2 ml-2">
                       <button
                         onClick={() => copyToClipboard(transaction.txHash!, 'Transaction hash')}
-                        className="text-gray-600 hover:text-gray-900"
+                        className="text-gray-600 hover:text-gray-900 p-2 hover:bg-white rounded-lg transition-colors"
                       >
                         <Copy className="w-4 h-4" />
                       </button>
                       <a
-                        href={`https://${transaction.network === 'Solana' ? 'solscan.io' : 'basescan.org'}/tx/${transaction.txHash}`}
+                        href={`https://${transaction.network === 'solana' ? 'solscan.io' : 'basescan.org'}/tx/${transaction.txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-gray-600 hover:text-gray-900"
+                        className="text-gray-600 hover:text-gray-900 p-2 hover:bg-white rounded-lg transition-colors"
                       >
                         <ExternalLink className="w-4 h-4" />
                       </a>
@@ -343,13 +419,20 @@ export function TransactionDetailScreen({ transaction, onBack }: TransactionDeta
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-gray-600 mb-1">Network</p>
-                  <Badge className="bg-gray-100 text-gray-700">{transaction.network}</Badge>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+                  <p className="text-gray-600 mb-2 font-semibold text-sm">Network</p>
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={getNetworkLogo(transaction.network)}
+                      alt={transaction.network}
+                      className="w-5 h-5 rounded-full"
+                    />
+                    <p className="text-gray-900 font-bold capitalize">{transaction.network}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-600 mb-1">Date</p>
-                  <p className="text-gray-900">{new Date(transaction.date).toLocaleDateString()}</p>
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
+                  <p className="text-gray-600 mb-2 font-semibold text-sm">Date</p>
+                  <p className="text-gray-900 font-bold">{new Date(transaction.date).toLocaleDateString()}</p>
                 </div>
               </div>
             </div>
