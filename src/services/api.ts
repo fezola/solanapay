@@ -7,7 +7,7 @@
 
 import { supabase } from './supabase';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -52,8 +52,8 @@ async function apiRequest<T>(
 ): Promise<T> {
   const token = await getAuthToken();
 
-  const headers: HeadersInit = {
-    ...options.headers,
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
   };
 
   // Only set Content-Type if there's a body
@@ -372,7 +372,7 @@ export const payoutsApi = {
 
   /**
    * Execute offramp in one step (simplified flow, no quote creation needed)
-   * Credits the user's NGN wallet, NOT their bank account.
+   * Sends crypto directly to the user's bank account via Bread Africa.
    * @param params - Offramp parameters
    */
   async executeOfframp(params: {
@@ -380,8 +380,9 @@ export const payoutsApi = {
     chain: string;
     amount: number;
     currency?: string;
+    beneficiary_id: string;
   }) {
-    return apiRequest<{ payout: any; quote: any; wallet: any }>('/api/payouts/execute', {
+    return apiRequest<{ payout: any; quote: any; transfer: any; bankAccount: any }>('/api/payouts/execute', {
       method: 'POST',
       body: JSON.stringify(params),
     });

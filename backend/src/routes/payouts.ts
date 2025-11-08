@@ -6,7 +6,6 @@ import { BreadService } from '../services/bread/index.js';
 import { env } from '../config/env.js';
 import { nanoid } from 'nanoid';
 import type { Asset, Chain } from '../types/index.js';
-import { nairaWalletService } from '../services/wallet/naira.js';
 
 // Initialize Bread service
 const breadService = new BreadService({
@@ -31,6 +30,7 @@ const executeOfframpSchema = z.object({
   chain: z.string(),
   amount: z.number().positive(),
   currency: z.string().default('NGN'),
+  beneficiary_id: z.string().uuid(),
 });
 
 const getRateSchema = z.object({
@@ -231,16 +231,15 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * Execute offramp in one step (no quote creation needed)
    * POST /api/payouts/execute
-   * Body: { asset: 'USDC', chain: 'solana', amount: 1, currency: 'NGN' }
+   * Body: { asset: 'USDC', chain: 'solana', amount: 1, currency: 'NGN', beneficiary_id: 'uuid' }
    *
-   * This endpoint credits the user's NGN wallet, NOT their bank account.
-   * Users can later withdraw from their NGN wallet to their bank account.
+   * This endpoint sends crypto directly to the user's bank account via Bread Africa.
    */
   fastify.post('/execute', async (request, reply) => {
     const userId = request.userId!;
     const body = executeOfframpSchema.parse(request.body);
 
-    request.log.info({ body }, '🚀 Executing offramp to NGN wallet');
+    request.log.info({ body }, '🚀 Executing direct offramp to bank account');
 
     // Minimum offramp amount check
     if (body.amount < 1) {
@@ -251,7 +250,26 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      // Step 1: Get quote from Bread
+      // Step 1: Get beneficiary (bank account)
+      const { data: beneficiary } = await supabaseAdmin
+        .from('bank_accounts')
+        .select('*')
+        .eq('id', body.beneficiary_id)
+        .eq('user_id', userId)
+        .single();
+
+      if (!beneficiary) {
+        return reply.status(404).send({ error: 'Bank account not found' });
+      }
+
+      if (!beneficiary.bread_beneficiary_id) {
+        return reply.status(400).send({
+          error: 'Bank account not synced with Bread',
+          message: 'Please re-add your bank account',
+        });
+      }
+
+      // Step 2: Get quote from Bread
       const quoteResponse = await breadService.offramp.getQuote(
         body.asset as Asset,
         body.chain as Chain,
@@ -260,117 +278,10 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       request.log.info({ quote: quoteResponse.data }, 'Quote received from Bread');
 
-      // Step 2: Get user's Bread identity ID (create if doesn't exist)
-      const { data: user } = await supabaseAdmin
-        .from('users')
-        .select('bread_identity_id, bread_wallet_id, email, full_name, phone_number')
-        .eq('id', userId)
-        .single();
-
-      if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
-      }
-
-      let breadIdentityId = user.bread_identity_id;
-
-      // Create Bread identity if it doesn't exist
-      if (!breadIdentityId) {
-        request.log.info('Creating Bread identity for user...');
-
-        // Parse full name into first and last name
-        const fullName = user.full_name || user.email.split('@')[0];
-        const nameParts = fullName.trim().split(' ');
-        const firstName = nameParts[0] || 'User';
-        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Name';
-
-        // Use phone number or placeholder
-        let phoneNumber = user.phone_number;
-        if (!phoneNumber) {
-          phoneNumber = '+2348000000000'; // Placeholder if no phone
-        }
-
-        // Create Bread identity
-        const breadIdentity = await breadService.identity.createIdentity({
-          firstName,
-          lastName,
-          email: user.email,
-          phoneNumber,
-          address: {
-            country: 'NG',
-          },
-        });
-
-        breadIdentityId = breadIdentity.id;
-
-        // Save Bread identity ID to user record
-        await supabaseAdmin
-          .from('users')
-          .update({ bread_identity_id: breadIdentityId })
-          .eq('id', userId);
-
-        request.log.info({ breadIdentityId }, '✅ Bread identity created successfully');
-      }
-
-      // Step 3: Create or get Bread wallet (WITHOUT beneficiary - just for receiving crypto)
-      let walletId = user.bread_wallet_id;
-      let breadWalletAddress: string = '';
-
-      if (walletId) {
-        // Wallet ID exists in DB - verify it exists on Bread
-        request.log.info({ walletId }, 'Checking existing Bread wallet...');
-
-        try {
-          const breadWallet = await breadService.wallet.getWallet(walletId);
-          breadWalletAddress = breadWallet.address;
-          request.log.info({ breadWalletAddress }, 'Bread wallet verified and address retrieved');
-        } catch (error: any) {
-          // Wallet doesn't exist on Bread (404) - the stored ID is invalid
-          request.log.warn(
-            { walletId, error: error.message },
-            'Stored Bread wallet does not exist on Bread. Recreating...'
-          );
-
-          // Clear the invalid wallet ID and create a new one
-          walletId = null;
-        }
-      }
-
-      if (!walletId) {
-        // No wallet or invalid wallet - create a new one WITHOUT beneficiary
-        request.log.info('Creating Bread wallet for offramp (no beneficiary)...');
-
-        const wallet = await breadService.wallet.createWallet(
-          breadIdentityId,
-          body.chain as Chain,
-          'offramp'
-          // NO beneficiary_id - we're just crediting the NGN wallet
-        );
-
-        walletId = wallet.id;
-        breadWalletAddress = wallet.address;
-
-        request.log.info(
-          {
-            walletId,
-            breadWalletAddress,
-            rawWalletData: JSON.stringify(wallet)
-          },
-          'Bread wallet created - saving to user record'
-        );
-
-        // Update user record with the Bread wallet ID
-        await supabaseAdmin
-          .from('users')
-          .update({ bread_wallet_id: walletId })
-          .eq('id', userId);
-
-        request.log.info({ walletId }, 'Bread wallet ID saved to user record');
-      }
-
-      // Step 6: Get user's deposit address
+      // Step 3: Get deposit address with Bread wallet
       const { data: depositAddress, error: depositAddressError } = await supabaseAdmin
         .from('deposit_addresses')
-        .select('address, private_key_encrypted')
+        .select('address, private_key_encrypted, bread_wallet_id, bread_wallet_address')
         .eq('user_id', userId)
         .eq('network', body.chain)
         .eq('asset_symbol', body.asset)
@@ -384,42 +295,71 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      if (!depositAddress.bread_wallet_id) {
+        return reply.status(400).send({
+          error: 'Bread wallet not found',
+          message: 'Please contact support to set up your Bread wallet',
+        });
+      }
+
       request.log.info({ depositAddress: depositAddress.address }, 'Deposit address found');
 
-      // Step 7: Transfer crypto from deposit wallet to Bread wallet
-      request.log.info('Transferring crypto to Bread wallet...');
-
-      const { transferToBreadWallet } = await import('../services/transfer.js');
-
-      const transferResult = await transferToBreadWallet({
+      // Step 4: Check Bread wallet balance
+      const { checkBreadWalletBalance } = await import('../services/transfer.js');
+      const breadBalance = await checkBreadWalletBalance({
         chain: body.chain as 'solana' | 'base',
         asset: body.asset,
-        amount: body.amount,
-        fromAddress: depositAddress.address,
-        toAddress: breadWalletAddress,
-        userId,
+        walletAddress: depositAddress.bread_wallet_address!,
       });
 
-      request.log.info({ transfer: transferResult }, 'Transfer completed');
+      request.log.info({
+        breadBalance,
+        requestedAmount: body.amount,
+        asset: body.asset,
+      }, '💰 Bread wallet balance checked');
 
-      // Step 8: Generate reference for wallet credit
-      const walletReference = `OFFRAMP-${nanoid(16)}`;
+      // Use minimum of requested and available
+      const actualOfframpAmount = Math.min(body.amount, breadBalance);
 
-      request.log.info({ walletReference }, 'Skipping immediate Bread payout - will credit NGN wallet instead');
+      if (actualOfframpAmount <= 0) {
+        return reply.status(400).send({
+          error: 'Insufficient balance',
+          message: `Insufficient ${body.asset} balance in wallet. Available: ${breadBalance}`,
+        });
+      }
 
-      // Step 9: Create quote record (required for payout)
-      const lockExpiresAt = quoteResponse.data.expiry
-        ? new Date(quoteResponse.data.expiry)
-        : new Date(Date.now() + 300 * 1000); // 5 minutes default
+      if (breadBalance < body.amount) {
+        request.log.warn({
+          breadBalance,
+          requestedAmount: body.amount,
+          actualOfframpAmount,
+        }, '⚠️ Using partial amount due to insufficient balance');
+      }
+
+      // Step 5: Execute Bread offramp to bank account
+      request.log.info({
+        breadWalletId: depositAddress.bread_wallet_id,
+        amount: actualOfframpAmount,
+        beneficiaryId: beneficiary.bread_beneficiary_id,
+        asset: `${body.chain}:${body.asset.toLowerCase()}`,
+      }, '🔵 Executing Bread offramp to bank account');
+
+      const offrampResult = await breadService.offramp.executeOfframp({
+        wallet_id: depositAddress.bread_wallet_id,
+        amount: actualOfframpAmount,
+        beneficiary_id: beneficiary.bread_beneficiary_id,
+        asset: `${body.chain}:${body.asset.toLowerCase()}` as any,
+      });
 
       request.log.info({
-        userId,
-        asset: body.asset,
-        chain: body.chain,
-        amount: body.amount,
-        rate: quoteResponse.data.rate,
-        outputAmount: quoteResponse.data.output_amount,
-      }, 'Creating quote record...');
+        offrampId: offrampResult.data?.id,
+        status: offrampResult.data?.status,
+      }, '✅ Bread offramp executed successfully');
+
+      // Step 6: Create quote record
+      const lockExpiresAt = quoteResponse.data.expiry
+        ? new Date(quoteResponse.data.expiry)
+        : new Date(Date.now() + 300 * 1000);
 
       const { data: quoteRecord, error: quoteError } = await supabaseAdmin
         .from('quotes')
@@ -427,13 +367,13 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           user_id: userId,
           crypto_asset: body.asset,
           crypto_network: body.chain,
-          crypto_amount: body.amount.toString(),
+          crypto_amount: actualOfframpAmount.toString(),
           spot_price: quoteResponse.data.rate.toString(),
           fx_rate: quoteResponse.data.rate.toString(),
           spread_bps: 0,
-          flat_fee: (quoteResponse.data.fee * body.amount).toString(),
+          flat_fee: (quoteResponse.data.fee * actualOfframpAmount).toString(),
           variable_fee_bps: Math.floor(quoteResponse.data.fee * 10000),
-          total_fees: (quoteResponse.data.fee * body.amount).toString(),
+          total_fees: (quoteResponse.data.fee * actualOfframpAmount).toString(),
           fiat_amount: quoteResponse.data.output_amount.toString(),
           final_amount: quoteResponse.data.output_amount.toString(),
           locked_until: lockExpiresAt.toISOString(),
@@ -449,72 +389,34 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         .single();
 
       if (quoteError) {
-        request.log.error({
-          error: quoteError,
-          errorDetails: quoteError.details,
-          errorMessage: quoteError.message,
-        }, 'Failed to create quote record');
+        request.log.error({ error: quoteError }, 'Failed to create quote record');
         return reply.status(500).send({
           error: 'Failed to create quote record',
           message: quoteError.message,
-          details: quoteError.details,
         });
       }
 
-      request.log.info({ quoteId: quoteRecord.id }, '✅ Quote record created successfully');
-
-      // Step 10: Credit NGN wallet (instead of immediate payout)
-      const grossAmountNaira = quoteResponse.data.output_amount;
-
-      const { transactionId, netAmount, fee } = await nairaWalletService.creditFromOfframp({
-        userId,
-        grossAmountNaira,
-        breadReference: walletReference,
-        quoteId: quoteRecord.id,
-      });
-
-      request.log.info(
-        {
-          transactionId,
-          grossAmountNaira,
-          netAmount,
-          fee,
-          walletReference
-        },
-        'NGN wallet credited successfully'
-      );
-
-      // Step 11: Create payout record (status: completed since NGN is in wallet)
-      // NOTE: No beneficiary_id - money goes to NGN wallet, not bank account
-      request.log.info({
-        userId,
-        quoteId: quoteRecord.id,
-        fiatAmount: netAmount,
-        currency: body.currency,
-        destination: 'NGN Wallet',
-      }, 'Creating payout record for wallet credit...');
-
+      // Step 7: Create payout record
       const { data: payout, error: payoutError } = await supabaseAdmin
         .from('payouts')
         .insert({
           user_id: userId,
           quote_id: quoteRecord.id,
-          beneficiary_id: null, // No beneficiary - money goes to NGN wallet
-          fiat_amount: netAmount.toString(),
+          beneficiary_id: beneficiary.id,
+          fiat_amount: quoteResponse.data.output_amount.toString(),
           currency: body.currency,
           provider: 'bread',
-          provider_reference: walletReference,
-          status: 'completed',
+          provider_reference: offrampResult.data?.id || `OFFRAMP-${nanoid(16)}`,
+          status: 'processing',
         })
         .select()
         .single();
 
       if (payoutError) {
-        request.log.error({ error: payoutError, errorDetails: payoutError.details }, 'Failed to create payout record');
+        request.log.error({ error: payoutError }, 'Failed to create payout record');
         return reply.status(500).send({
           error: 'Failed to create payout record',
           message: payoutError.message,
-          details: payoutError.details,
         });
       }
 
@@ -522,14 +424,17 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       return {
         success: true,
-        message: 'NGN credited to your wallet',
+        message: `₦${quoteResponse.data.output_amount.toLocaleString()} sent to ${beneficiary.bank_name}`,
         payout,
-        wallet: {
-          transactionId,
-          grossAmount: grossAmountNaira,
-          platformFee: fee,
-          netAmount,
-          currency: 'NGN',
+        transfer: {
+          reference: offrampResult.data?.id,
+          status: offrampResult.data?.status || 'processing',
+          provider: 'bread',
+        },
+        bankAccount: {
+          bankName: beneficiary.bank_name,
+          accountNumber: beneficiary.account_number,
+          accountName: beneficiary.account_name,
         },
         quote: quoteResponse.data,
       };

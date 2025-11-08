@@ -10,9 +10,16 @@
 import { FastifyPluginAsync } from 'fastify';
 import { authMiddleware } from '../middleware/auth.js';
 import { nairaWalletService } from '../services/wallet/naira.js';
-import { BreadOfframpService } from '../services/bread/offramp.js';
+import { BreadService } from '../services/bread/index.js';
+import { env } from '../config/env.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
+
+// Initialize Bread service
+const breadService = new BreadService({
+  apiKey: env.BREAD_API_KEY,
+  baseUrl: env.BREAD_API_URL,
+});
 
 export const walletRoutes: FastifyPluginAsync = async (fastify) => {
   // Apply auth middleware to all routes
@@ -207,44 +214,85 @@ export const walletRoutes: FastifyPluginAsync = async (fastify) => {
         throw new Error('Failed to create withdrawal record');
       }
 
-      // 5. Call Bread to send money to bank
+      // 5. Execute Paystack transfer to send NGN to bank account
       try {
-        // TODO: Implement actual Bread payout call
-        // For now, we'll simulate success
-        // const breadResponse = await breadOfframpService.executePayout({
-        //   beneficiaryId,
-        //   amount,
-        //   currency: 'NGN',
-        // });
+        logger.info({
+          userId,
+          amount,
+          beneficiary: {
+            bankName: beneficiary.bank_name,
+            accountNumber: beneficiary.account_number,
+            accountName: beneficiary.account_name,
+          },
+        }, '💸 Initiating Paystack transfer');
 
-        // Simulate Bread response
-        const breadReference = `BREAD-${Date.now()}`;
+        // Create or get Paystack transfer recipient
+        let recipientCode = beneficiary.paystack_recipient_code;
+
+        if (!recipientCode) {
+          logger.info({ beneficiaryId }, 'Creating Paystack transfer recipient');
+
+          const recipient = await paystackService.createTransferRecipient({
+            type: 'nuban',
+            name: beneficiary.account_name,
+            account_number: beneficiary.account_number,
+            bank_code: beneficiary.bank_code,
+            currency: 'NGN',
+          });
+
+          recipientCode = recipient.recipient_code;
+
+          // Save recipient code to database for future use
+          await supabaseAdmin
+            .from('bank_accounts')
+            .update({ paystack_recipient_code: recipientCode })
+            .eq('id', beneficiaryId);
+
+          logger.info({ recipientCode }, '✅ Paystack recipient created');
+        }
+
+        // Initiate Paystack transfer
+        const transferResult = await paystackService.initiateTransfer({
+          amount: Math.round(amount * 100), // Convert to kobo
+          recipient: recipientCode,
+          reason: `Withdrawal from NGN wallet`,
+          reference: withdrawalRef,
+        });
+
+        logger.info({
+          transferCode: transferResult.transfer_code,
+          reference: transferResult.reference,
+          status: transferResult.status,
+        }, '✅ Paystack transfer initiated');
 
         // Update withdrawal status
         await supabaseAdmin
           .from('withdrawals')
           .update({
-            status: 'completed',
-            provider_reference: breadReference,
-            completed_at: new Date().toISOString(),
+            status: transferResult.status === 'success' ? 'completed' : 'processing',
+            provider: 'paystack',
+            provider_reference: transferResult.transfer_code,
+            provider_response: transferResult,
+            completed_at: transferResult.status === 'success' ? new Date().toISOString() : null,
           })
           .eq('id', withdrawal.id);
 
         logger.info({
           userId,
           withdrawalId: withdrawal.id,
-          breadReference,
+          transferCode: transferResult.transfer_code,
           amount,
-        }, '✅ Withdrawal completed successfully');
+          status: transferResult.status,
+        }, '✅ Withdrawal processed successfully');
 
         return reply.send({
           success: true,
           withdrawal: {
             id: withdrawal.id,
             amount,
-            status: 'completed',
+            status: transferResult.status === 'success' ? 'completed' : 'processing',
             reference: withdrawalRef,
-            breadReference,
+            transferCode: transferResult.transfer_code,
             bankAccount: {
               bankName: beneficiary.bank_name,
               accountNumber: beneficiary.account_number,
@@ -258,16 +306,19 @@ export const walletRoutes: FastifyPluginAsync = async (fastify) => {
               maximumFractionDigits: 2,
             })}`,
           },
+          message: transferResult.status === 'success'
+            ? 'Withdrawal completed successfully'
+            : 'Withdrawal is being processed. You will receive the money shortly.',
         });
-      } catch (breadError: any) {
-        logger.error({ error: breadError, userId }, 'Bread payout failed');
+      } catch (paystackError: any) {
+        logger.error({ error: paystackError, userId }, 'Paystack transfer failed');
 
         // Update withdrawal status to failed
         await supabaseAdmin
           .from('withdrawals')
           .update({
             status: 'failed',
-            error_message: breadError.message,
+            error_message: paystackError.message,
             failed_at: new Date().toISOString(),
           })
           .eq('id', withdrawal.id);
@@ -281,9 +332,11 @@ export const walletRoutes: FastifyPluginAsync = async (fastify) => {
           reference: `REFUND-${withdrawalRef}`,
         });
 
+        logger.info({ userId, amount, withdrawalRef }, '💰 Wallet refunded due to failed transfer');
+
         return reply.code(500).send({
           error: 'Withdrawal failed',
-          message: breadError.message,
+          message: paystackError.message,
           refunded: true,
         });
       }

@@ -5,10 +5,9 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Badge } from './ui/badge';
-import { ArrowDownUp, Info, ChevronRight, Clock, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
-import { quotesApi, payoutsApi } from '../services/api';
+import { ArrowDownUp, Info, Clock, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { payoutsApi } from '../services/api';
 import { calculatePlatformFee } from '../config/fees';
 import { PINVerificationModal } from './PINVerificationModal';
 import { userService } from '../services/supabase';
@@ -54,6 +53,7 @@ export function OfframpScreen({
 }: OfframpScreenProps) {
   const [selectedAsset, setSelectedAsset] = useState<AssetId>('usdc-solana');
   const [amount, setAmount] = useState('');
+  const [selectedBankAccount, setSelectedBankAccount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [quoteLockTime, setQuoteLockTime] = useState(120); // 120 seconds quote lock
   const [rates, setRates] = useState<Record<string, number>>({
@@ -62,9 +62,7 @@ export function OfframpScreen({
     'sol': 250000,
     'usdt-solana': 1600,
   });
-  const [loadingRates, setLoadingRates] = useState(false);
   const [showPINModal, setShowPINModal] = useState(false);
-  const [pendingTransaction, setPendingTransaction] = useState<any>(null);
 
   const assets = [
     {
@@ -142,7 +140,6 @@ export function OfframpScreen({
   // Fetch rates from Bread on mount using quote endpoint (includes fees)
   useEffect(() => {
     const fetchRates = async () => {
-      setLoadingRates(true);
       try {
         const API_URL = (import.meta as any).env?.VITE_API_URL || 'https://crypto-offramp-backend.onrender.com';
 
@@ -192,8 +189,6 @@ export function OfframpScreen({
       } catch (error) {
         console.error('Failed to fetch rates:', error);
         toast.error('Failed to fetch exchange rates');
-      } finally {
-        setLoadingRates(false);
       }
     };
 
@@ -234,6 +229,11 @@ export function OfframpScreen({
 
     if (parseFloat(amount) > currentAsset.balance) {
       toast.error('Insufficient balance');
+      return;
+    }
+
+    if (!selectedBankAccount) {
+      toast.error('Please select a bank account');
       return;
     }
 
@@ -278,16 +278,20 @@ export function OfframpScreen({
         chain: currentAsset.network.toLowerCase(),
         amount: parseFloat(amount),
         currency: 'NGN',
+        beneficiary_id: selectedBankAccount,
       });
 
       console.log('✅ Offramp executed:', payoutResponse);
+
+      // Get selected bank account details for display
+      const selectedBank = bankAccounts.find(acc => acc.id === selectedBankAccount);
 
       // Step 3: Create transaction object for UI
       console.log('📝 Creating transaction object:', {
         payoutId: payoutResponse.payout.id,
         amount: parseFloat(amount),
         nairaAmount: youReceive,
-        destination: 'NGN Wallet',
+        destination: selectedBank?.bankName,
       });
 
       const transaction = {
@@ -303,13 +307,14 @@ export function OfframpScreen({
         date: new Date().toISOString(),
         confirmations: 0,
         requiredConfirmations: currentAsset.network === 'Solana' ? 1 : 12,
+        bankAccountId: selectedBankAccount,
       };
 
       console.log('✅ Transaction object created:', transaction);
 
-      // Show success notification - money goes to NGN wallet
-      toast.success(`₦${youReceive.toLocaleString()} added to your NGN Wallet!`, {
-        description: 'You can withdraw to your bank account anytime',
+      // Show success notification - money goes directly to bank account
+      toast.success(`₦${youReceive.toLocaleString()} sent to ${selectedBank?.bankName}!`, {
+        description: `Account: ${selectedBank?.accountNumber}`,
       });
 
       // Call parent success handler
@@ -504,6 +509,44 @@ export function OfframpScreen({
                 </div>
               </div>
 
+              {/* Bank Account Selection */}
+              <div className="space-y-2">
+                <Label>Bank Account</Label>
+                {bankAccounts.length === 0 ? (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800 mb-2">
+                      No bank accounts added yet.
+                    </p>
+                    <Button
+                      onClick={onNavigateToBankAccounts}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      Add Bank Account
+                    </Button>
+                  </div>
+                ) : (
+                  <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select bank account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          <div className="flex flex-col">
+                            <span className="font-semibold">{account.bankName}</span>
+                            <span className="text-sm text-gray-500">
+                              {account.accountNumber} - {account.accountName}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
               {exceedsLimit && (
                 <div className="bg-red-50 p-4 rounded-xl border border-red-100">
                   <div className="flex gap-2">
@@ -521,12 +564,12 @@ export function OfframpScreen({
               <div className="bg-blue-50 p-4 rounded-xl flex gap-3 border border-blue-100">
                 <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-blue-900 font-semibold mb-1">Money goes to your NGN Wallet</p>
+                  <p className="text-blue-900 font-semibold mb-1">Direct Bank Transfer</p>
                   <p className="text-blue-800 text-sm">
-                    • Instant credit to your wallet
+                    • Money sent directly to your bank account
                   </p>
                   <p className="text-blue-800 text-sm">
-                    • Withdraw to your bank account anytime
+                    • Typically arrives within minutes
                   </p>
                 </div>
               </div>
@@ -536,9 +579,11 @@ export function OfframpScreen({
                 disabled={
                   isProcessing ||
                   !amount ||
+                  !selectedBankAccount ||
                   parseFloat(amount) > currentAsset.balance ||
                   parseFloat(amount) < currentAsset.minAmount ||
-                  exceedsLimit
+                  exceedsLimit ||
+                  bankAccounts.length === 0
                 }
                 className="w-full"
               >
