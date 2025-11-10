@@ -443,6 +443,20 @@
     padding-bottom: calc(80px + env(safe-area-inset-bottom));
   }
 
+  /* Height for top safe area */
+  .h-safe-top {
+    height: env(safe-area-inset-top);
+    min-height: env(safe-area-inset-top);
+  }
+
+  /* Prevent body scroll on mobile PWA */
+  html, body {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+  }
+
   :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) h1 {
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);
