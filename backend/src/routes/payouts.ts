@@ -304,20 +304,41 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       request.log.info({ depositAddress: depositAddress.address }, 'Deposit address found');
 
-      // Step 4: Transfer crypto from deposit address to Bread wallet
+      // Step 3.5: Collect platform fee in crypto BEFORE sending to Bread
+      const { collectPlatformFee } = await import('../services/platform-fee-collector.js');
+
+      const feeCollection = await collectPlatformFee({
+        userId,
+        cryptoAmount: body.amount,
+        asset: body.asset,
+        chain: body.chain as 'solana' | 'base',
+        exchangeRate: quoteResponse.data.rate,
+        fromAddress: depositAddress.address,
+      });
+
+      request.log.info({
+        platformFee: feeCollection.platformFee,
+        amountToBread: feeCollection.amountToBread,
+        treasuryTxHash: feeCollection.treasuryTxHash,
+        feeCollected: !!feeCollection.treasuryTxHash,
+      }, '💰 Platform fee collection complete');
+
+      // Step 4: Transfer crypto from deposit address to Bread wallet (AFTER fee deduction)
       const { transferToBreadWallet, checkBreadWalletBalance } = await import('../services/transfer.js');
 
       request.log.info({
         from: depositAddress.address,
         to: depositAddress.bread_wallet_address,
-        amount: body.amount,
+        originalAmount: body.amount,
+        platformFee: feeCollection.platformFee,
+        amountToBread: feeCollection.amountToBread,
         asset: body.asset,
-      }, '🔄 Transferring crypto to Bread wallet');
+      }, '🔄 Transferring crypto to Bread wallet (after platform fee)');
 
       const transferResult = await transferToBreadWallet({
         chain: body.chain as 'solana' | 'base',
         asset: body.asset,
-        amount: body.amount,
+        amount: feeCollection.amountToBread, // Send reduced amount (after fee)
         fromAddress: depositAddress.address,
         toAddress: depositAddress.bread_wallet_address!,
         userId,
@@ -326,7 +347,8 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       request.log.info({
         txHash: transferResult.txHash,
         amount: transferResult.amount,
-      }, '✅ Transfer to Bread wallet completed');
+        platformFeeCollected: feeCollection.platformFee,
+      }, '✅ Transfer to Bread wallet completed (platform fee collected)');
 
       // Step 5: Check Bread wallet balance
       const breadBalance = await checkBreadWalletBalance({
