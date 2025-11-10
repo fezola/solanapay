@@ -18,6 +18,7 @@ import { ethers } from 'ethers';
 import { logger } from '../utils/logger.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { decrypt } from '../utils/encryption.js';
+import { gasSponsorService } from './gas-sponsor/index.js';
 
 const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const BASE_RPC_URL = process.env.BASE_RPC_URL || 'https://mainnet.base.org';
@@ -245,11 +246,61 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
     )
   );
 
+  // Get gas sponsor wallet to pay for transaction fees
+  logger.info({
+    msg: '💰 Using gas sponsorship for transaction',
+    userWallet: fromPubkey.toBase58(),
+    amount: request.amount,
+    asset: request.asset,
+  });
+
+  const gasSponsorWallet = await gasSponsorService.getGasSponsorWallet();
+
+  if (!gasSponsorWallet) {
+    logger.error('Gas sponsor wallet not available, user wallet will pay gas');
+    // Fallback: user pays gas
+    const signature = await sendAndConfirmTransaction(
+      connection,
+      transaction,
+      [fromWallet],
+      {
+        commitment: 'confirmed',
+        maxRetries: 3,
+      }
+    );
+
+    logger.info({
+      msg: 'SPL token transfer confirmed (user paid gas)',
+      signature,
+      amount: request.amount,
+      asset: request.asset,
+    });
+
+    return {
+      txHash: signature,
+      amount: request.amount,
+      asset: request.asset,
+      chain: 'solana',
+    };
+  }
+
+  // Set gas sponsor as fee payer
+  transaction.feePayer = gasSponsorWallet.publicKey;
+
+  // Get recent blockhash
+  const { blockhash } = await connection.getLatestBlockhash();
+  transaction.recentBlockhash = blockhash;
+
+  // Both wallets need to sign:
+  // - fromWallet: signs the token transfer (owner of tokens)
+  // - gasSponsorWallet: signs as fee payer (pays gas)
+  transaction.sign(fromWallet, gasSponsorWallet);
+
   // Send and confirm transaction
   const signature = await sendAndConfirmTransaction(
     connection,
     transaction,
-    [fromWallet],
+    [fromWallet, gasSponsorWallet],
     {
       commitment: 'confirmed',
       maxRetries: 3,
@@ -257,11 +308,45 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
   );
 
   logger.info({
-    msg: 'SPL token transfer confirmed',
+    msg: '✅ SPL token transfer confirmed (platform sponsored gas)',
     signature,
     amount: request.amount,
     asset: request.asset,
+    feePayer: gasSponsorWallet.publicKey.toBase58(),
   });
+
+  // Log gas fee to database
+  try {
+    const txInfo = await connection.getTransaction(signature, {
+      commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0,
+    });
+
+    if (txInfo?.meta) {
+      const feeInLamports = txInfo.meta.fee;
+      const feeInSOL = feeInLamports / LAMPORTS_PER_SOL;
+      const feeInUSD = feeInSOL * 200; // Approximate
+
+      await supabaseAdmin.rpc('log_gas_fee_sponsored', {
+        p_user_id: request.userId,
+        p_transaction_signature: signature,
+        p_blockchain_network: 'solana',
+        p_fee_amount_native: feeInLamports,
+        p_fee_amount_usd: feeInUSD,
+        p_transaction_type: 'offramp',
+        p_sponsor_wallet_address: gasSponsorWallet.publicKey.toBase58(),
+      });
+
+      logger.info({
+        msg: '💰 Gas fee logged',
+        signature,
+        feeSOL: feeInSOL,
+        feeUSD: feeInUSD,
+      });
+    }
+  } catch (error) {
+    logger.error({ error }, 'Failed to log gas fee');
+  }
 
   return {
     txHash: signature,
@@ -273,6 +358,8 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
 
 /**
  * Transfer native SOL
+ * Note: For SOL transfers, the user must pay gas from their own SOL balance
+ * Gas sponsorship is not applicable for native SOL transfers
  */
 async function transferSolNative(
   connection: Connection,
@@ -283,7 +370,7 @@ async function transferSolNative(
   const lamports = Math.floor(amount * LAMPORTS_PER_SOL);
 
   logger.info({
-    msg: 'Creating SOL transfer',
+    msg: 'Creating SOL transfer (user pays gas from SOL balance)',
     from: fromWallet.publicKey.toBase58(),
     to: toPubkey.toBase58(),
     amount,

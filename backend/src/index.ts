@@ -17,6 +17,7 @@ import { breadRateRoutes } from './routes/bread-rates.js';
 import { adminRoutes } from './routes/admin.js';
 import { healthRoutes } from './routes/health.js';
 import { referralRoutes } from './routes/referrals.js';
+import { gasSponsorRoutes } from './routes/gas-sponsor.js';
 // import { walletRoutes } from './routes/wallet.js'; // Removed - NGN wallet feature removed
 import { initializeServices, shutdownServices } from './services/index.js';
 import { runMigrations } from './db/migrate.js';
@@ -72,6 +73,7 @@ await fastify.register(kycRoutes, { prefix: '/api/kyc' });
 await fastify.register(transactionRoutes, { prefix: '/api/transactions' });
 await fastify.register(breadRateRoutes, { prefix: '/api/rates' });
 await fastify.register(referralRoutes, { prefix: '/api/referrals' });
+await fastify.register(gasSponsorRoutes, { prefix: '/api/gas-sponsor' });
 // await fastify.register(walletRoutes, { prefix: '/api/wallet' }); // Removed - NGN wallet feature removed
 
 // Admin routes (require admin auth)

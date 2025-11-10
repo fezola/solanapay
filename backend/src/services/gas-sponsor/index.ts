@@ -190,14 +190,16 @@ async function logGasFeeUsage(signature: string, userPublicKey: string): Promise
 
     const fee = txInfo.meta.fee;
     const feeSOL = fee / LAMPORTS_PER_SOL;
+    const feeUSD = feeSOL * 200; // Approximate, you can get real SOL price from an API
 
     logger.info(
-      { signature, user: userPublicKey, feeSOL },
+      { signature, user: userPublicKey, feeSOL, feeUSD },
       '💰 Gas fee sponsored'
     );
 
-    // TODO: Store in database for tracking
-    // You can create a gas_fees_sponsored table to track this
+    // Store in database for tracking
+    // Note: This requires user_id, which should be passed to this function
+    // For now, we just log it. You can enhance this later.
   } catch (error) {
     logger.error({ error, signature }, 'Failed to log gas fee usage');
   }
