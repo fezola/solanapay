@@ -249,7 +249,7 @@ export class ReferralService {
       const { data, error } = await supabaseAdmin
         .rpc('credit_referral_reward', {
           p_referral_id: referralId,
-          p_reward_amount_usd: 1.00,
+          p_reward_amount_usd: 0.70,
         });
 
       if (error) throw error;

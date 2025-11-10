@@ -158,7 +158,7 @@ export function ReferralSection({ userId }: ReferralSectionProps) {
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Refer & Earn</h2>
         <p className="text-gray-600">
-          Invite friends and earn $1 USD for each successful referral!
+          Invite friends and earn $0.70 USD for each successful referral!
         </p>
       </motion.div>
 
@@ -301,7 +301,7 @@ export function ReferralSection({ userId }: ReferralSectionProps) {
                 <span className="text-green-600 font-bold text-sm">✓</span>
               </div>
               <div>
-                <p className="text-gray-900 font-medium">Earn $1 USD</p>
+                <p className="text-gray-900 font-medium">Earn $0.70 USD</p>
                 <p className="text-gray-600 text-sm">Reward is automatically credited to your wallet</p>
               </div>
             </div>

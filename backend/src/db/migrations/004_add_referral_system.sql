@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS referrals (
   status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'cancelled')),
   
   -- Reward tracking
-  reward_amount_usd DECIMAL(10, 2) DEFAULT 1.00,
+  reward_amount_usd DECIMAL(10, 2) DEFAULT 0.70,
   reward_credited BOOLEAN DEFAULT FALSE,
   reward_credited_at TIMESTAMPTZ,
   reward_transaction_id UUID REFERENCES wallet_transactions(id),
@@ -157,7 +157,7 @@ CREATE TRIGGER trigger_create_referral_code
 -- ============================================================================
 CREATE OR REPLACE FUNCTION credit_referral_reward(
   p_referral_id UUID,
-  p_reward_amount_usd DECIMAL(10, 2) DEFAULT 1.00
+  p_reward_amount_usd DECIMAL(10, 2) DEFAULT 0.70
 )
 RETURNS UUID AS $$
 DECLARE
