@@ -6,8 +6,8 @@
  */
 
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { supabaseAdmin } from '../utils/supabase.js';
-import { logger } from '../utils/logger.js';
+import { supabaseAdmin } from '../../utils/supabase.js';
+import { logger } from '../../utils/logger.js';
 import * as crypto from 'crypto';
 
 const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
