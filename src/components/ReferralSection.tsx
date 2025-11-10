@@ -4,6 +4,7 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Copy, Share2, Gift, Users, DollarSign, CheckCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '../services/supabase';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
 
@@ -45,7 +46,10 @@ export function ReferralSection({ userId }: ReferralSectionProps) {
     try {
       setLoading(true);
 
-      const token = localStorage.getItem('access_token');
+      // Get access token from Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       if (!token) {
         console.error('No access token found');
         toast.error('Please log in to view referral data');
@@ -169,7 +173,7 @@ export function ReferralSection({ userId }: ReferralSectionProps) {
           <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 bg-white rounded-lg px-4 py-3 border-2 border-dashed border-blue-300">
               <p className="text-2xl font-bold text-gray-900 text-center tracking-wider">
-                {referralCode}
+                {referralCode || 'Loading...'}
               </p>
             </div>
             <Button
@@ -177,6 +181,7 @@ export function ReferralSection({ userId }: ReferralSectionProps) {
               variant="outline"
               size="sm"
               className="flex items-center gap-2"
+              disabled={!referralCode}
             >
               <Copy className="w-4 h-4" />
               Copy
@@ -189,6 +194,7 @@ export function ReferralSection({ userId }: ReferralSectionProps) {
               background: 'linear-gradient(to right, rgb(147, 51, 234), rgb(37, 99, 235))',
               color: 'white'
             }}
+            disabled={!referralLink}
           >
             <Share2 className="w-4 h-4 mr-2" />
             Share Referral Link
