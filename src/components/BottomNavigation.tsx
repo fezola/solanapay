@@ -25,15 +25,15 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center gap-0.5 py-3 transition-colors ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
                 isActive ? 'text-gray-900' : 'text-gray-500'
               }`}
               style={{
-                paddingBottom: `calc(0.75rem + env(safe-area-inset-bottom))`,
+                paddingBottom: `calc(0.5rem + env(safe-area-inset-bottom))`,
               }}
             >
-              <Icon className={`w-4 h-4 ${isActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
-              <span className={`text-[9px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{tab.label}</span>
+              <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
+              <span className={`text-[8px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{tab.label}</span>
             </button>
           );
         })}
