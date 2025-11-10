@@ -27,3 +27,7 @@ Thumbs.db
 *.tmp
 .cache/
 
+# Wallet backups (NEVER commit these!)
+backend/wallet-backups/
+wallet-backups/
+*.wallet.json

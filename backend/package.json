@@ -16,6 +16,7 @@
     "test:bread:full": "tsx src/scripts/test-full-bread-integration.ts",
     "test:sumsub": "tsx src/scripts/test-sumsub-integration.ts",
     "debug:sumsub": "tsx src/scripts/debug-sumsub-auth.ts",
+    "generate-referral-wallet": "tsx src/scripts/generate-referral-wallet.ts",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit"
   },
