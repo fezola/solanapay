@@ -1,12 +1,14 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { supabase, supabaseAdmin } from '../utils/supabase.js';
+import { referralService } from '../services/referral/index.js';
 
 const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().optional(),
   offrampMode: z.enum(['automatic', 'basic']).optional().default('basic'),
+  referralCode: z.string().optional(),
 });
 
 const loginSchema = z.object({
@@ -59,6 +61,22 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         kyc_status: 'not_started',
         offramp_mode: body.offrampMode || 'basic',
       });
+
+      // Apply referral code if provided
+      if (body.referralCode) {
+        try {
+          await referralService.applyReferralCode({
+            referralCode: body.referralCode,
+            newUserId: data.user.id,
+            ipAddress: request.ip,
+            userAgent: request.headers['user-agent'],
+          });
+          request.log.info({ userId: data.user.id, referralCode: body.referralCode }, 'Referral code applied during signup');
+        } catch (referralError: any) {
+          // Log error but don't fail signup
+          request.log.warn({ error: referralError, referralCode: body.referralCode }, 'Failed to apply referral code');
+        }
+      }
     }
 
     return {

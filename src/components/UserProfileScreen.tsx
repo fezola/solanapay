@@ -6,21 +6,24 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { ArrowLeft, User, Mail, Phone, Edit2, Save, X } from 'lucide-react';
+import { ReferralSection } from './ReferralSection';
 
 interface UserProfileScreenProps {
   userName: string;
   userEmail: string;
   userPhone?: string;
+  userId: string;
   onBack: () => void;
   onUpdateProfile: (data: { name: string; phone?: string }) => void;
 }
 
-export function UserProfileScreen({ 
-  userName, 
-  userEmail, 
+export function UserProfileScreen({
+  userName,
+  userEmail,
   userPhone = '',
+  userId,
   onBack,
-  onUpdateProfile 
+  onUpdateProfile
 }: UserProfileScreenProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(userName);
@@ -205,11 +208,21 @@ export function UserProfileScreen({
           </Card>
         </motion.div>
 
-        {/* Security Info */}
+        {/* Referral Section */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
+          className="mt-6"
+        >
+          <ReferralSection userId={userId} />
+        </motion.div>
+
+        {/* Security Info */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
           className="mt-6"
         >
           <Card className="p-4 border border-blue-100 bg-blue-50">
