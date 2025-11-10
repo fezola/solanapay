@@ -5,6 +5,8 @@ import { Button } from './ui/button';
 import { Copy, Share2, Gift, Users, DollarSign, CheckCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
+
 interface ReferralStats {
   total_referrals: number;
   pending_referrals: number;
@@ -43,36 +45,68 @@ export function ReferralSection({ userId }: ReferralSectionProps) {
     try {
       setLoading(true);
 
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.error('No access token found');
+        toast.error('Please log in to view referral data');
+        return;
+      }
+
       // Get referral code
-      const codeResponse = await fetch('/api/referrals/code', {
+      const codeResponse = await fetch(`${API_BASE_URL}/api/referrals/code`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
+
+      if (!codeResponse.ok) {
+        const errorText = await codeResponse.text();
+        console.error('Failed to fetch referral code:', codeResponse.status, errorText);
+        throw new Error(`Failed to fetch referral code: ${codeResponse.status}`);
+      }
+
       const codeData = await codeResponse.json();
-      setReferralCode(codeData.code);
-      setReferralLink(codeData.link);
+      console.log('Referral code data:', codeData);
+      setReferralCode(codeData.code || '');
+      setReferralLink(codeData.link || '');
 
       // Get stats
-      const statsResponse = await fetch('/api/referrals/stats', {
+      const statsResponse = await fetch(`${API_BASE_URL}/api/referrals/stats`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
+
+      if (!statsResponse.ok) {
+        console.error('Failed to fetch stats:', statsResponse.status);
+        throw new Error(`Failed to fetch stats: ${statsResponse.status}`);
+      }
+
       const statsData = await statsResponse.json();
+      console.log('Referral stats:', statsData);
       setStats(statsData);
 
       // Get history
-      const historyResponse = await fetch('/api/referrals/history', {
+      const historyResponse = await fetch(`${API_BASE_URL}/api/referrals/history`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
+
+      if (!historyResponse.ok) {
+        console.error('Failed to fetch history:', historyResponse.status);
+        throw new Error(`Failed to fetch history: ${historyResponse.status}`);
+      }
+
       const historyData = await historyResponse.json();
+      console.log('Referral history:', historyData);
       setHistory(historyData.referrals || []);
     } catch (error) {
       console.error('Failed to load referral data:', error);
-      toast.error('Failed to load referral data');
+      toast.error('Failed to load referral data. Please try again.');
     } finally {
       setLoading(false);
     }
