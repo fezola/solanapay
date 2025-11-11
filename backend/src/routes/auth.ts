@@ -38,12 +38,15 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/signup', async (request, reply) => {
     const body = signupSchema.parse(request.body);
 
+    // Sign up user with metadata (database trigger will create user profile)
     const { data, error } = await supabase.auth.signUp({
       email: body.email,
       password: body.password,
       options: {
         data: {
           name: body.name || body.email.split('@')[0],
+          full_name: body.name || body.email.split('@')[0],
+          offramp_mode: body.offrampMode || 'basic',
         },
       },
     });
@@ -52,15 +55,11 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: error.message });
     }
 
-    // Create user record in database
+    // User profile is automatically created by database trigger (handle_new_user)
+    // Wait for trigger to complete
     if (data.user) {
-      await supabaseAdmin.from('users').insert({
-        id: data.user.id,
-        email: body.email,
-        kyc_tier: 0,
-        kyc_status: 'not_started',
-        offramp_mode: body.offrampMode || 'basic',
-      });
+      // Wait a moment for database trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Apply referral code if provided
       if (body.referralCode) {
