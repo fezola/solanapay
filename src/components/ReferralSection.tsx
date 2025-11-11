@@ -177,11 +177,11 @@ export function ReferralSection({ userId }: ReferralSectionProps) {
               </p>
             </div>
             <Button
-              onClick={() => copyToClipboard(referralCode, 'Referral code')}
+              onClick={() => copyToClipboard(referralLink, 'Referral link')}
               variant="outline"
               size="sm"
               className="flex items-center gap-2"
-              disabled={!referralCode}
+              disabled={!referralLink}
             >
               <Copy className="w-4 h-4" />
               Copy
