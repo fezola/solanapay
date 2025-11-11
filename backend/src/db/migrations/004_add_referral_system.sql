@@ -115,19 +115,19 @@ BEGIN
     FOR i IN 1..6 LOOP
       result := result || substr(chars, floor(random() * length(chars) + 1)::int, 1);
     END LOOP;
-    
+
     -- Check if code already exists
     IF NOT EXISTS (SELECT 1 FROM referral_codes WHERE code = result) THEN
       RETURN result;
     END IF;
-    
+
     attempts := attempts + 1;
     IF attempts >= max_attempts THEN
       RAISE EXCEPTION 'Failed to generate unique referral code after % attempts', max_attempts;
     END IF;
   END LOOP;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================================
 -- 5. CREATE FUNCTION TO AUTO-GENERATE REFERRAL CODE FOR NEW USERS
@@ -138,10 +138,10 @@ BEGIN
   -- Generate and insert referral code for new user
   INSERT INTO referral_codes (user_id, code)
   VALUES (NEW.id, generate_referral_code());
-  
+
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================================
 -- 6. CREATE TRIGGER TO AUTO-GENERATE REFERRAL CODES
@@ -216,25 +216,25 @@ DECLARE
   v_referral_id UUID;
 BEGIN
   -- Check if KYC status changed to 'approved' and tier is at least 1
-  IF NEW.kyc_status = 'approved' AND NEW.kyc_tier >= 1 AND 
+  IF NEW.kyc_status = 'approved' AND NEW.kyc_tier >= 1 AND
      (OLD.kyc_status != 'approved' OR OLD.kyc_tier < 1) THEN
-    
+
     -- Check if this user was referred
     SELECT id INTO v_referral_id
     FROM referrals
     WHERE referred_user_id = NEW.id
     AND status = 'pending'
     AND reward_credited = FALSE;
-    
+
     -- If referral exists, credit the reward
     IF v_referral_id IS NOT NULL THEN
       PERFORM credit_referral_reward(v_referral_id);
     END IF;
   END IF;
-  
+
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================================
 -- 9. CREATE TRIGGER TO AUTO-CREDIT REFERRAL ON KYC APPROVAL
