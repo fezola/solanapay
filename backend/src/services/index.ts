@@ -1,5 +1,6 @@
 import { solanaMonitor } from './monitors/solana-monitor.js';
 import { baseMonitor } from './monitors/base-monitor.js';
+import { payoutMonitor } from './monitors/payout-monitor.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -12,6 +13,9 @@ export async function initializeServices() {
     // Start blockchain monitors
     await solanaMonitor.start();
     await baseMonitor.start();
+
+    // Start payout status monitor
+    await payoutMonitor.start();
 
     logger.info('✅ All services initialized successfully');
   } catch (error) {
@@ -28,6 +32,7 @@ export async function shutdownServices() {
 
   solanaMonitor.stop();
   baseMonitor.stop();
+  payoutMonitor.stop();
 
   logger.info('All services stopped');
 }
