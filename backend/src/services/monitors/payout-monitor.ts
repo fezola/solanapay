@@ -5,7 +5,14 @@
 
 import { supabaseAdmin } from '../../utils/supabase.js';
 import { logger } from '../../utils/logger.js';
-import { breadService } from '../bread/index.js';
+import { BreadService } from '../bread/index.js';
+import { env } from '../../config/env.js';
+
+// Initialize Bread service
+const breadService = new BreadService({
+  apiKey: env.BREAD_API_KEY!,
+  baseUrl: env.BREAD_API_URL,
+});
 
 export class PayoutMonitor {
   private isRunning = false;
@@ -112,15 +119,18 @@ export class PayoutMonitor {
       let newStatus = payout.status;
       const updateData: any = {};
 
-      if (breadStatus === 'completed' || breadStatus === 'success') {
+      if (breadStatus === 'completed') {
         newStatus = 'success';
         updateData.status = 'success';
         updateData.completed_at = new Date().toISOString();
-        updateData.bread_tx_hash = offrampStatus.data.tx_hash || offrampStatus.data.txHash;
+        if (offrampStatus.data.tx_hash) {
+          updateData.bread_tx_hash = offrampStatus.data.tx_hash;
+        }
       } else if (breadStatus === 'failed') {
         newStatus = 'failed';
         updateData.status = 'failed';
-        updateData.error_message = offrampStatus.data.error_message || offrampStatus.data.errorMessage;
+        // Note: error_message field doesn't exist in OfframpStatusData type
+        // We'll just mark it as failed without a specific error message
       } else if (breadStatus === 'processing') {
         newStatus = 'processing';
         updateData.status = 'processing';
