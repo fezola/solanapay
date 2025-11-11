@@ -169,11 +169,11 @@ export function ReferralSection({ userId }: ReferralSectionProps) {
         transition={{ delay: 0.1 }}
       >
         <Card className="p-6 border border-gray-100 bg-gradient-to-br from-blue-50 to-purple-50">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Your Referral Code</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Your Referral Link</h3>
           <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 bg-white rounded-lg px-4 py-3 border-2 border-dashed border-blue-300">
-              <p className="text-2xl font-bold text-gray-900 text-center tracking-wider">
-                {referralCode || 'Loading...'}
+              <p className="text-sm font-semibold text-gray-900 text-center break-all">
+                {referralLink || 'Loading...'}
               </p>
             </div>
             <Button
