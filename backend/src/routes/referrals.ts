@@ -20,10 +20,12 @@ export const referralRoutes: FastifyPluginAsync = async (fastify) => {
     const userId = request.userId!;
 
     try {
-      const referralCode = await referralService.getUserReferralCode(userId);
+      let referralCode = await referralService.getUserReferralCode(userId);
 
+      // If no referral code exists, create one
       if (!referralCode) {
-        return reply.status(404).send({ error: 'Referral code not found' });
+        request.log.info({ userId }, 'No referral code found, creating one');
+        referralCode = await referralService.generateReferralCode(userId);
       }
 
       // Generate referral link
