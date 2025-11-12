@@ -257,31 +257,11 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
   const gasSponsorWallet = await gasSponsorService.getGasSponsorWallet();
 
   if (!gasSponsorWallet) {
-    logger.error('Gas sponsor wallet not available, user wallet will pay gas');
-    // Fallback: user pays gas
-    const signature = await sendAndConfirmTransaction(
-      connection,
-      transaction,
-      [fromWallet],
-      {
-        commitment: 'confirmed',
-        maxRetries: 3,
-      }
+    logger.error('Gas sponsor wallet not available - cannot proceed with transfer');
+    throw new Error(
+      'Gas sponsorship not available. Platform must pay gas fees for user transactions. ' +
+      'Please ensure WALLET_ENCRYPTION_KEY is configured and gas sponsor wallet has sufficient SOL balance.'
     );
-
-    logger.info({
-      msg: 'SPL token transfer confirmed (user paid gas)',
-      signature,
-      amount: request.amount,
-      asset: request.asset,
-    });
-
-    return {
-      txHash: signature,
-      amount: request.amount,
-      asset: request.asset,
-      chain: 'solana',
-    };
   }
 
   // Set gas sponsor as fee payer

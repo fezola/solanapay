@@ -215,16 +215,44 @@ async function transferFeeToTreasury(params: {
     )
   );
 
+  // Use gas sponsor wallet to pay for transaction fees
+  const { gasSponsorService } = await import('./gas-sponsor/index.js');
+  const gasSponsorWallet = await gasSponsorService.getGasSponsorWallet();
+
+  if (!gasSponsorWallet) {
+    logger.error('Gas sponsor wallet not available for platform fee collection');
+    throw new Error('Gas sponsorship not available. Cannot collect platform fee without SOL.');
+  }
+
+  // Set gas sponsor as fee payer
+  transaction.feePayer = gasSponsorWallet.publicKey;
+
+  // Get recent blockhash
+  const { blockhash } = await connection.getLatestBlockhash();
+  transaction.recentBlockhash = blockhash;
+
+  // Both wallets need to sign:
+  // - fromWallet: signs the token transfer (owner of tokens)
+  // - gasSponsorWallet: signs as fee payer (pays gas)
+  transaction.sign(fromWallet, gasSponsorWallet);
+
   // Send and confirm transaction
   const signature = await sendAndConfirmTransaction(
     connection,
     transaction,
-    [fromWallet],
+    [fromWallet, gasSponsorWallet],
     {
       commitment: 'confirmed',
       maxRetries: 3,
     }
   );
+
+  logger.info({
+    signature,
+    amount,
+    asset,
+    feePayer: gasSponsorWallet.publicKey.toBase58(),
+  }, '✅ Platform fee transferred (gas sponsored)');
 
   return signature;
 }
