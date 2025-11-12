@@ -175,11 +175,48 @@ export function SumsubVerification({ onComplete, onError }: SumsubVerificationPr
       </CardHeader>
       <CardContent>
         {status === 'idle' && (
-          <div className="text-center py-8">
-            <Button onClick={initializeSumsub} disabled={loading} size="lg">
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Start Verification
-            </Button>
+          <div className="space-y-6">
+            {/* Document Requirements Warning */}
+            <Alert className="bg-red-50 border-red-200">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              <div className="ml-2">
+                <h4 className="text-red-900 font-semibold mb-2">⚠️ Important: Document Requirements</h4>
+                <ul className="space-y-2 text-red-800 text-sm">
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 font-bold">•</span>
+                    <span><strong>Clear & Readable:</strong> All text and photos must be clearly visible. No blurry or dark images.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 font-bold">•</span>
+                    <span><strong>Name Must Match:</strong> The name on your ID must exactly match your registered name. Any mismatch will result in rejection.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 font-bold">•</span>
+                    <span><strong>Valid Documents:</strong> Use government-issued ID (National ID, International Passport, or Driver's License).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 font-bold">•</span>
+                    <span><strong>Good Lighting:</strong> Take photos in a well-lit area. Avoid shadows, glare, or reflections.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 font-bold">•</span>
+                    <span><strong>Complete Document:</strong> Ensure all four corners of your ID are visible in the photo.</span>
+                  </li>
+                </ul>
+                <div className="mt-3 pt-3 border-t border-red-200">
+                  <p className="text-red-900 font-medium text-sm">
+                    ❌ Blurry documents, name mismatches, or incomplete photos will be automatically rejected.
+                  </p>
+                </div>
+              </div>
+            </Alert>
+
+            <div className="text-center py-4">
+              <Button onClick={initializeSumsub} disabled={loading} size="lg">
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                I Understand - Start Verification
+              </Button>
+            </div>
           </div>
         )}
 

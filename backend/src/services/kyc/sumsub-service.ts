@@ -11,6 +11,7 @@ import {
   ReviewResult,
   KYC_TIER_MAPPING,
 } from './sumsub-types.js';
+import { createUserLimits } from '../../utils/limits.js';
 
 export class SumsubService {
   private client: SumsubClient;
@@ -203,6 +204,16 @@ export class SumsubService {
       kycTier,
       reviewAnswer: reviewResult?.reviewAnswer,
     });
+
+    // Create transaction limits if user was approved
+    if (kycStatus === 'approved' && kycTier > 0) {
+      await createUserLimits(userId, kycTier);
+      logger.info({
+        msg: 'Transaction limits created for approved user',
+        userId,
+        kycTier,
+      });
+    }
 
     // Log webhook event
     await supabaseAdmin.from('kyc_verifications').insert({

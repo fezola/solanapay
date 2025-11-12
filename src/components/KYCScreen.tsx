@@ -378,7 +378,7 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                   </div>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-xl mb-6 border border-blue-100">
+                <div className="bg-blue-50 p-4 rounded-xl mb-4 border border-blue-100">
                   <div className="flex items-start gap-3">
                     <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                     <div>
@@ -387,6 +387,43 @@ export function KYCScreen({ currentTier, kycStatus, onComplete, onBack }: KYCScr
                         You'll be asked to provide a government-issued ID and take a selfie.
                         All data is encrypted and processed securely by Sumsub.
                       </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Document Requirements Warning */}
+                <div className="bg-red-50 p-4 rounded-xl mb-6 border border-red-200">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-red-900 font-semibold mb-2">⚠️ Important: Document Requirements</p>
+                      <ul className="space-y-2 text-red-800 text-sm">
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-600 font-bold">•</span>
+                          <span><strong>Clear & Readable:</strong> All text and photos must be clearly visible. No blurry or dark images.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-600 font-bold">•</span>
+                          <span><strong>Name Must Match:</strong> The name on your ID must exactly match your registered name. Any mismatch will result in rejection.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-600 font-bold">•</span>
+                          <span><strong>Valid Documents:</strong> Use government-issued ID (National ID, International Passport, or Driver's License).</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-600 font-bold">•</span>
+                          <span><strong>Good Lighting:</strong> Take photos in a well-lit area. Avoid shadows, glare, or reflections.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-600 font-bold">•</span>
+                          <span><strong>Complete Document:</strong> Ensure all four corners of your ID are visible in the photo.</span>
+                        </li>
+                      </ul>
+                      <div className="mt-3 pt-3 border-t border-red-200">
+                        <p className="text-red-900 font-medium text-sm">
+                          ❌ Blurry documents, name mismatches, or incomplete photos will be automatically rejected.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

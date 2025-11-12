@@ -9,6 +9,7 @@ import { BreadWebhookPayload, BreadOfframp } from '../services/bread/types.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
+import { createUserLimits } from '../utils/limits.js';
 
 export const breadWebhookRoutes: FastifyPluginAsync = async (fastify) => {
   const webhookHandler = new BreadWebhookHandler(env.BREAD_WEBHOOK_SECRET);
@@ -139,15 +140,31 @@ export const breadWebhookRoutes: FastifyPluginAsync = async (fastify) => {
             identityId: data.id,
           });
 
-          // Update user KYC status
-          await supabaseAdmin
+          // Get user ID first
+          const { data: user } = await supabaseAdmin
             .from('users')
-            .update({
-              bread_identity_status: 'verified',
-              kyc_status: 'approved',
-              kyc_tier: 1,
-            })
-            .eq('bread_identity_id', data.id);
+            .select('id')
+            .eq('bread_identity_id', data.id)
+            .single();
+
+          if (user) {
+            // Update user KYC status
+            await supabaseAdmin
+              .from('users')
+              .update({
+                bread_identity_status: 'verified',
+                kyc_status: 'approved',
+                kyc_tier: 1,
+              })
+              .eq('bread_identity_id', data.id);
+
+            // Create transaction limits for the approved user
+            await createUserLimits(user.id, 1);
+            logger.info({
+              msg: 'Transaction limits created for Bread-verified user',
+              userId: user.id,
+            });
+          }
         },
 
         onIdentityRejected: async (data: any) => {
