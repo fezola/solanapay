@@ -101,7 +101,7 @@ export interface DepositAddress {
 
 export const authService = {
   // Sign up new user
-  async signUp(email: string, password: string, fullName?: string) {
+  async signUp(email: string, password: string, fullName?: string, referralCode?: string) {
     try {
       // Call backend API instead of Supabase directly
       // This ensures referral codes are created properly
@@ -114,6 +114,7 @@ export const authService = {
           email,
           password,
           name: fullName,
+          referralCode: referralCode,
         }),
       });
 

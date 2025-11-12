@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -16,6 +16,17 @@ export function AuthScreen({ onAuth }: AuthScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+
+  // Extract referral code from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      setReferralCode(ref);
+      console.log('Referral code from URL:', ref);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +45,7 @@ export function AuthScreen({ onAuth }: AuthScreenProps) {
         }
       } else {
         // Sign up
-        const { user } = await authService.signUp(email, password, name);
+        const { user } = await authService.signUp(email, password, name, referralCode || undefined);
         if (user) {
           onAuth({
             name: name || email.split('@')[0],
