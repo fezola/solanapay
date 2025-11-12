@@ -61,6 +61,15 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       // Wait a moment for database trigger to complete
       await new Promise(resolve => setTimeout(resolve, 500));
 
+      // Create referral code for new user (trigger is disabled, so we do it manually)
+      try {
+        await referralService.generateReferralCode(data.user.id);
+        request.log.info({ userId: data.user.id }, 'Referral code created for new user');
+      } catch (referralError: any) {
+        // Log error but don't fail signup
+        request.log.warn({ error: referralError, userId: data.user.id }, 'Failed to create referral code');
+      }
+
       // Apply referral code if provided
       if (body.referralCode) {
         try {

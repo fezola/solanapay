@@ -103,25 +103,37 @@ export const authService = {
   // Sign up new user
   async signUp(email: string, password: string, fullName?: string) {
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName || '',
-          },
+      // Call backend API instead of Supabase directly
+      // This ensures referral codes are created properly
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email,
+          password,
+          name: fullName,
+        }),
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('No user returned from signup');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Signup failed');
+      }
 
-      // Profile is automatically created by database trigger
-      // Wait a moment for trigger to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const data = await response.json();
+
+      // Set the session in Supabase client
+      if (data.session) {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+      }
 
       toast.success('Account created successfully!');
-      return { user: authData.user, session: authData.session };
+      return { user: data.user, session: data.session };
     } catch (error: any) {
       toast.error(error.message || 'Failed to create account');
       throw error;
