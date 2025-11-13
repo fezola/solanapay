@@ -236,27 +236,28 @@ export default function App() {
     const loadBankAccounts = async () => {
       if (isAuthenticated && userId) {
         try {
-          // Fetch from payout_beneficiaries table (has bread_beneficiary_id)
-          const { data: beneficiaries, error } = await supabase
-            .from('payout_beneficiaries')
+          // Fetch from bank_accounts table (where backend saves them)
+          const { data: accounts, error } = await supabase
+            .from('bank_accounts')
             .select('*')
             .eq('user_id', userId)
             .order('is_default', { ascending: false })
             .order('created_at', { ascending: false });
 
           if (error) {
-            console.error('Error fetching beneficiaries:', error);
+            console.error('Error fetching bank accounts:', error);
             return;
           }
 
           // Transform to match BankAccount interface
-          const transformedAccounts = (beneficiaries || []).map((beneficiary: any) => ({
-            id: beneficiary.bread_beneficiary_id || beneficiary.id, // Use bread_beneficiary_id for offramp API
-            bankName: beneficiary.bank_name,
-            bankCode: beneficiary.bank_code,
-            accountNumber: beneficiary.account_number,
-            accountName: beneficiary.account_name,
-            isVerified: !!beneficiary.verified_at,
+          const transformedAccounts = (accounts || []).map((account: any) => ({
+            id: account.id, // Use database ID
+            bankName: account.bank_name,
+            bankCode: account.bank_code,
+            accountNumber: account.account_number,
+            accountName: account.account_name,
+            isVerified: !!account.verified_at,
+            breadBeneficiaryId: account.bread_beneficiary_id, // Store for offramp
             logo: undefined, // Will be populated by BankAccountScreen
           }));
           setBankAccounts(transformedAccounts);
@@ -473,6 +474,8 @@ export default function App() {
   };
 
   const handleDeleteBankAccount = (id: string) => {
+    // Note: We keep bank accounts in database for reuse
+    // Just remove from local state for now
     setBankAccounts(bankAccounts.filter(account => account.id !== id));
   };
 

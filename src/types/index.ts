@@ -9,6 +9,7 @@ export interface BankAccount {
   accountNumber: string;
   accountName: string;
   isVerified?: boolean;
+  breadBeneficiaryId?: string;
   logo?: string;
 }
 
