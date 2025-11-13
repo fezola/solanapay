@@ -247,41 +247,6 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
     willCreateDestinationAccount: !destinationAccountExists,
   });
 
-  // Create transaction
-  const transaction = new Transaction();
-
-  // Add instruction to create destination token account if it doesn't exist
-  if (!destinationAccountExists) {
-    logger.info({
-      msg: 'Adding instruction to create destination token account',
-      payer: fromPubkey.toBase58(),
-      ata: toTokenAccount.toBase58(),
-      owner: toPubkey.toBase58(),
-      mint: mintPubkey.toBase58(),
-    });
-
-    transaction.add(
-      createAssociatedTokenAccountInstruction(
-        fromPubkey,      // payer (must have SOL for rent)
-        toTokenAccount,  // ata to create
-        toPubkey,        // owner of that ata (Bread wallet)
-        mintPubkey       // token mint
-      )
-    );
-  }
-
-  // Add transfer instruction
-  transaction.add(
-    createTransferInstruction(
-      fromTokenAccount,
-      toTokenAccount,
-      fromPubkey,
-      amountInTokenUnits,
-      [],
-      TOKEN_PROGRAM_ID
-    )
-  );
-
   // Get gas sponsor wallet to pay for transaction fees
   logger.info({
     msg: '💰 Using gas sponsorship for transaction',
@@ -299,6 +264,41 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
       'Please ensure WALLET_ENCRYPTION_KEY is configured and gas sponsor wallet has sufficient SOL balance.'
     );
   }
+
+  // Create transaction
+  const transaction = new Transaction();
+
+  // Add instruction to create destination token account if it doesn't exist
+  if (!destinationAccountExists) {
+    logger.info({
+      msg: 'Adding instruction to create destination token account',
+      payer: gasSponsorWallet.publicKey.toBase58(),
+      ata: toTokenAccount.toBase58(),
+      owner: toPubkey.toBase58(),
+      mint: mintPubkey.toBase58(),
+    });
+
+    transaction.add(
+      createAssociatedTokenAccountInstruction(
+        gasSponsorWallet.publicKey,  // payer (gas sponsor pays for rent)
+        toTokenAccount,              // ata to create
+        toPubkey,                    // owner of that ata (Bread wallet)
+        mintPubkey                   // token mint
+      )
+    );
+  }
+
+  // Add transfer instruction
+  transaction.add(
+    createTransferInstruction(
+      fromTokenAccount,
+      toTokenAccount,
+      fromPubkey,
+      amountInTokenUnits,
+      [],
+      TOKEN_PROGRAM_ID
+    )
+  );
 
   // Set gas sponsor as fee payer
   transaction.feePayer = gasSponsorWallet.publicKey;
