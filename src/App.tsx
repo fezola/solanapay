@@ -82,8 +82,10 @@ export default function App() {
   const [balance, setBalance] = useState({
     usdcSolana: 0,
     usdcBase: 0,
+    usdcPolygon: 0,
     sol: 0,
     usdtSolana: 0,
+    usdtPolygon: 0,
     naira: 0,
   });
 
@@ -91,8 +93,10 @@ export default function App() {
   const [depositAddresses, setDepositAddresses] = useState({
     usdcSolana: '',
     usdcBase: '',
+    usdcPolygon: '',
     sol: '',
     usdtSolana: '',
+    usdtPolygon: '',
   });
 
   // Bank accounts
@@ -155,8 +159,10 @@ export default function App() {
         setBalance({
           usdcSolana: cryptoData.balances.usdcSolana || 0,
           usdcBase: cryptoData.balances.usdcBase || 0,
+          usdcPolygon: cryptoData.balances.usdcPolygon || 0,
           sol: cryptoData.balances.sol || 0,
           usdtSolana: cryptoData.balances.usdtSolana || 0,
+          usdtPolygon: cryptoData.balances.usdtPolygon || 0,
           naira: walletData.balance?.naira || 0,
         });
       } else if (cryptoResponse.ok) {
@@ -168,8 +174,10 @@ export default function App() {
         setBalance({
           usdcSolana: cryptoData.balances.usdcSolana || 0,
           usdcBase: cryptoData.balances.usdcBase || 0,
+          usdcPolygon: cryptoData.balances.usdcPolygon || 0,
           sol: cryptoData.balances.sol || 0,
           usdtSolana: cryptoData.balances.usdtSolana || 0,
+          usdtPolygon: cryptoData.balances.usdtPolygon || 0,
           naira: 0,
         });
       }

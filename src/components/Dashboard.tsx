@@ -17,8 +17,10 @@ interface DashboardProps {
   balance: {
     usdcSolana: number;
     usdcBase: number;
+    usdcPolygon: number;
     sol: number;
     usdtSolana: number;
+    usdtPolygon: number;
     naira: number;
   };
   onNavigate: (tab: string) => void;
@@ -32,7 +34,9 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
   const [rates, setRates] = useState({
     usdcSolana: 1600,
     usdcBase: 1600,
+    usdcPolygon: 1600,
     usdtSolana: 1600,
+    usdtPolygon: 1600,
     sol: 250000,
   });
 
@@ -87,6 +91,18 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       isFiat: false,
     },
     {
+      id: 'usdc-polygon',
+      name: 'USDC',
+      symbol: 'USDC',
+      amount: balance.usdcPolygon,
+      usdValue: balance.usdcPolygon * (rates.usdcPolygon / rates.usdcSolana), // USDC rate in USD
+      ngnValue: balance.usdcPolygon * rates.usdcPolygon,
+      logo: '/usd-coin-usdc-logo.svg',
+      network: 'Polygon',
+      networkLogo: '/polygon-matic-logo.svg',
+      isFiat: false,
+    },
+    {
       id: 'sol',
       name: 'SOL',
       symbol: 'SOL',
@@ -108,6 +124,18 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       logo: '/tether-usdt-logo.svg',
       network: 'Solana',
       networkLogo: '/solana-sol-logo.svg',
+      isFiat: false,
+    },
+    {
+      id: 'usdt-polygon',
+      name: 'USDT',
+      symbol: 'USDT',
+      amount: balance.usdtPolygon,
+      usdValue: balance.usdtPolygon * (rates.usdtPolygon / rates.usdcSolana), // USDT rate in USD
+      ngnValue: balance.usdtPolygon * rates.usdtPolygon,
+      logo: '/tether-usdt-logo.svg',
+      network: 'Polygon',
+      networkLogo: '/polygon-matic-logo.svg',
       isFiat: false,
     },
   ];

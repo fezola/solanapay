@@ -54,7 +54,9 @@ class PriceService {
       const fallbackRates: { [key: string]: number } = {
         'USDC-solana': 1600,
         'USDC-base': 1600,
+        'USDC-polygon': 1600,
         'USDT-solana': 1600,
+        'USDT-polygon': 1600,
         'SOL-solana': 250000,
       };
 
@@ -69,32 +71,40 @@ class PriceService {
   async getAllRates(): Promise<{
     usdcSolana: number;
     usdcBase: number;
+    usdcPolygon: number;
     usdtSolana: number;
+    usdtPolygon: number;
     sol: number;
   }> {
     try {
       // Fetch all rates in parallel
-      const [usdcSolana, usdcBase, usdtSolana, sol] = await Promise.all([
+      const [usdcSolana, usdcBase, usdcPolygon, usdtSolana, usdtPolygon, sol] = await Promise.all([
         this.getRate('USDC', 'solana'),
         this.getRate('USDC', 'base'),
+        this.getRate('USDC', 'polygon'),
         this.getRate('USDT', 'solana'),
+        this.getRate('USDT', 'polygon'),
         this.getRate('SOL', 'solana'),
       ]);
 
       return {
         usdcSolana,
         usdcBase,
+        usdcPolygon,
         usdtSolana,
+        usdtPolygon,
         sol,
       };
     } catch (error) {
       console.error('Failed to fetch all rates:', error);
-      
+
       // Return fallback rates
       return {
         usdcSolana: 1600,
         usdcBase: 1600,
+        usdcPolygon: 1600,
         usdtSolana: 1600,
+        usdtPolygon: 1600,
         sol: 250000,
       };
     }

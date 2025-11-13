@@ -10,8 +10,10 @@ interface WalletScreenProps {
   depositAddresses: {
     usdcSolana: string;
     usdcBase: string;
+    usdcPolygon: string;
     sol: string;
     usdtSolana: string;
+    usdtPolygon: string;
   };
 }
 
@@ -27,8 +29,10 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
   const getDepositAddress = (cryptoId: string, networkId: string): string => {
     if (cryptoId === 'usdc' && networkId === 'solana') return depositAddresses.usdcSolana;
     if (cryptoId === 'usdc' && networkId === 'base') return depositAddresses.usdcBase;
+    if (cryptoId === 'usdc' && networkId === 'polygon') return depositAddresses.usdcPolygon;
     if (cryptoId === 'sol' && networkId === 'solana') return depositAddresses.sol;
     if (cryptoId === 'usdt' && networkId === 'solana') return depositAddresses.usdtSolana;
+    if (cryptoId === 'usdt' && networkId === 'polygon') return depositAddresses.usdtPolygon;
     // For other networks, return placeholder (will be implemented later)
     return 'Coming soon - Address will be generated';
   };

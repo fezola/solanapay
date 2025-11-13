@@ -30,6 +30,8 @@ export class BreadWalletService {
         return { network: 'evm', chain: 'base' };
       case 'ethereum':
         return { network: 'evm', chain: 'ethereum' };
+      case 'polygon':
+        return { network: 'evm', chain: 'polygon' };
       default:
         throw new Error(`Unsupported chain: ${chain}`);
     }

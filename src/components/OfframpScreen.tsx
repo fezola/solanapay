@@ -16,8 +16,10 @@ interface OfframpScreenProps {
   balance: {
     usdcSolana: number;
     usdcBase: number;
+    usdcPolygon: number;
     sol: number;
     usdtSolana: number;
+    usdtPolygon: number;
     naira: number;
   };
   bankAccounts: Array<{
@@ -39,7 +41,7 @@ interface OfframpScreenProps {
   userId: string;
 }
 
-type AssetId = 'usdc-solana' | 'usdc-base' | 'sol' | 'usdt-solana';
+type AssetId = 'usdc-solana' | 'usdc-base' | 'usdc-polygon' | 'sol' | 'usdt-solana' | 'usdt-polygon';
 
 export function OfframpScreen({
   balance,
@@ -59,8 +61,10 @@ export function OfframpScreen({
   const [rates, setRates] = useState<Record<string, number>>({
     'usdc-solana': 1600,
     'usdc-base': 1600,
+    'usdc-polygon': 1600,
     'sol': 250000,
     'usdt-solana': 1600,
+    'usdt-polygon': 1600,
   });
   const [showPINModal, setShowPINModal] = useState(false);
 
@@ -89,6 +93,18 @@ export function OfframpScreen({
       networkLogo: '/BASE.png',
       breadAsset: 'base:usdc',
     },
+    {
+      id: 'usdc-polygon' as AssetId,
+      name: 'USDC (Polygon)',
+      symbol: 'USDC',
+      network: 'Polygon',
+      balance: balance.usdcPolygon,
+      rate: rates['usdc-polygon'],
+      minAmount: 1,
+      logo: '/usd-coin-usdc-logo.svg',
+      networkLogo: '/polygon-matic-logo.svg',
+      breadAsset: 'polygon:usdc',
+    },
     // SOL removed - Bread Africa doesn't support SOL offramp
     // {
     //   id: 'sol' as AssetId,
@@ -113,6 +129,18 @@ export function OfframpScreen({
       logo: '/tether-usdt-logo.svg',
       networkLogo: '/solana-sol-logo.svg',
       breadAsset: 'solana:usdt',
+    },
+    {
+      id: 'usdt-polygon' as AssetId,
+      name: 'USDT (Polygon)',
+      symbol: 'USDT',
+      network: 'Polygon',
+      balance: balance.usdtPolygon,
+      rate: rates['usdt-polygon'],
+      minAmount: 1,
+      logo: '/tether-usdt-logo.svg',
+      networkLogo: '/polygon-matic-logo.svg',
+      breadAsset: 'polygon:usdt',
     },
   ];
 
@@ -148,7 +176,9 @@ export function OfframpScreen({
         const assetMappings = [
           { id: 'usdc-solana', breadAsset: 'solana:usdc', amount: 1 },
           { id: 'usdc-base', breadAsset: 'base:usdc', amount: 1 },
+          { id: 'usdc-polygon', breadAsset: 'polygon:usdc', amount: 1 },
           { id: 'usdt-solana', breadAsset: 'solana:usdt', amount: 1 },
+          { id: 'usdt-polygon', breadAsset: 'polygon:usdt', amount: 1 },
         ];
 
         const ratePromises = assetMappings.map(async ({ id, breadAsset, amount }) => {
@@ -427,12 +457,20 @@ export function OfframpScreen({
                       <SelectItem key={asset.id} value={asset.id}>
                         <div className="flex items-center justify-between w-full gap-3">
                           <div className="flex items-center gap-2">
-                            <img
-                              src={asset.logo}
-                              alt={asset.symbol}
-                              className="w-6 h-6 rounded-full"
-                            />
-                            <span>{asset.name}</span>
+                            {/* Token and Network logos side by side */}
+                            <div className="flex items-center -space-x-2">
+                              <img
+                                src={asset.logo}
+                                alt={asset.symbol}
+                                className="w-6 h-6 rounded-full border-2 border-white z-10"
+                              />
+                              <img
+                                src={asset.networkLogo}
+                                alt={asset.network}
+                                className="w-6 h-6 rounded-full border-2 border-white"
+                              />
+                            </div>
+                            <span>{asset.symbol}/{asset.network}</span>
                           </div>
                           <span className="text-gray-500 ml-4">
                             {asset.balance} {asset.symbol}

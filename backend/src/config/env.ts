@@ -33,6 +33,14 @@ const envSchema = z.object({
   BASE_TREASURY_PRIVATE_KEY: z.string().optional(),
   BASE_USDC_CONTRACT: z.string().default('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'),
 
+  // Polygon (EVM)
+  POLYGON_RPC_URL: z.string().url().default('https://polygon-rpc.com'),
+  POLYGON_CHAIN_ID: z.string().default('137').transform(Number),
+  POLYGON_TREASURY_ADDRESS: z.string().optional(),
+  POLYGON_TREASURY_PRIVATE_KEY: z.string().optional(),
+  POLYGON_USDC_CONTRACT: z.string().default('0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'),
+  POLYGON_USDT_CONTRACT: z.string().default('0xc2132D05D31c914a87C6611C10748AEb04B58e8F'),
+
   // Price Feeds
   PYTH_PRICE_SERVICE_URL: z.string().url().default('https://hermes.pyth.network'),
   PYTH_API_KEY: z.string().optional(),

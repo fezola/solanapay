@@ -163,7 +163,7 @@ export type OfframpStatusResponse = BreadAPIResponse<OfframpStatusData>;
 
 export type BreadWalletType = 'onramp' | 'offramp' | 'basic';
 export type BreadNetwork = 'svm' | 'evm' | 'solana' | 'base' | 'ethereum' | 'polygon';
-export type BreadChain = 'mainnet' | 'testnet' | 'devnet' | 'solana' | 'base' | 'ethereum';
+export type BreadChain = 'mainnet' | 'testnet' | 'devnet' | 'solana' | 'base' | 'ethereum' | 'polygon';
 
 export interface BreadIdentity {
   id: string;

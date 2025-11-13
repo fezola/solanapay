@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { solanaWalletService } from '../services/wallet/solana.js';
 import { baseWalletService } from '../services/wallet/base.js';
+import { polygonWalletService } from '../services/wallet/polygon.js';
 import { BreadService } from '../services/bread/index.js';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
@@ -231,6 +232,7 @@ async function generateUserAddresses(userId: string) {
   // Create Bread wallets if user has completed KYC
   let breadSolanaWalletId: string | undefined;
   let breadBaseWalletId: string | undefined;
+  let breadPolygonWalletId: string | undefined;
 
   if (breadIdentityId) {
     try {
@@ -255,6 +257,17 @@ async function generateUserAddresses(userId: string) {
       // Note: Bread API returns wallet_id but our type interface uses id
       breadBaseWalletId = (breadBaseWallet as any).wallet_id || breadBaseWallet.id;
       logger.info({ msg: 'Bread Base wallet created', walletId: breadBaseWalletId });
+
+      // Create Bread wallet for Polygon (shared by USDC, USDT)
+      logger.info({ msg: 'Creating Bread wallet for Polygon', userId, breadIdentityId });
+      const breadPolygonWallet = await breadService.wallet.createWallet(
+        breadIdentityId,
+        'polygon',
+        'basic'
+      );
+      // Note: Bread API returns wallet_id but our type interface uses id
+      breadPolygonWalletId = (breadPolygonWallet as any).wallet_id || breadPolygonWallet.id;
+      logger.info({ msg: 'Bread Polygon wallet created', walletId: breadPolygonWalletId });
     } catch (error: any) {
       logger.error({
         msg: 'Failed to create Bread wallets',
@@ -321,6 +334,38 @@ async function generateUserAddresses(userId: string) {
         bread_wallet_id: breadBaseWalletId, // Link to Bread wallet
         bread_wallet_type: breadBaseWalletId ? 'basic' : null,
         bread_synced_at: breadBaseWalletId ? new Date().toISOString() : null,
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      addresses.push({
+        chain: data.network,
+        asset: data.asset_symbol,
+        address: data.address,
+        walletType: data.wallet_type,
+      });
+    }
+  }
+
+  // Generate ONE Polygon wallet for USDC and USDT
+  const polygonWallet = await polygonWalletService.generateWallet(userId, accountIndex++);
+  const polygonAssets: Asset[] = ['USDC', 'USDT'];
+
+  for (const asset of polygonAssets) {
+    const { data, error } = await supabaseAdmin
+      .from('deposit_addresses')
+      .insert({
+        user_id: userId,
+        network: 'polygon',
+        asset_symbol: asset,
+        address: polygonWallet.address, // SAME address for all Polygon assets
+        derivation_path: polygonWallet.derivationPath,
+        private_key_encrypted: polygonWallet.encryptedPrivateKey,
+        wallet_type: walletType,
+        bread_wallet_id: breadPolygonWalletId, // Link to Bread wallet
+        bread_wallet_type: breadPolygonWalletId ? 'basic' : null,
+        bread_synced_at: breadPolygonWalletId ? new Date().toISOString() : null,
       })
       .select()
       .single();
