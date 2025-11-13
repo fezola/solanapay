@@ -84,13 +84,13 @@ export class BreadService {
     });
 
     // Step 3: Create wallets for each chain
+    // Use 'basic' type so user can select any bank account when offramping
     const wallets = await Promise.all(
       params.chains.map(async (chain) => {
         const wallet = await this.wallet.createWallet(
           identity.id,
           chain,
-          'offramp',
-          beneficiary.id
+          'basic' // Always use 'basic' - user can choose bank account at offramp time
         );
 
         return {

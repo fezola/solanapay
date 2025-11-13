@@ -699,18 +699,17 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
         try {
           // Create wallet for each supported chain (Solana and Base)
+          // Use 'basic' type so user can select any bank account when offramping
           const solanaWallet = await breadService.wallet.createWallet(
             breadIdentityId,
             'solana',
-            'offramp',
-            breadBeneficiaryId
+            'basic' // Always use 'basic' - user can choose bank account at offramp time
           );
 
           const baseWallet = await breadService.wallet.createWallet(
             breadIdentityId,
             'base',
-            'offramp',
-            breadBeneficiaryId
+            'basic' // Always use 'basic' - user can choose bank account at offramp time
           );
 
           // Extract addresses - handle both string and object formats

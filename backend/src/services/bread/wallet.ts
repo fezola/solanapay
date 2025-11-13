@@ -264,14 +264,14 @@ export class BreadWalletService {
   ): Promise<BreadWallet> {
     const { network, chain: breadChain } = this.mapChainToBread(chain);
 
-    // Try to find existing wallet
+    // Try to find existing wallet (check for both 'basic' and 'offramp' types)
     const wallets = await this.listWallets(identityId);
     const existingWallet = wallets.find(
       (w) =>
         w.network === network &&
         w.chain === breadChain &&
-        w.status === 'active' &&
-        w.type === 'offramp'
+        w.status === 'active'
+        // Accept any wallet type - we prefer 'basic' but will use 'offramp' if it exists
     );
 
     if (existingWallet) {
@@ -279,12 +279,13 @@ export class BreadWalletService {
         msg: 'Found existing Bread wallet',
         walletId: existingWallet.id,
         address: existingWallet.address,
+        type: existingWallet.type,
       });
       return existingWallet;
     }
 
-    // Create new wallet
-    return this.createWallet(identityId, chain, 'offramp', beneficiaryId);
+    // Create new wallet - always use 'basic' type so user can choose bank account
+    return this.createWallet(identityId, chain, 'basic');
   }
 }
 
