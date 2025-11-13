@@ -248,7 +248,8 @@ export const notificationService = {
 
 export class NotificationListener {
   private userId: string;
-  private transactionChannel: any;
+  private depositChannel: any;
+  private payoutChannel: any;
   private profileChannel: any;
 
   constructor(userId: string) {
@@ -257,19 +258,36 @@ export class NotificationListener {
 
   // Start listening for real-time updates
   start() {
-    // Listen for transaction updates
-    this.transactionChannel = supabase
-      .channel('transaction_notifications')
+    // Listen for deposit updates (onchain_deposits table)
+    this.depositChannel = supabase
+      .channel('deposit_notifications')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'transactions',
+          table: 'onchain_deposits',
           filter: `user_id=eq.${this.userId}`,
         },
         (payload) => {
-          this.handleTransactionUpdate(payload);
+          this.handleDepositUpdate(payload);
+        }
+      )
+      .subscribe();
+
+    // Listen for payout updates (payouts table)
+    this.payoutChannel = supabase
+      .channel('payout_notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payouts',
+          filter: `user_id=eq.${this.userId}`,
+        },
+        (payload) => {
+          this.handlePayoutUpdate(payload);
         }
       )
       .subscribe();
@@ -294,64 +312,91 @@ export class NotificationListener {
 
   // Stop listening
   stop() {
-    if (this.transactionChannel) {
-      supabase.removeChannel(this.transactionChannel);
+    if (this.depositChannel) {
+      supabase.removeChannel(this.depositChannel);
+    }
+    if (this.payoutChannel) {
+      supabase.removeChannel(this.payoutChannel);
     }
     if (this.profileChannel) {
       supabase.removeChannel(this.profileChannel);
     }
   }
 
-  // Handle transaction updates
-  private handleTransactionUpdate(payload: any) {
-    const transaction = payload.new;
-    const oldTransaction = payload.old;
+  // Handle deposit updates (onchain_deposits table)
+  private handleDepositUpdate(payload: any) {
+    const deposit = payload.new;
+    const oldDeposit = payload.old;
 
-    // New transaction created
+    console.log('🔔 Deposit update received:', { event: payload.eventType, deposit });
+
+    // New deposit detected
     if (payload.eventType === 'INSERT') {
-      if (transaction.type === 'deposit') {
-        notificationService.depositDetected(
-          transaction.crypto_asset,
-          `${transaction.crypto_amount} ${transaction.crypto_asset}`
-        );
-      } else if (transaction.type === 'offramp') {
-        notificationService.offrampInitiated(
-          `${transaction.crypto_amount} ${transaction.crypto_asset}`,
-          `₦${transaction.fiat_amount?.toLocaleString()}`
-        );
+      const amount = `${parseFloat(deposit.amount).toFixed(6)} ${deposit.asset}`;
+
+      if (deposit.status === 'confirmed') {
+        // Deposit is already confirmed
+        notificationService.depositConfirmed(deposit.asset, amount);
+
+        // Reload balance and transactions
+        window.dispatchEvent(new CustomEvent('deposit-confirmed', { detail: deposit }));
+      } else {
+        // Deposit detected but not confirmed yet
+        notificationService.depositDetected(deposit.asset, amount);
       }
     }
 
-    // Transaction status changed
-    if (payload.eventType === 'UPDATE' && oldTransaction?.status !== transaction.status) {
-      const amount = transaction.type === 'deposit' 
-        ? `${transaction.crypto_amount} ${transaction.crypto_asset}`
-        : `₦${transaction.fiat_amount?.toLocaleString()}`;
+    // Deposit status changed
+    if (payload.eventType === 'UPDATE' && oldDeposit?.status !== deposit.status) {
+      const amount = `${parseFloat(deposit.amount).toFixed(6)} ${deposit.asset}`;
 
-      switch (transaction.status) {
-        case 'processing':
-          if (transaction.type === 'offramp') {
-            notificationService.offrampProcessing(`₦${transaction.fiat_amount?.toLocaleString()}`);
-          } else {
-            notificationService.transactionPending(transaction.type);
-          }
-          break;
-
-        case 'completed':
-          if (transaction.type === 'deposit') {
-            notificationService.depositConfirmed(transaction.crypto_asset, amount);
-          } else if (transaction.type === 'offramp') {
-            notificationService.offrampCompleted(
-              `₦${transaction.fiat_amount?.toLocaleString()}`,
-              'your bank account'
-            );
-          } else {
-            notificationService.transactionCompleted(transaction.type, amount);
-          }
+      switch (deposit.status) {
+        case 'confirmed':
+          notificationService.depositConfirmed(deposit.asset, amount);
+          // Reload balance and transactions
+          window.dispatchEvent(new CustomEvent('deposit-confirmed', { detail: deposit }));
           break;
 
         case 'failed':
-          notificationService.transactionFailed(transaction.type, transaction.error_message);
+          notificationService.transactionFailed('deposit', 'Deposit confirmation failed');
+          break;
+      }
+    }
+  }
+
+  // Handle payout updates (payouts table)
+  private handlePayoutUpdate(payload: any) {
+    const payout = payload.new;
+    const oldPayout = payload.old;
+
+    console.log('🔔 Payout update received:', { event: payload.eventType, payout });
+
+    // New payout created
+    if (payload.eventType === 'INSERT') {
+      notificationService.offrampInitiated(
+        `${payout.fiat_amount} NGN`,
+        `₦${parseFloat(payout.fiat_amount).toLocaleString()}`
+      );
+    }
+
+    // Payout status changed
+    if (payload.eventType === 'UPDATE' && oldPayout?.status !== payout.status) {
+      switch (payout.status) {
+        case 'processing':
+          notificationService.offrampProcessing(`₦${parseFloat(payout.fiat_amount).toLocaleString()}`);
+          break;
+
+        case 'success':
+          notificationService.offrampCompleted(
+            `₦${parseFloat(payout.fiat_amount).toLocaleString()}`,
+            'your bank account'
+          );
+          // Reload balance and transactions
+          window.dispatchEvent(new CustomEvent('payout-completed', { detail: payout }));
+          break;
+
+        case 'failed':
+          notificationService.transactionFailed('offramp', payout.error_message || 'Payout failed');
           break;
       }
     }

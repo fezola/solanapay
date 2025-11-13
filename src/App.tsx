@@ -378,6 +378,23 @@ export default function App() {
 
       console.log('✅ Real-time notifications started for user:', userId);
 
+      // Listen for deposit confirmations
+      const handleDepositConfirmed = () => {
+        console.log('🔔 Deposit confirmed event received - reloading data...');
+        loadBalance();
+        loadTransactions();
+      };
+
+      // Listen for payout completions
+      const handlePayoutCompleted = () => {
+        console.log('🔔 Payout completed event received - reloading data...');
+        loadBalance();
+        loadTransactions();
+      };
+
+      window.addEventListener('deposit-confirmed', handleDepositConfirmed);
+      window.addEventListener('payout-completed', handlePayoutCompleted);
+
       // Cleanup on unmount or when user logs out
       return () => {
         if (notificationListenerRef.current) {
@@ -385,6 +402,8 @@ export default function App() {
           notificationListenerRef.current = null;
           console.log('🛑 Real-time notifications stopped');
         }
+        window.removeEventListener('deposit-confirmed', handleDepositConfirmed);
+        window.removeEventListener('payout-completed', handlePayoutCompleted);
       };
     }
   }, [isAuthenticated, userId, needsPINSetup]);
