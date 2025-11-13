@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
-import { env } from '../../config/env';
-import { encrypt, decrypt } from '../../utils/encryption';
-import { logger } from '../../utils/logger';
+import { env } from '../../config/env.js';
+import { encrypt, decrypt } from '../../utils/encryption.js';
+import { logger } from '../../utils/logger.js';
 
 const ERC20_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
