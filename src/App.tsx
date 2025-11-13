@@ -16,7 +16,7 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { PINSetupScreen } from './components/PINSetupScreen';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { WithdrawScreen } from './components/WithdrawScreen';
-import { authService, userService, bankAccountService } from './services/supabase';
+import { authService, userService, bankAccountService, supabase } from './services/supabase';
 import { NotificationListener, notificationService } from './services/notifications';
 import { transactionsApi } from './services/api';
 
@@ -228,15 +228,27 @@ export default function App() {
     const loadBankAccounts = async () => {
       if (isAuthenticated && userId) {
         try {
-          const accounts = await bankAccountService.getBankAccounts(userId);
-          // Transform Supabase data to match BankAccount interface
-          const transformedAccounts = accounts.map((account: any) => ({
-            id: account.id,
-            bankName: account.bank_name,
-            bankCode: account.bank_code,
-            accountNumber: account.account_number,
-            accountName: account.account_name,
-            isVerified: account.is_verified,
+          // Fetch from payout_beneficiaries table (has bread_beneficiary_id)
+          const { data: beneficiaries, error } = await supabase
+            .from('payout_beneficiaries')
+            .select('*')
+            .eq('user_id', userId)
+            .order('is_default', { ascending: false })
+            .order('created_at', { ascending: false });
+
+          if (error) {
+            console.error('Error fetching beneficiaries:', error);
+            return;
+          }
+
+          // Transform to match BankAccount interface
+          const transformedAccounts = (beneficiaries || []).map((beneficiary: any) => ({
+            id: beneficiary.bread_beneficiary_id || beneficiary.id, // Use bread_beneficiary_id for offramp API
+            bankName: beneficiary.bank_name,
+            bankCode: beneficiary.bank_code,
+            accountNumber: beneficiary.account_number,
+            accountName: beneficiary.account_name,
+            isVerified: !!beneficiary.verified_at,
             logo: undefined, // Will be populated by BankAccountScreen
           }));
           setBankAccounts(transformedAccounts);
