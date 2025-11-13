@@ -19,17 +19,53 @@ import { logger } from '../utils/logger.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { decrypt } from '../utils/encryption.js';
 import { gasSponsorService } from './gas-sponsor/index.js';
+import { env } from '../config/env.js';
 
-const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-const BASE_RPC_URL = process.env.BASE_RPC_URL || 'https://mainnet.base.org';
+const SOLANA_RPC_URL = env.SOLANA_RPC_URL;
 
 // Token mint addresses
 const SOLANA_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const SOLANA_USDT_MINT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
-const BASE_USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+
+// EVM Token Addresses
+const EVM_TOKEN_ADDRESSES: Record<string, Record<string, string>> = {
+  base: {
+    USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  },
+  polygon: {
+    USDC: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
+    USDT: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+  },
+  ethereum: {
+    USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+  },
+  arbitrum: {
+    USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+    USDT: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+  },
+  optimism: {
+    USDC: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+    USDT: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58',
+  },
+  bsc: {
+    USDC: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    USDT: '0x55d398326f99059fF775485246999027B3197955',
+  },
+};
+
+// EVM RPC URLs
+const EVM_RPC_URLS: Record<string, string> = {
+  base: env.BASE_RPC_URL,
+  polygon: env.POLYGON_RPC_URL,
+  ethereum: 'https://eth.llamarpc.com', // Public RPC
+  arbitrum: 'https://arb1.arbitrum.io/rpc', // Public RPC
+  optimism: 'https://mainnet.optimism.io', // Public RPC
+  bsc: 'https://bsc-dataseed.binance.org', // Public RPC
+};
 
 interface TransferRequest {
-  chain: 'solana' | 'base';
+  chain: string;
   asset: string;
   amount: number;
   fromAddress: string;
@@ -45,7 +81,7 @@ interface TransferResult {
 }
 
 interface BalanceCheckRequest {
-  chain: 'solana' | 'base';
+  chain: string;
   asset: string;
   walletAddress: string;
 }
@@ -65,8 +101,8 @@ export async function checkBreadWalletBalance(
 
   if (request.chain === 'solana') {
     return checkSolanaBalance(request);
-  } else if (request.chain === 'base') {
-    return checkBaseBalance(request);
+  } else if (['base', 'polygon', 'ethereum', 'arbitrum', 'optimism', 'bsc'].includes(request.chain)) {
+    return checkEVMBalance(request);
   } else {
     throw new Error(`Unsupported chain: ${request.chain}`);
   }
@@ -89,8 +125,8 @@ export async function transferToBreadWallet(
 
   if (request.chain === 'solana') {
     return transferSolana(request);
-  } else if (request.chain === 'base') {
-    return transferBase(request);
+  } else if (['base', 'polygon', 'ethereum', 'arbitrum', 'optimism', 'bsc'].includes(request.chain)) {
+    return transferEVM(request);
   } else {
     throw new Error(`Unsupported chain: ${request.chain}`);
   }
@@ -390,17 +426,23 @@ async function transferSolNative(
 }
 
 /**
- * Transfer ERC20 tokens on Base
+ * Transfer ERC20 tokens on any EVM chain (Base, Polygon, Ethereum, etc.)
  */
-async function transferBase(request: TransferRequest): Promise<TransferResult> {
-  const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
+async function transferEVM(request: TransferRequest): Promise<TransferResult> {
+  // Get RPC URL for the chain
+  const rpcUrl = EVM_RPC_URLS[request.chain];
+  if (!rpcUrl) {
+    throw new Error(`No RPC URL configured for chain: ${request.chain}`);
+  }
+
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
 
   // Get the encrypted private key from database
   const { data: depositAddress, error } = await supabaseAdmin
     .from('deposit_addresses')
     .select('private_key_encrypted')
     .eq('user_id', request.userId)
-    .eq('network', 'base')
+    .eq('network', request.chain)
     .eq('asset_symbol', request.asset.toUpperCase())
     .single();
 
@@ -409,7 +451,7 @@ async function transferBase(request: TransferRequest): Promise<TransferResult> {
       msg: 'Failed to get private key from database',
       error: error?.message,
       userId: request.userId,
-      network: 'base',
+      network: request.chain,
       asset: request.asset,
     });
     throw new Error('Deposit wallet private key not found');
@@ -425,12 +467,10 @@ async function transferBase(request: TransferRequest): Promise<TransferResult> {
     'function decimals() view returns (uint8)',
   ];
 
-  // Determine token address based on asset
-  let tokenAddress: string;
-  if (request.asset.toUpperCase() === 'USDC') {
-    tokenAddress = BASE_USDC_ADDRESS;
-  } else {
-    throw new Error(`Unsupported asset on Base: ${request.asset}`);
+  // Get token address for this chain and asset
+  const tokenAddress = EVM_TOKEN_ADDRESSES[request.chain]?.[request.asset.toUpperCase()];
+  if (!tokenAddress) {
+    throw new Error(`Unsupported asset ${request.asset} on chain ${request.chain}`);
   }
 
   const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, wallet);
@@ -440,12 +480,13 @@ async function transferBase(request: TransferRequest): Promise<TransferResult> {
   const amountInTokenUnits = ethers.parseUnits(request.amount.toString(), decimals);
 
   logger.info({
-    msg: 'Creating ERC20 transfer on Base',
+    msg: `Creating ERC20 transfer on ${request.chain}`,
     from: request.fromAddress,
     to: request.toAddress,
     amount: request.amount,
     amountInTokenUnits: amountInTokenUnits.toString(),
     tokenAddress,
+    chain: request.chain,
   });
 
   // Execute transfer
@@ -454,6 +495,7 @@ async function transferBase(request: TransferRequest): Promise<TransferResult> {
   logger.info({
     msg: 'ERC20 transfer submitted',
     txHash: tx.hash,
+    chain: request.chain,
   });
 
   // Wait for confirmation
@@ -465,13 +507,14 @@ async function transferBase(request: TransferRequest): Promise<TransferResult> {
     blockNumber: receipt.blockNumber,
     amount: request.amount,
     asset: request.asset,
+    chain: request.chain,
   });
 
   return {
     txHash: receipt.hash,
     amount: request.amount,
     asset: request.asset,
-    chain: 'base',
+    chain: request.chain,
   };
 }
 
@@ -537,10 +580,16 @@ async function checkSolanaBalance(request: BalanceCheckRequest): Promise<number>
 }
 
 /**
- * Check Base wallet balance for a specific token
+ * Check EVM wallet balance for a specific token (Base, Polygon, Ethereum, etc.)
  */
-async function checkBaseBalance(request: BalanceCheckRequest): Promise<number> {
-  const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
+async function checkEVMBalance(request: BalanceCheckRequest): Promise<number> {
+  // Get RPC URL for the chain
+  const rpcUrl = EVM_RPC_URLS[request.chain];
+  if (!rpcUrl) {
+    throw new Error(`No RPC URL configured for chain: ${request.chain}`);
+  }
+
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
 
   // ERC20 ABI for balanceOf function
   const erc20Abi = [
@@ -548,12 +597,10 @@ async function checkBaseBalance(request: BalanceCheckRequest): Promise<number> {
     'function decimals() view returns (uint8)',
   ];
 
-  // Determine token address based on asset
-  let tokenAddress: string;
-  if (request.asset.toUpperCase() === 'USDC') {
-    tokenAddress = BASE_USDC_ADDRESS;
-  } else {
-    throw new Error(`Unsupported asset on Base: ${request.asset}`);
+  // Get token address for this chain and asset
+  const tokenAddress = EVM_TOKEN_ADDRESSES[request.chain]?.[request.asset.toUpperCase()];
+  if (!tokenAddress) {
+    throw new Error(`Unsupported asset ${request.asset} on chain ${request.chain}`);
   }
 
   const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, provider);

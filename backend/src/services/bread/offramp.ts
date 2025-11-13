@@ -28,10 +28,15 @@ export class BreadOfframpService {
    */
   mapAssetToBread(asset: Asset, chain: Chain): BreadAsset {
     // Map chain to Bread format
-    const chainMap: Partial<Record<Chain, string>> = {
+    const chainMap: Record<string, string> = {
       solana: 'solana',
       base: 'base',
       ethereum: 'ethereum',
+      polygon: 'polygon',
+      arbitrum: 'arbitrum',
+      optimism: 'optimism',
+      bsc: 'bsc',
+      tron: 'tron',
     };
 
     const breadNetwork = chainMap[chain];
@@ -41,6 +46,16 @@ export class BreadOfframpService {
 
     // Map asset to lowercase
     const assetLower = asset.toLowerCase();
+
+    // SOL is only supported on Solana, not on other chains
+    if (asset === 'SOL' && chain !== 'solana') {
+      throw new Error(`SOL is only supported on Solana network`);
+    }
+
+    // ETH is only supported on Ethereum and EVM chains
+    if (asset === 'ETH' && chain === 'solana') {
+      throw new Error(`ETH is not supported on Solana network`);
+    }
 
     // Construct Bread asset ID
     const breadAsset = `${breadNetwork}:${assetLower}` as BreadAsset;

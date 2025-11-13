@@ -27,7 +27,7 @@ interface FeeCollectionParams {
   userId: string;
   cryptoAmount: number;
   asset: string;
-  chain: 'solana' | 'base';
+  chain: string;
   exchangeRate: number;
   fromAddress: string;
   quoteId?: string;

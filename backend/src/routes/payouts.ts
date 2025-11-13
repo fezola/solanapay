@@ -35,13 +35,13 @@ const executeOfframpSchema = z.object({
 
 const getRateSchema = z.object({
   asset: z.enum(['USDC', 'SOL', 'USDT', 'ETH']).optional().default('USDC'),
-  chain: z.enum(['solana', 'base']).optional().default('solana'),
+  chain: z.enum(['solana', 'base', 'ethereum', 'polygon', 'arbitrum', 'optimism', 'bsc']).optional().default('solana'),
   currency: z.enum(['NGN']).optional().default('NGN'),
 });
 
 const getQuoteSchema = z.object({
   asset: z.enum(['USDC', 'SOL', 'USDT', 'ETH']),
-  chain: z.enum(['solana', 'base']),
+  chain: z.enum(['solana', 'base', 'ethereum', 'polygon', 'arbitrum', 'optimism', 'bsc']),
   amount: z.number().positive(),
   currency: z.enum(['NGN']).optional().default('NGN'),
 });
@@ -311,7 +311,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         userId,
         cryptoAmount: body.amount,
         asset: body.asset,
-        chain: body.chain as 'solana' | 'base',
+        chain: body.chain,
         exchangeRate: quoteResponse.data.rate,
         fromAddress: depositAddress.address,
       });
@@ -336,7 +336,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       }, '🔄 Transferring crypto to Bread wallet (after platform fee)');
 
       const transferResult = await transferToBreadWallet({
-        chain: body.chain as 'solana' | 'base',
+        chain: body.chain,
         asset: body.asset,
         amount: feeCollection.amountToBread, // Send reduced amount (after fee)
         fromAddress: depositAddress.address,
@@ -352,7 +352,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Step 5: Check Bread wallet balance
       const breadBalance = await checkBreadWalletBalance({
-        chain: body.chain as 'solana' | 'base',
+        chain: body.chain,
         asset: body.asset,
         walletAddress: depositAddress.bread_wallet_address!,
       });
@@ -975,7 +975,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       // Get Bread wallet balance
       const { checkBreadWalletBalance } = await import('../services/transfer.js');
       const breadBalance = await checkBreadWalletBalance({
-        chain: quote.crypto_network as 'solana' | 'base',
+        chain: quote.crypto_network,
         asset: quote.crypto_asset,
         walletAddress: depositAddress.bread_wallet_address!,
       });
