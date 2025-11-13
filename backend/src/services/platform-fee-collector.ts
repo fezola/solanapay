@@ -162,9 +162,17 @@ async function transferFeeToTreasury(params: {
     .select('private_key_encrypted')
     .eq('address', fromAddress)
     .eq('user_id', userId)
+    .eq('network', 'solana')
+    .eq('asset_symbol', asset.toUpperCase())
     .single();
 
   if (error || !depositAddress) {
+    logger.error({
+      error: error?.message,
+      fromAddress,
+      userId,
+      asset,
+    }, '❌ Failed to find deposit address for fee collection');
     throw new Error('Deposit address not found');
   }
 

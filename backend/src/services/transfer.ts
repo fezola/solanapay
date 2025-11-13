@@ -373,9 +373,8 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
 }
 
 /**
- * Transfer native SOL
- * Note: For SOL transfers, the user must pay gas from their own SOL balance
- * Gas sponsorship is not applicable for native SOL transfers
+ * Transfer native SOL with gas sponsorship
+ * Platform pays for transaction fees so users can send their full SOL balance
  */
 async function transferSolNative(
   connection: Connection,
@@ -386,12 +385,22 @@ async function transferSolNative(
   const lamports = Math.floor(amount * LAMPORTS_PER_SOL);
 
   logger.info({
-    msg: 'Creating SOL transfer (user pays gas from SOL balance)',
+    msg: '💰 Creating SOL transfer with gas sponsorship',
     from: fromWallet.publicKey.toBase58(),
     to: toPubkey.toBase58(),
     amount,
     lamports,
   });
+
+  // Get gas sponsor wallet to pay for transaction fees
+  const gasSponsorWallet = await gasSponsorService.getGasSponsorWallet();
+
+  if (!gasSponsorWallet) {
+    logger.error('Gas sponsor wallet not available - cannot proceed with SOL transfer');
+    throw new Error(
+      'Gas sponsorship not available. Platform must pay gas fees for user transactions.'
+    );
+  }
 
   const transaction = new Transaction().add(
     SystemProgram.transfer({
@@ -401,10 +410,22 @@ async function transferSolNative(
     })
   );
 
+  // Set gas sponsor as fee payer
+  transaction.feePayer = gasSponsorWallet.publicKey;
+
+  // Get recent blockhash
+  const { blockhash } = await connection.getLatestBlockhash();
+  transaction.recentBlockhash = blockhash;
+
+  // Both wallets need to sign:
+  // - fromWallet: signs the SOL transfer (owner of SOL)
+  // - gasSponsorWallet: signs as fee payer (pays gas)
+  transaction.sign(fromWallet, gasSponsorWallet);
+
   const signature = await sendAndConfirmTransaction(
     connection,
     transaction,
-    [fromWallet],
+    [fromWallet, gasSponsorWallet],
     {
       commitment: 'confirmed',
       maxRetries: 3,
@@ -412,7 +433,7 @@ async function transferSolNative(
   );
 
   logger.info({
-    msg: 'SOL transfer confirmed',
+    msg: '✅ SOL transfer confirmed (platform sponsored gas)',
     signature,
     amount,
   });
