@@ -361,12 +361,21 @@
                     statusBadge = `<span class="badge">${tx.status}</span>`;
                 }
 
+                // Format amount based on transaction type
+                let amountDisplay;
+                if (tx.type === 'deposit') {
+                    amountDisplay = formatAmount(tx.amount, tx.asset);
+                } else {
+                    // Offramp: show fiat amount
+                    amountDisplay = formatAmount(tx.fiat_amount, 'NGN');
+                }
+
                 return `
                     <tr>
                         <td>${formatDate(tx.created_at)}</td>
                         <td>${typeBadge}</td>
                         <td>${userDisplay}</td>
-                        <td>${formatAmount(tx.amount, tx.asset)}</td>
+                        <td>${amountDisplay}</td>
                         <td>${statusBadge}</td>
                     </tr>
                 `;
