@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && node copy-views.js",
     "start": "node dist/index.js",
     "migrate": "tsx src/db/migrate.ts",
     "migrate:bread": "tsx src/db/run-bread-migration.ts",

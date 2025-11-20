@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/admin/:path*",
+      "destination": "https://solanapay-xmli.onrender.com/admin/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
