@@ -9,4 +9,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: ADMIN_EMAIL
+        value: fezola004@gmail.com
+      - key: CORS_ORIGIN
+        value: https://www.solpayservice.xyz,http://localhost:5173
 
