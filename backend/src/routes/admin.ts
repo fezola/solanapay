@@ -240,5 +240,365 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
     return { payouts };
   });
+
+  /**
+   * Get comprehensive transaction analytics
+   */
+  fastify.get('/analytics/transactions', async (request, reply) => {
+    const {
+      start_date,
+      end_date,
+      group_by = 'day'
+    } = request.query as {
+      start_date?: string;
+      end_date?: string;
+      group_by?: 'day' | 'week' | 'month'
+    };
+
+    try {
+      // Get all deposits with asset breakdown
+      let depositsQuery = supabaseAdmin
+        .from('onchain_deposits')
+        .select('*');
+
+      if (start_date) {
+        depositsQuery = depositsQuery.gte('detected_at', start_date);
+      }
+      if (end_date) {
+        depositsQuery = depositsQuery.lte('detected_at', end_date);
+      }
+
+      const { data: deposits } = await depositsQuery;
+
+      // Get all payouts with quotes
+      let payoutsQuery = supabaseAdmin
+        .from('payouts')
+        .select(`
+          *,
+          quote:quotes(*)
+        `);
+
+      if (start_date) {
+        payoutsQuery = payoutsQuery.gte('created_at', start_date);
+      }
+      if (end_date) {
+        payoutsQuery = payoutsQuery.lte('created_at', end_date);
+      }
+
+      const { data: payouts } = await payoutsQuery;
+
+      // Calculate deposit statistics by asset
+      const depositStats = deposits?.reduce((acc: any, deposit: any) => {
+        const asset = deposit.asset;
+        if (!acc[asset]) {
+          acc[asset] = {
+            total_amount: 0,
+            total_count: 0,
+            confirmed_amount: 0,
+            confirmed_count: 0,
+            pending_amount: 0,
+            pending_count: 0,
+          };
+        }
+
+        const amount = parseFloat(deposit.amount);
+        acc[asset].total_amount += amount;
+        acc[asset].total_count += 1;
+
+        if (deposit.status === 'confirmed' || deposit.status === 'swept') {
+          acc[asset].confirmed_amount += amount;
+          acc[asset].confirmed_count += 1;
+        } else {
+          acc[asset].pending_amount += amount;
+          acc[asset].pending_count += 1;
+        }
+
+        return acc;
+      }, {}) || {};
+
+      // Calculate offramp statistics
+      const offrampStats = payouts?.reduce((acc: any, payout: any) => {
+        const status = payout.status;
+        if (!acc[status]) {
+          acc[status] = {
+            count: 0,
+            total_fiat: 0,
+            total_crypto: 0,
+          };
+        }
+
+        acc[status].count += 1;
+        acc[status].total_fiat += parseFloat(payout.fiat_amount || 0);
+
+        if (payout.quote) {
+          acc[status].total_crypto += parseFloat(payout.quote.crypto_amount || 0);
+        }
+
+        return acc;
+      }, {}) || {};
+
+      // Calculate total USDC volume (deposits + offramps)
+      const totalUSDCDeposits = depositStats['USDC']?.total_amount || 0;
+      const totalUSDTDeposits = depositStats['USDT']?.total_amount || 0;
+      const totalSOLDeposits = depositStats['SOL']?.total_amount || 0;
+
+      // Calculate offramped amounts by asset
+      const totalUSDCOfframped = payouts
+        ?.filter((p: any) => {
+          const asset = p.quote?.crypto_asset || p.quote?.asset;
+          return asset === 'USDC' && p.status === 'success';
+        })
+        .reduce((sum: number, p: any) => {
+          const amount = parseFloat(p.quote?.crypto_amount || 0);
+          return sum + amount;
+        }, 0) || 0;
+
+      const totalUSDTOfframped = payouts
+        ?.filter((p: any) => {
+          const asset = p.quote?.crypto_asset || p.quote?.asset;
+          return asset === 'USDT' && p.status === 'success';
+        })
+        .reduce((sum: number, p: any) => {
+          const amount = parseFloat(p.quote?.crypto_amount || 0);
+          return sum + amount;
+        }, 0) || 0;
+
+      // Calculate total NGN paid out
+      const totalNGNPaidOut = payouts
+        ?.filter((p: any) => p.status === 'success')
+        .reduce((sum: number, p: any) => sum + parseFloat(p.fiat_amount || 0), 0) || 0;
+
+      // Get user count
+      const { count: totalUsers } = await supabaseAdmin
+        .from('users')
+        .select('*', { count: 'exact', head: true });
+
+      // Get active users (users with at least one transaction)
+      const activeUserIds = new Set([
+        ...(deposits?.map((d: any) => d.user_id).filter(Boolean) || []),
+        ...(payouts?.map((p: any) => p.user_id).filter(Boolean) || []),
+      ]);
+
+      return {
+        summary: {
+          total_users: totalUsers || 0,
+          active_users: activeUserIds.size,
+          total_deposits: deposits?.length || 0,
+          total_offramps: payouts?.length || 0,
+          total_usdc_deposited: totalUSDCDeposits,
+          total_usdt_deposited: totalUSDTDeposits,
+          total_sol_deposited: totalSOLDeposits,
+          total_usdc_offramped: totalUSDCOfframped,
+          total_usdt_offramped: totalUSDTOfframped,
+          total_ngn_paid_out: totalNGNPaidOut,
+          usdc_balance: totalUSDCDeposits - totalUSDCOfframped,
+          usdt_balance: totalUSDTDeposits - totalUSDTOfframped,
+        },
+        deposits_by_asset: depositStats,
+        offramps_by_status: offrampStats,
+        date_range: {
+          start: start_date || 'all time',
+          end: end_date || 'now',
+        },
+      };
+    } catch (error) {
+      request.log.error({ error }, 'Failed to fetch transaction analytics');
+      return reply.status(500).send({ error: 'Failed to fetch analytics' });
+    }
+  });
+
+  /**
+   * Get all transactions (deposits + offramps) with full details
+   */
+  fastify.get('/analytics/all-transactions', async (request, reply) => {
+    const {
+      limit = 100,
+      offset = 0,
+      type,
+      status,
+      user_id,
+    } = request.query as {
+      limit?: number;
+      offset?: number;
+      type?: 'deposit' | 'offramp';
+      status?: string;
+      user_id?: string;
+    };
+
+    try {
+      const transactions = [];
+
+      // Get deposits if requested
+      if (!type || type === 'deposit') {
+        let depositsQuery = supabaseAdmin
+          .from('onchain_deposits')
+          .select(`
+            *,
+            user:users(id, email, full_name)
+          `)
+          .order('detected_at', { ascending: false });
+
+        if (status) {
+          depositsQuery = depositsQuery.eq('status', status);
+        }
+        if (user_id) {
+          depositsQuery = depositsQuery.eq('user_id', user_id);
+        }
+
+        const { data: deposits } = await depositsQuery;
+
+        if (deposits) {
+          transactions.push(
+            ...deposits.map((d: any) => ({
+              id: d.id,
+              type: 'deposit',
+              user_id: d.user_id,
+              user_email: d.user?.email || null,
+              user_name: d.user?.full_name || null,
+              deposit_address: d.address,
+              asset: d.asset,
+              chain: d.chain,
+              amount: parseFloat(d.amount),
+              status: d.status,
+              tx_hash: d.tx_hash,
+              confirmations: d.confirmations,
+              required_confirmations: d.required_confirmations,
+              from_address: d.from_address,
+              to_address: d.address,
+              created_at: d.detected_at,
+              confirmed_at: d.confirmed_at,
+              swept_at: d.swept_at,
+            }))
+          );
+        }
+      }
+
+      // Get offramps if requested
+      if (!type || type === 'offramp') {
+        let payoutsQuery = supabaseAdmin
+          .from('payouts')
+          .select(`
+            *,
+            user:users(id, email, full_name),
+            quote:quotes(*),
+            beneficiary:bank_accounts(*)
+          `)
+          .order('created_at', { ascending: false });
+
+        if (status) {
+          payoutsQuery = payoutsQuery.eq('status', status);
+        }
+        if (user_id) {
+          payoutsQuery = payoutsQuery.eq('user_id', user_id);
+        }
+
+        const { data: payouts } = await payoutsQuery;
+
+        if (payouts) {
+          transactions.push(
+            ...payouts.map((p: any) => ({
+              id: p.id,
+              type: 'offramp',
+              user_id: p.user_id,
+              user_email: p.user?.email,
+              user_name: p.user?.full_name,
+              asset: p.quote?.asset,
+              chain: p.quote?.chain,
+              crypto_amount: p.quote ? parseFloat(p.quote.crypto_amount) : 0,
+              fiat_amount: parseFloat(p.fiat_amount),
+              currency: p.currency,
+              status: p.status,
+              bank_name: p.beneficiary?.bank_name,
+              account_number: p.beneficiary?.account_number,
+              account_name: p.beneficiary?.account_name,
+              provider: p.provider,
+              provider_reference: p.provider_reference,
+              error_message: p.error_message,
+              created_at: p.created_at,
+              completed_at: p.completed_at,
+            }))
+          );
+        }
+      }
+
+      // Sort by date
+      transactions.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // Apply pagination
+      const paginatedTransactions = transactions.slice(offset, offset + limit);
+
+      return {
+        transactions: paginatedTransactions,
+        total: transactions.length,
+        limit,
+        offset,
+      };
+    } catch (error) {
+      request.log.error({ error }, 'Failed to fetch all transactions');
+      return reply.status(500).send({ error: 'Failed to fetch transactions' });
+    }
+  });
+
+  /**
+   * Get platform revenue and fees
+   */
+  fastify.get('/analytics/revenue', async (request, reply) => {
+    const { start_date, end_date } = request.query as {
+      start_date?: string;
+      end_date?: string;
+    };
+
+    try {
+      // Get all successful payouts with quotes
+      let payoutsQuery = supabaseAdmin
+        .from('payouts')
+        .select(`
+          *,
+          quote:quotes(*)
+        `)
+        .eq('status', 'success');
+
+      if (start_date) {
+        payoutsQuery = payoutsQuery.gte('created_at', start_date);
+      }
+      if (end_date) {
+        payoutsQuery = payoutsQuery.lte('created_at', end_date);
+      }
+
+      const { data: payouts } = await payoutsQuery;
+
+      // Calculate total fees collected
+      const totalFees = payouts?.reduce((sum: number, p: any) => {
+        if (p.quote?.total_fee) {
+          return sum + parseFloat(p.quote.total_fee);
+        }
+        return sum;
+      }, 0) || 0;
+
+      // Calculate total volume
+      const totalVolume = payouts?.reduce((sum: number, p: any) => {
+        return sum + parseFloat(p.fiat_amount || 0);
+      }, 0) || 0;
+
+      // Calculate average fee percentage
+      const avgFeePercentage = totalVolume > 0 ? (totalFees / totalVolume) * 100 : 0;
+
+      return {
+        total_fees_ngn: totalFees,
+        total_volume_ngn: totalVolume,
+        average_fee_percentage: avgFeePercentage,
+        transaction_count: payouts?.length || 0,
+        date_range: {
+          start: start_date || 'all time',
+          end: end_date || 'now',
+        },
+      };
+    } catch (error) {
+      request.log.error({ error }, 'Failed to fetch revenue analytics');
+      return reply.status(500).send({ error: 'Failed to fetch revenue' });
+    }
+  });
 };
 

@@ -2,6 +2,10 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import fastifyView from '@fastify/view';
+import ejs from 'ejs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
 import { authRoutes } from './routes/auth.js';
@@ -15,12 +19,16 @@ import { breadWebhookRoutes } from './routes/bread-webhooks.js';
 import { sumsubWebhookRoutes } from './routes/sumsub-webhooks.js';
 import { breadRateRoutes } from './routes/bread-rates.js';
 import { adminRoutes } from './routes/admin.js';
+import { adminWebRoutes } from './routes/admin-web.js';
 import { healthRoutes } from './routes/health.js';
 import { referralRoutes } from './routes/referrals.js';
 import { gasSponsorRoutes } from './routes/gas-sponsor.js';
 // import { walletRoutes } from './routes/wallet.js'; // Removed - NGN wallet feature removed
 import { initializeServices, shutdownServices } from './services/index.js';
 import { runMigrations } from './db/migrate.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const fastify = Fastify({
   logger: true,
@@ -53,6 +61,17 @@ await fastify.register(rateLimit, {
   allowList: ['127.0.0.1'],
   ...(env.REDIS_URL ? { redis: env.REDIS_URL } : {}),
 });
+
+// Register view engine for admin pages
+await fastify.register(fastifyView, {
+  engine: {
+    ejs: ejs,
+  },
+  root: path.join(__dirname, 'views'),
+});
+
+// Admin web interface (HTML pages at /admin)
+await fastify.register(adminWebRoutes, { prefix: '/admin' });
 
 // Health check (no auth)
 await fastify.register(healthRoutes, { prefix: '/health' });
