@@ -4,62 +4,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SolPay Admin Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
         }
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
             color: white;
             padding: 20px 40px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         }
         .header-content {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .header h1 { font-size: 24px; }
+        .header h1 { font-size: 28px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
         .header-info { display: flex; align-items: center; gap: 20px; }
         .user-email { font-size: 14px; opacity: 0.9; }
         .logout-btn {
             background: rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.3);
             color: white;
-            padding: 8px 16px;
+            padding: 10px 20px;
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
-            transition: background 0.3s;
+            transition: all 0.3s;
             text-decoration: none;
+            font-weight: 500;
         }
-        .logout-btn:hover { background: rgba(255,255,255,0.3); }
-        .container { max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+        .logout-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+        .container { max-width: 1600px; margin: 0 auto; padding: 30px 20px; }
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 20px;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
         }
         .stat-card {
             background: white;
             padding: 24px;
             border-radius: 16px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
         }
-        .stat-label { color: #666; font-size: 14px; margin-bottom: 8px; }
-        .stat-value { font-size: 32px; font-weight: 700; color: #333; }
-        .stat-subtext { color: #999; font-size: 12px; margin-top: 4px; }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--card-gradient);
+        }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            background: var(--card-gradient);
+            color: white;
+            margin-bottom: 12px;
+        }
+        .stat-label { color: #666; font-size: 13px; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 28px; font-weight: 700; color: #333; }
+        .stat-card:nth-child(1) { --card-gradient: linear-gradient(135deg, #667eea, #764ba2); }
+        .stat-card:nth-child(2) { --card-gradient: linear-gradient(135deg, #f093fb, #f5576c); }
+        .stat-card:nth-child(3) { --card-gradient: linear-gradient(135deg, #4facfe, #00f2fe); }
+        .stat-card:nth-child(4) { --card-gradient: linear-gradient(135deg, #43e97b, #38f9d7); }
+        .stat-card:nth-child(5) { --card-gradient: linear-gradient(135deg, #fa709a, #fee140); }
+        .stat-card:nth-child(6) { --card-gradient: linear-gradient(135deg, #30cfd0, #330867); }
+        .stat-card:nth-child(7) { --card-gradient: linear-gradient(135deg, #a8edea, #fed6e3); }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .chart-card {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .chart-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #333; }
         .section {
             background: white;
             padding: 30px;
             border-radius: 16px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             margin-bottom: 30px;
         }
         .section-title { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #333; }
@@ -89,13 +136,13 @@
         .badge-failed { background: #ffebee; color: #c62828; }
         .loading { text-align: center; padding: 40px; color: #666; }
         .error { background: #ffebee; color: #c62828; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
-        .refresh-info { text-align: center; color: #999; font-size: 13px; margin-top: 20px; }
+        .refresh-info { text-align: center; color: rgba(255,255,255,0.8); font-size: 13px; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="header-content">
-            <h1>🔐 SolPay Admin Dashboard</h1>
+            <h1>📊 SolPay Admin Dashboard</h1>
             <div class="header-info">
                 <span class="user-email" id="userEmail"></span>
                 <a href="/admin/logout" class="logout-btn">Logout</a>
@@ -104,11 +151,26 @@
     </div>
     <div class="container">
         <div id="errorContainer"></div>
-        <div id="loadingContainer" class="loading">Loading dashboard...</div>
+        <div id="loadingContainer" class="loading">Loading dashboard data...</div>
         <div id="dashboardContent" style="display: none;">
+            <!-- Stats Grid -->
             <div class="stats-grid" id="statsGrid"></div>
+
+            <!-- Charts Grid -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-title">📈 Deposits vs Offramps</div>
+                    <canvas id="depositsOfframpsChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">💰 Asset Distribution</div>
+                    <canvas id="assetDistributionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Recent Transactions -->
             <div class="section">
-                <h2 class="section-title">📋 Recent Transactions</h2>
+                <div class="section-title">Recent Transactions</div>
                 <div class="transaction-list">
                     <table id="transactionsTable">
                         <thead>
@@ -124,92 +186,157 @@
                     </table>
                 </div>
             </div>
-            <div class="refresh-info">
-                Auto-refreshing every 30 seconds • Last updated: <span id="lastUpdate"></span>
-            </div>
         </div>
+        <div class="refresh-info">Auto-refreshes every 30 seconds</div>
     </div>
+
     <script>
-        const userEmail = '<%= userEmail %>';
         const token = '<%= token %>';
+        const userEmail = '<%= userEmail %>';
         document.getElementById('userEmail').textContent = userEmail;
 
-        let refreshInterval;
+        let depositsOfframpsChart, assetDistributionChart;
 
-        async function loadDashboard() {
-            try {
-                const headers = { 'Authorization': `Bearer ${token}` };
-                const [analytics, transactions] = await Promise.all([
-                    fetch('/api/admin/analytics/transactions', { headers }).then(r => r.json()),
-                    fetch('/api/admin/analytics/all-transactions?limit=20', { headers }).then(r => r.json())
-                ]);
-                
-                displayStats(analytics);
-                displayTransactions(transactions.transactions);
-                
-                document.getElementById('loadingContainer').style.display = 'none';
-                document.getElementById('dashboardContent').style.display = 'block';
-                updateLastRefresh();
-            } catch (error) {
-                console.error('Dashboard error:', error);
-                showError(error.message);
-            }
-        }
-        
-        function displayStats(analytics) {
-            const stats = [
-                { label: 'Total Users', value: analytics.summary.total_users.toLocaleString(), subtext: `${analytics.summary.active_users} active` },
-                { label: 'USDC Deposited', value: `$${analytics.summary.total_usdc_deposited.toFixed(2)}`, subtext: 'All time' },
-                { label: 'USDT Deposited', value: `$${analytics.summary.total_usdt_deposited.toFixed(2)}`, subtext: 'All time' },
-                { label: 'SOL Deposited', value: `${analytics.summary.total_sol_deposited.toFixed(4)} SOL`, subtext: 'All time' },
-                { label: 'USDC Offramped', value: `$${analytics.summary.total_usdc_offramped.toFixed(2)}`, subtext: 'Converted to NGN' },
-                { label: 'USDT Offramped', value: `$${analytics.summary.total_usdt_offramped.toFixed(2)}`, subtext: 'Converted to NGN' },
-                { label: 'NGN Paid Out', value: `₦${analytics.summary.total_ngn_paid_out.toLocaleString()}`, subtext: 'To bank accounts' }
-            ];
-            
-            document.getElementById('statsGrid').innerHTML = stats.map(stat => `
-                <div class="stat-card">
-                    <div class="stat-label">${stat.label}</div>
-                    <div class="stat-value">${stat.value}</div>
-                    <div class="stat-subtext">${stat.subtext}</div>
-                </div>
-            `).join('');
-        }
-        
         function formatAmount(amount, asset) {
             const num = parseFloat(amount);
             if (isNaN(num)) return '0';
-
-            // Format based on asset type
-            if (asset === 'SOL') {
-                return num.toFixed(4) + ' SOL';
-            } else if (asset === 'USDC' || asset === 'USDT') {
-                return '$' + num.toFixed(2);
-            } else {
-                return num.toLocaleString();
-            }
+            if (asset === 'SOL') return num.toFixed(4) + ' SOL';
+            else if (asset === 'USDC' || asset === 'USDT') return '$' + num.toFixed(2);
+            else if (asset === 'NGN') return '₦' + num.toLocaleString();
+            else return num.toLocaleString();
         }
 
-        function displayTransactions(transactions) {
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+
+        function createStatsCards(summary) {
+            const statsGrid = document.getElementById('statsGrid');
+            const stats = [
+                { icon: '👥', label: 'Total Users', value: summary.total_users || 0 },
+                { icon: '💵', label: 'USDC Deposited', value: formatAmount(summary.total_usdc_deposited || 0, 'USDC') },
+                { icon: '💵', label: 'USDT Deposited', value: formatAmount(summary.total_usdt_deposited || 0, 'USDT') },
+                { icon: '🪙', label: 'SOL Deposited', value: formatAmount(summary.total_sol_deposited || 0, 'SOL') },
+                { icon: '💸', label: 'USDC Offramped', value: formatAmount(summary.total_usdc_offramped || 0, 'USDC') },
+                { icon: '💸', label: 'USDT Offramped', value: formatAmount(summary.total_usdt_offramped || 0, 'USDT') },
+                { icon: '🏦', label: 'NGN Paid Out', value: formatAmount(summary.total_ngn_paid_out || 0, 'NGN') }
+            ];
+
+            statsGrid.innerHTML = stats.map(stat => `
+                <div class="stat-card">
+                    <div class="stat-icon">${stat.icon}</div>
+                    <div class="stat-label">${stat.label}</div>
+                    <div class="stat-value">${stat.value}</div>
+                </div>
+            `).join('');
+        }
+
+        function createDepositsOfframpsChart(summary) {
+            const ctx = document.getElementById('depositsOfframpsChart').getContext('2d');
+
+            if (depositsOfframpsChart) {
+                depositsOfframpsChart.destroy();
+            }
+
+            depositsOfframpsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['USDC', 'USDT', 'SOL'],
+                    datasets: [
+                        {
+                            label: 'Deposited',
+                            data: [
+                                parseFloat(summary.total_usdc_deposited || 0),
+                                parseFloat(summary.total_usdt_deposited || 0),
+                                parseFloat(summary.total_sol_deposited || 0)
+                            ],
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Offramped',
+                            data: [
+                                parseFloat(summary.total_usdc_offramped || 0),
+                                parseFloat(summary.total_usdt_offramped || 0),
+                                0
+                            ],
+                            backgroundColor: 'rgba(240, 147, 251, 0.8)',
+                            borderColor: 'rgba(240, 147, 251, 1)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function createAssetDistributionChart(summary) {
+            const ctx = document.getElementById('assetDistributionChart').getContext('2d');
+
+            if (assetDistributionChart) {
+                assetDistributionChart.destroy();
+            }
+
+            const totalUSDC = parseFloat(summary.total_usdc_deposited || 0);
+            const totalUSDT = parseFloat(summary.total_usdt_deposited || 0);
+            const totalSOL = parseFloat(summary.total_sol_deposited || 0);
+
+            assetDistributionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['USDC', 'USDT', 'SOL'],
+                    datasets: [{
+                        data: [totalUSDC, totalUSDT, totalSOL],
+                        backgroundColor: [
+                            'rgba(102, 126, 234, 0.8)',
+                            'rgba(79, 172, 254, 0.8)',
+                            'rgba(67, 233, 123, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(102, 126, 234, 1)',
+                            'rgba(79, 172, 254, 1)',
+                            'rgba(67, 233, 123, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTransactions(transactions) {
             const tbody = document.getElementById('transactionsBody');
             if (!transactions || transactions.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #999;">No transactions yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">No transactions yet</td></tr>';
                 return;
             }
+
             tbody.innerHTML = transactions.map(tx => {
-                const date = new Date(tx.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                const typeClass = tx.type === 'deposit' ? 'badge-deposit' : 'badge-offramp';
-                const statusClass = tx.status === 'success' || tx.status === 'confirmed' || tx.status === 'swept' ? 'badge-success' : tx.status === 'pending' || tx.status === 'processing' || tx.status === 'confirming' ? 'badge-pending' : 'badge-failed';
-
-                // Format amount properly
-                let amount;
-                if (tx.type === 'deposit') {
-                    amount = formatAmount(tx.amount, tx.asset);
-                } else {
-                    amount = `₦${parseFloat(tx.fiat_amount || 0).toLocaleString()}`;
-                }
-
-                // Show user email or deposit address for unclaimed deposits
                 let userDisplay;
                 if (tx.user_email) {
                     userDisplay = tx.user_email;
@@ -219,21 +346,72 @@
                     userDisplay = '<span style="color: #999;">Unknown</span>';
                 }
 
-                return `<tr><td>${date}</td><td><span class="badge ${typeClass}">${tx.type}</span></td><td>${userDisplay}</td><td>${amount}</td><td><span class="badge ${statusClass}">${tx.status}</span></td></tr>`;
+                const typeBadge = tx.type === 'deposit'
+                    ? '<span class="badge badge-deposit">Deposit</span>'
+                    : '<span class="badge badge-offramp">Offramp</span>';
+
+                let statusBadge;
+                if (tx.status === 'success' || tx.status === 'confirmed' || tx.status === 'swept') {
+                    statusBadge = '<span class="badge badge-success">Success</span>';
+                } else if (tx.status === 'pending' || tx.status === 'processing' || tx.status === 'confirming' || tx.status === 'detected') {
+                    statusBadge = '<span class="badge badge-pending">Pending</span>';
+                } else if (tx.status === 'failed') {
+                    statusBadge = '<span class="badge badge-failed">Failed</span>';
+                } else {
+                    statusBadge = `<span class="badge">${tx.status}</span>`;
+                }
+
+                return `
+                    <tr>
+                        <td>${formatDate(tx.created_at)}</td>
+                        <td>${typeBadge}</td>
+                        <td>${userDisplay}</td>
+                        <td>${formatAmount(tx.amount, tx.asset)}</td>
+                        <td>${statusBadge}</td>
+                    </tr>
+                `;
             }).join('');
         }
-        
-        function showError(message) {
-            document.getElementById('errorContainer').innerHTML = `<div class="error">${message}</div>`;
-            document.getElementById('loadingContainer').style.display = 'none';
+
+        async function fetchDashboardData() {
+            try {
+                const [summaryRes, transactionsRes] = await Promise.all([
+                    fetch('/api/admin/analytics/transactions', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch('/api/admin/analytics/all-transactions?limit=20', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
+
+                if (!summaryRes.ok || !transactionsRes.ok) {
+                    throw new Error('Failed to fetch dashboard data');
+                }
+
+                const summaryData = await summaryRes.json();
+                const transactionsData = await transactionsRes.json();
+
+                createStatsCards(summaryData.summary);
+                createDepositsOfframpsChart(summaryData.summary);
+                createAssetDistributionChart(summaryData.summary);
+                renderTransactions(transactionsData.transactions);
+
+                document.getElementById('loadingContainer').style.display = 'none';
+                document.getElementById('dashboardContent').style.display = 'block';
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+                document.getElementById('errorContainer').innerHTML = `
+                    <div class="error">Failed to load dashboard data: ${error.message}</div>
+                `;
+                document.getElementById('loadingContainer').style.display = 'none';
+            }
         }
-        
-        function updateLastRefresh() {
-            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-        }
-        
-        loadDashboard();
-        refreshInterval = setInterval(loadDashboard, 30000);
+
+        // Initial load
+        fetchDashboardData();
+
+        // Auto-refresh every 30 seconds
+        setInterval(fetchDashboardData, 30000);
     </script>
 </body>
 </html>

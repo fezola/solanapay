@@ -44,7 +44,7 @@ export async function adminWebRoutes(fastify: FastifyInstance) {
         },
       });
     } catch (error) {
-      request.log.error('Login error:', error);
+      request.log.error({ error }, 'Login error');
       return reply.status(500).send({ error: 'Login failed' });
     }
   });
@@ -77,7 +77,7 @@ export async function adminWebRoutes(fastify: FastifyInstance) {
         token: token,
       });
     } catch (error) {
-      request.log.error('Dashboard error:', error);
+      request.log.error({ error }, 'Dashboard error');
       return reply.redirect('/admin');
     }
   });
