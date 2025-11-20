@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - SolPay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 48px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        h1 {
+            color: #1a202c;
+            font-size: 28px;
+            margin-bottom: 16px;
+        }
+
+        p {
+            color: #4a5568;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .admin-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .admin-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .info {
+            margin-top: 32px;
+            padding: 16px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info p {
+            margin: 0;
+            font-size: 14px;
+            color: #2d3748;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .redirecting {
+            display: none;
+            margin-top: 16px;
+            color: #667eea;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Admin Dashboard</h1>
+        <p>The admin dashboard is hosted on the backend server. Click the button below to access it.</p>
+        
+        <a href="#" id="adminLink" class="admin-button" onclick="redirectToAdmin()">
+            Go to Admin Dashboard
+        </a>
+
+        <p class="redirecting" id="redirecting">
+            <span class="spinner"></span>
+            Redirecting to admin dashboard...
+        </p>
+
+        <div class="info">
+            <p><strong>Note:</strong> You'll need admin credentials (email: fezola004@gmail.com) to access the dashboard.</p>
+        </div>
+    </div>
+
+    <script>
+        // Backend URL where admin dashboard is hosted
+        const BACKEND_URL = 'https://solanapay-xmli.onrender.com';
+
+        function redirectToAdmin() {
+            document.getElementById('redirecting').style.display = 'block';
+            // Redirect to backend admin page
+            window.location.href = `${BACKEND_URL}/admin`;
+            return false;
+        }
+
+        // Update the link href
+        document.getElementById('adminLink').href = `${BACKEND_URL}/admin`;
+    </script>
+</body>
+</html>
+
