@@ -393,8 +393,16 @@
                     })
                 ]);
 
-                if (!summaryRes.ok || !transactionsRes.ok) {
-                    throw new Error('Failed to fetch dashboard data');
+                if (!summaryRes.ok) {
+                    const errorText = await summaryRes.text();
+                    console.error('Summary API error:', summaryRes.status, errorText);
+                    throw new Error(`Summary API failed (${summaryRes.status}): ${errorText.substring(0, 200)}`);
+                }
+
+                if (!transactionsRes.ok) {
+                    const errorText = await transactionsRes.text();
+                    console.error('Transactions API error:', transactionsRes.status, errorText);
+                    throw new Error(`Transactions API failed (${transactionsRes.status}): ${errorText.substring(0, 200)}`);
                 }
 
                 const summaryData = await summaryRes.json();
