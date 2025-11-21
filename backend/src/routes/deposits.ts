@@ -227,61 +227,53 @@ async function generateUserAddresses(userId: string) {
     .single();
 
   const walletType = user?.offramp_mode || 'basic';
-  const breadIdentityId = user?.bread_identity_id;
 
-  // Create Bread wallets if user has completed KYC
+  // Create Bread wallets for all users (no KYC/identity required)
   let breadSolanaWalletId: string | undefined;
   let breadBaseWalletId: string | undefined;
   let breadPolygonWalletId: string | undefined;
 
-  if (breadIdentityId) {
-    try {
-      // Create Bread wallet for Solana (shared by SOL, USDC, USDT)
-      logger.info({ msg: 'Creating Bread wallet for Solana', userId, breadIdentityId });
-      const breadSolanaWallet = await breadService.wallet.createWallet(
-        breadIdentityId,
-        'solana',
-        'basic' // Always use 'basic' type - user can enable automation later
-      );
-      // Note: Bread API returns wallet_id but our type interface uses id
-      breadSolanaWalletId = (breadSolanaWallet as any).wallet_id || breadSolanaWallet.id;
-      logger.info({ msg: 'Bread Solana wallet created', walletId: breadSolanaWalletId });
+  try {
+    // Create Bread wallet for Solana (shared by SOL, USDC, USDT)
+    // Use userId as identityId since Bread API doesn't actually require identity
+    logger.info({ msg: 'Creating Bread wallet for Solana (no KYC required)', userId });
+    const breadSolanaWallet = await breadService.wallet.createWallet(
+      userId, // Use userId instead of bread_identity_id
+      'solana',
+      'basic' // Always use 'basic' type - user can enable automation later
+    );
+    // Note: Bread API returns wallet_id but our type interface uses id
+    breadSolanaWalletId = (breadSolanaWallet as any).wallet_id || breadSolanaWallet.id;
+    logger.info({ msg: 'Bread Solana wallet created', walletId: breadSolanaWalletId });
 
-      // Create Bread wallet for Base (shared by USDC, USDT)
-      logger.info({ msg: 'Creating Bread wallet for Base', userId, breadIdentityId });
-      const breadBaseWallet = await breadService.wallet.createWallet(
-        breadIdentityId,
-        'base',
-        'basic'
-      );
-      // Note: Bread API returns wallet_id but our type interface uses id
-      breadBaseWalletId = (breadBaseWallet as any).wallet_id || breadBaseWallet.id;
-      logger.info({ msg: 'Bread Base wallet created', walletId: breadBaseWalletId });
+    // Create Bread wallet for Base (shared by USDC, USDT)
+    logger.info({ msg: 'Creating Bread wallet for Base (no KYC required)', userId });
+    const breadBaseWallet = await breadService.wallet.createWallet(
+      userId, // Use userId instead of bread_identity_id
+      'base',
+      'basic'
+    );
+    // Note: Bread API returns wallet_id but our type interface uses id
+    breadBaseWalletId = (breadBaseWallet as any).wallet_id || breadBaseWallet.id;
+    logger.info({ msg: 'Bread Base wallet created', walletId: breadBaseWalletId });
 
-      // Create Bread wallet for Polygon (shared by USDC, USDT)
-      logger.info({ msg: 'Creating Bread wallet for Polygon', userId, breadIdentityId });
-      const breadPolygonWallet = await breadService.wallet.createWallet(
-        breadIdentityId,
-        'polygon',
-        'basic'
-      );
-      // Note: Bread API returns wallet_id but our type interface uses id
-      breadPolygonWalletId = (breadPolygonWallet as any).wallet_id || breadPolygonWallet.id;
-      logger.info({ msg: 'Bread Polygon wallet created', walletId: breadPolygonWalletId });
-    } catch (error: any) {
-      logger.error({
-        msg: 'Failed to create Bread wallets',
-        error: error.message,
-        userId,
-        breadIdentityId,
-      });
-      // Continue anyway - Bread wallets can be created later via sync script
-    }
-  } else {
-    logger.warn({
-      msg: 'User has no Bread identity ID - skipping Bread wallet creation',
+    // Create Bread wallet for Polygon (shared by USDC, USDT)
+    logger.info({ msg: 'Creating Bread wallet for Polygon (no KYC required)', userId });
+    const breadPolygonWallet = await breadService.wallet.createWallet(
+      userId, // Use userId instead of bread_identity_id
+      'polygon',
+      'basic'
+    );
+    // Note: Bread API returns wallet_id but our type interface uses id
+    breadPolygonWalletId = (breadPolygonWallet as any).wallet_id || breadPolygonWallet.id;
+    logger.info({ msg: 'Bread Polygon wallet created', walletId: breadPolygonWalletId });
+  } catch (error: any) {
+    logger.error({
+      msg: 'Failed to create Bread wallets',
+      error: error.message,
       userId,
     });
+    // Continue anyway - Bread wallets can be created later via sync script
   }
 
   // Generate ONE Solana wallet for SOL, USDC, and USDT
