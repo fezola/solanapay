@@ -77,6 +77,13 @@ if (request.identityId) {
 - **Before**: Required `kyc_tier >= 1` and `kyc_status === 'approved'`
 - **After**: No KYC check - all authenticated users can create quotes
 
+### 5. Frontend Offramp Screen (`src/components/OfframpScreen.tsx`)
+
+#### KYC Tier Check Removed
+- **Removed**: Entire KYC tier check that blocked offramp UI (lines 389-424)
+- **Before**: If `kycTier === 0`, showed "KYC Required" warning and blocked offramp
+- **After**: No KYC check - all users can access offramp interface immediately
+
 ## Impact
 
 ### What Still Works

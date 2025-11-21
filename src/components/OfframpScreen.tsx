@@ -151,19 +151,7 @@ export function OfframpScreen({
   const fee = calculatePlatformFee(nairaAmount);
   const youReceive = nairaAmount - fee;
 
-  const dailyRemaining = limits.daily.limit - limits.daily.used;
-  const exceedsLimit = youReceive > dailyRemaining;
-
-  // Debug logging
-  useEffect(() => {
-    console.log('🔍 OfframpScreen Debug:', {
-      kycTier,
-      limits,
-      dailyRemaining,
-      youReceive,
-      exceedsLimit,
-    });
-  }, [kycTier, limits, youReceive, exceedsLimit]);
+  // Daily limit check removed - no limits enforced for any users
 
   // Fetch rates from Bread on mount using quote endpoint (includes fees)
   useEffect(() => {
@@ -267,10 +255,7 @@ export function OfframpScreen({
       return;
     }
 
-    if (exceedsLimit) {
-      toast.error(`Transaction would exceed daily limit. Maximum: ₦${dailyRemaining.toLocaleString()}`);
-      return;
-    }
+    // Daily limit check removed - no limits enforced
 
     // Show PIN verification modal
     setShowPINModal(true);
@@ -386,42 +371,8 @@ export function OfframpScreen({
     }
   };
 
-  if (kycTier === 0) {
-    return (
-      <div className="pb-safe-nav bg-white min-h-screen">
-        <div className="px-6 pb-6" style={{ paddingTop: `calc(3rem + env(safe-area-inset-top))` }}>
-          <motion.div
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-          >
-            <h1 className="text-gray-900 mb-2">Off-ramp Crypto</h1>
-            <p className="text-gray-500">Convert your crypto to Naira</p>
-          </motion.div>
-        </div>
-
-        <div className="px-6">
-          <Card className="p-6 border border-yellow-100 bg-yellow-50">
-            <div className="flex gap-3">
-              <AlertCircle className="w-6 h-6 text-yellow-600 flex-shrink-0" />
-              <div>
-                <p className="text-yellow-900 mb-2">KYC Required</p>
-                <p className="text-yellow-800 mb-4">
-                  You need to complete KYC verification (Tier 1) to use off-ramp features.
-                  This helps us comply with Nigerian financial regulations and keep your account secure.
-                </p>
-                <Button
-                  onClick={onNavigateToKYC}
-                  className="bg-yellow-600 hover:bg-yellow-700"
-                >
-                  Start KYC Verification
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  // KYC check removed - offramp is now open for all users
+  // Users can create beneficiaries and execute offramps without KYC verification
 
   return (
     <div className="pb-safe-nav bg-white min-h-screen">
@@ -541,7 +492,7 @@ export function OfframpScreen({
                 )}
                 <div className="border-t pt-2 flex items-center justify-between">
                   <span className="font-medium">You receive</span>
-                  <span className={`text-2xl font-semibold ${exceedsLimit ? 'text-red-600' : 'text-gray-900'}`}>
+                  <span className="text-2xl font-semibold text-gray-900">
                     ₦{youReceive.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -585,19 +536,7 @@ export function OfframpScreen({
                 )}
               </div>
 
-              {exceedsLimit && (
-                <div className="bg-red-50 p-4 rounded-xl border border-red-100">
-                  <div className="flex gap-2">
-                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                    <div>
-                      <p className="text-red-900 mb-1">Exceeds Daily Limit</p>
-                      <p className="text-red-800">
-                        Daily limit remaining: ₦{dailyRemaining.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Daily limit warning removed - no limits enforced */}
 
               <div className="bg-blue-50 p-4 rounded-xl flex gap-3 border border-blue-100">
                 <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -620,7 +559,6 @@ export function OfframpScreen({
                   !selectedBankAccount ||
                   parseFloat(amount) > currentAsset.balance ||
                   parseFloat(amount) < currentAsset.minAmount ||
-                  exceedsLimit ||
                   bankAccounts.length === 0
                 }
                 className="w-full"

@@ -102,20 +102,20 @@ export default function App() {
   // Bank accounts
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
-  // Limits
+  // Limits - Set to unlimited (no limits enforced)
   const [limits, setLimits] = useState({
     daily: {
-      limit: kycTier === 1 ? 5000000 : kycTier === 2 ? 10000000 : 0,
+      limit: 999999999999, // Unlimited
       used: 0,
       resets: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString(),
     },
     weekly: {
-      limit: kycTier === 1 ? 25000000 : kycTier === 2 ? 50000000 : 0,
+      limit: 999999999999, // Unlimited
       used: 0,
       resets: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
     },
     monthly: {
-      limit: kycTier === 1 ? 50000000 : kycTier === 2 ? 100000000 : 0,
+      limit: 999999999999, // Unlimited
       used: 0,
       resets: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
     },

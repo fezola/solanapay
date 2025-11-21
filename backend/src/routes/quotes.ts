@@ -38,26 +38,7 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
       const body = createQuoteSchema.parse(request.body);
 
       // KYC check removed - offramp is now open for all users
-
-    // Check limits
-    const { data: limits } = await supabaseAdmin
-      .from('transaction_limits')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('period', 'daily');
-
-    if (limits && limits.length > 0) {
-      const dailyLimit = limits[0];
-      const estimatedAmount = body.fiat_target ||
-        (body.crypto_amount! * (await rateEngine.getAssetPrice(body.asset as Asset)) * 1600);
-
-      if (parseFloat(dailyLimit.used_amount) + estimatedAmount > parseFloat(dailyLimit.limit_amount)) {
-        return reply.status(400).send({
-          error: 'Daily limit exceeded',
-          message: 'This transaction would exceed your daily limit',
-        });
-      }
-    }
+      // Daily limit check removed - no limits enforced
 
     // Calculate quote using Bread if enabled, otherwise use legacy rate engine
     let quote;
