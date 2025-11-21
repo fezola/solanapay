@@ -7,16 +7,29 @@
 
 import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getAssociatedTokenAddress, createTransferInstruction, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { ethers } from 'ethers';
 import { logger } from '../utils/logger.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { decrypt } from '../utils/encryption.js';
 import { calculatePlatformFeeInCrypto, calculateAmountAfterFee } from '../config/fees.js';
 
 const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-const PLATFORM_TREASURY_ADDRESS = process.env.PLATFORM_TREASURY_ADDRESS;
+const BASE_RPC_URL = process.env.BASE_RPC_URL || 'https://mainnet.base.org';
+const POLYGON_RPC_URL = process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com';
 
-if (!PLATFORM_TREASURY_ADDRESS) {
-  logger.warn('⚠️  PLATFORM_TREASURY_ADDRESS not set - platform fees will not be collected');
+// Treasury addresses per chain
+const PLATFORM_TREASURY_ADDRESS_SOLANA = process.env.PLATFORM_TREASURY_ADDRESS_SOLANA || process.env.PLATFORM_TREASURY_ADDRESS;
+const PLATFORM_TREASURY_ADDRESS_BASE = process.env.PLATFORM_TREASURY_ADDRESS_BASE;
+const PLATFORM_TREASURY_ADDRESS_POLYGON = process.env.PLATFORM_TREASURY_ADDRESS_POLYGON;
+
+if (!PLATFORM_TREASURY_ADDRESS_SOLANA) {
+  logger.warn('⚠️  PLATFORM_TREASURY_ADDRESS_SOLANA not set - Solana platform fees will not be collected');
+}
+if (!PLATFORM_TREASURY_ADDRESS_BASE) {
+  logger.warn('⚠️  PLATFORM_TREASURY_ADDRESS_BASE not set - Base platform fees will not be collected');
+}
+if (!PLATFORM_TREASURY_ADDRESS_POLYGON) {
+  logger.warn('⚠️  PLATFORM_TREASURY_ADDRESS_POLYGON not set - Polygon platform fees will not be collected');
 }
 
 // Token mint addresses
@@ -77,11 +90,11 @@ export async function collectPlatformFee(
       feePercentage: ((platformFee / cryptoAmount) * 100).toFixed(4) + '%',
     }, '📊 Fee calculation complete');
 
-    // Transfer fee to treasury wallet
+    // Transfer fee to treasury wallet based on chain
     let treasuryTxHash: string | null = null;
 
-    if (PLATFORM_TREASURY_ADDRESS && chain === 'solana') {
-      treasuryTxHash = await transferFeeToTreasury({
+    if (chain === 'solana' && PLATFORM_TREASURY_ADDRESS_SOLANA) {
+      treasuryTxHash = await transferFeeToTreasurySolana({
         fromAddress,
         amount: platformFee,
         asset,
@@ -92,12 +105,49 @@ export async function collectPlatformFee(
         treasuryTxHash,
         platformFee,
         asset,
-      }, '✅ Platform fee transferred to treasury');
+        chain: 'solana',
+      }, '✅ Platform fee transferred to Solana treasury');
+    } else if (chain === 'base' && PLATFORM_TREASURY_ADDRESS_BASE) {
+      treasuryTxHash = await transferFeeToTreasuryEVM({
+        fromAddress,
+        amount: platformFee,
+        asset,
+        userId,
+        chain: 'base',
+        rpcUrl: BASE_RPC_URL,
+        treasuryAddress: PLATFORM_TREASURY_ADDRESS_BASE,
+      });
+
+      logger.info({
+        treasuryTxHash,
+        platformFee,
+        asset,
+        chain: 'base',
+      }, '✅ Platform fee transferred to Base treasury');
+    } else if (chain === 'polygon' && PLATFORM_TREASURY_ADDRESS_POLYGON) {
+      treasuryTxHash = await transferFeeToTreasuryEVM({
+        fromAddress,
+        amount: platformFee,
+        asset,
+        userId,
+        chain: 'polygon',
+        rpcUrl: POLYGON_RPC_URL,
+        treasuryAddress: PLATFORM_TREASURY_ADDRESS_POLYGON,
+      });
+
+      logger.info({
+        treasuryTxHash,
+        platformFee,
+        asset,
+        chain: 'polygon',
+      }, '✅ Platform fee transferred to Polygon treasury');
     } else {
       logger.warn({
         chain,
-        treasuryConfigured: !!PLATFORM_TREASURY_ADDRESS,
-      }, '⚠️  Platform fee not collected - treasury not configured or unsupported chain');
+        solanaTreasuryConfigured: !!PLATFORM_TREASURY_ADDRESS_SOLANA,
+        baseTreasuryConfigured: !!PLATFORM_TREASURY_ADDRESS_BASE,
+        polygonTreasuryConfigured: !!PLATFORM_TREASURY_ADDRESS_POLYGON,
+      }, '⚠️  Platform fee not collected - treasury not configured for this chain');
     }
 
     // Record fee in database
@@ -146,7 +196,7 @@ export async function collectPlatformFee(
 /**
  * Transfer platform fee to treasury wallet on Solana
  */
-async function transferFeeToTreasury(params: {
+async function transferFeeToTreasurySolana(params: {
   fromAddress: string;
   amount: number;
   asset: string;
@@ -181,7 +231,7 @@ async function transferFeeToTreasury(params: {
   const fromWallet = Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
 
   const fromPubkey = fromWallet.publicKey;
-  const toPubkey = new PublicKey(PLATFORM_TREASURY_ADDRESS!);
+  const toPubkey = new PublicKey(PLATFORM_TREASURY_ADDRESS_SOLANA!);
 
   // Get token mint address
   let mintAddress: string;
@@ -344,3 +394,117 @@ export async function getPlatformFeeStats(): Promise<{
   };
 }
 
+/**
+ * Transfer platform fee to treasury wallet on EVM chains (Base, Polygon)
+ */
+async function transferFeeToTreasuryEVM(params: {
+  fromAddress: string;
+  amount: number;
+  asset: string;
+  userId: string;
+  chain: 'base' | 'polygon';
+  rpcUrl: string;
+  treasuryAddress: string;
+}): Promise<string> {
+  const { fromAddress, amount, asset, userId, chain, rpcUrl, treasuryAddress } = params;
+
+  logger.info({
+    fromAddress,
+    amount,
+    asset,
+    chain,
+    treasuryAddress,
+  }, `🔄 Transferring platform fee to ${chain} treasury`);
+
+  // Get the encrypted private key from database
+  const { data: depositAddress, error } = await supabaseAdmin
+    .from('deposit_addresses')
+    .select('private_key_encrypted')
+    .eq('address', fromAddress)
+    .eq('user_id', userId)
+    .eq('network', chain)
+    .eq('asset_symbol', asset.toUpperCase())
+    .single();
+
+  if (error || !depositAddress) {
+    logger.error({
+      error: error?.message,
+      fromAddress,
+      userId,
+      asset,
+      chain,
+    }, `❌ Failed to find ${chain} deposit address for fee collection`);
+    throw new Error('Deposit address not found');
+  }
+
+  // Decrypt private key
+  const privateKey = decrypt(depositAddress.private_key_encrypted);
+
+  // Connect to EVM network
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const wallet = new ethers.Wallet(privateKey, provider);
+
+  // Get token contract address
+  let tokenAddress: string;
+  if (chain === 'base') {
+    if (asset === 'USDC') {
+      tokenAddress = process.env.BASE_USDC_CONTRACT || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+    } else {
+      throw new Error(`Unsupported asset for Base fee collection: ${asset}`);
+    }
+  } else if (chain === 'polygon') {
+    if (asset === 'USDC') {
+      tokenAddress = process.env.POLYGON_USDC_CONTRACT || '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
+    } else if (asset === 'USDT') {
+      tokenAddress = process.env.POLYGON_USDT_CONTRACT || '0xc2132D05D31c914a87C6611C10748AEb04B58e8F';
+    } else {
+      throw new Error(`Unsupported asset for Polygon fee collection: ${asset}`);
+    }
+  } else {
+    throw new Error(`Unsupported chain: ${chain}`);
+  }
+
+  // ERC20 ABI for transfer function
+  const erc20Abi = [
+    'function transfer(address to, uint256 amount) returns (bool)',
+    'function decimals() view returns (uint8)',
+  ];
+
+  const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, wallet);
+
+  // Get token decimals
+  const decimals = await tokenContract.decimals();
+
+  // Convert amount to token units (e.g., USDC has 6 decimals)
+  const amountInTokenUnits = ethers.parseUnits(amount.toString(), decimals);
+
+  logger.info({
+    amount,
+    decimals,
+    amountInTokenUnits: amountInTokenUnits.toString(),
+    tokenAddress,
+  }, `💰 Transferring ${amount} ${asset} (${amountInTokenUnits.toString()} units)`);
+
+  // Execute transfer
+  const tx = await tokenContract.transfer(treasuryAddress, amountInTokenUnits);
+
+  logger.info({
+    txHash: tx.hash,
+    from: fromAddress,
+    to: treasuryAddress,
+    amount,
+    asset,
+    chain,
+  }, `📤 Platform fee transfer transaction sent on ${chain}`);
+
+  // Wait for confirmation
+  const receipt = await tx.wait();
+
+  logger.info({
+    txHash: receipt.hash,
+    blockNumber: receipt.blockNumber,
+    status: receipt.status,
+  }, `✅ Platform fee transfer confirmed on ${chain}`);
+
+  return receipt.hash;
+}

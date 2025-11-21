@@ -360,11 +360,13 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       request.log.info({
         breadBalance,
         requestedAmount: body.amount,
+        amountAfterFee: feeCollection.amountToBread,
         asset: body.asset,
       }, '💰 Bread wallet balance checked');
 
-      // Use minimum of requested and available
-      const actualOfframpAmount = Math.min(body.amount, breadBalance);
+      // Use minimum of amount after fee and available balance
+      // IMPORTANT: Use feeCollection.amountToBread (after platform fee), not body.amount
+      const actualOfframpAmount = Math.min(feeCollection.amountToBread, breadBalance);
 
       if (actualOfframpAmount <= 0) {
         return reply.status(400).send({
@@ -373,10 +375,11 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      if (breadBalance < body.amount) {
+      if (breadBalance < feeCollection.amountToBread) {
         request.log.warn({
           breadBalance,
           requestedAmount: body.amount,
+          amountAfterFee: feeCollection.amountToBread,
           actualOfframpAmount,
         }, '⚠️ Using partial amount due to insufficient balance');
       }
@@ -385,13 +388,15 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       request.log.info({
         breadWalletId: depositAddress.bread_wallet_id,
         amount: actualOfframpAmount,
+        originalAmount: body.amount,
+        platformFeeDeducted: feeCollection.platformFee,
         beneficiaryId: beneficiary.bread_beneficiary_id,
         asset: `${body.chain}:${body.asset.toLowerCase()}`,
-      }, '🔵 Executing Bread offramp to bank account');
+      }, '🔵 Executing Bread offramp to bank account (after platform fee)');
 
       const offrampResult = await breadService.offramp.executeOfframp({
         wallet_id: depositAddress.bread_wallet_id,
-        amount: actualOfframpAmount,
+        amount: actualOfframpAmount, // Now uses amount AFTER platform fee
         beneficiary_id: beneficiary.bread_beneficiary_id,
         asset: `${body.chain}:${body.asset.toLowerCase()}` as any,
       });
