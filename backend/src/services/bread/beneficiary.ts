@@ -17,26 +17,32 @@ export class BreadBeneficiaryService {
 
   /**
    * Create a new beneficiary (bank account)
+   * Note: identity_id is now optional - KYC no longer required
    */
   async createBeneficiary(
     request: CreateBeneficiaryRequest
   ): Promise<BreadBeneficiary> {
     logger.info({
-      msg: 'Creating Bread beneficiary',
-      identityId: request.identityId,
+      msg: 'Creating Bread beneficiary (KYC-free)',
+      identityId: request.identityId || 'none',
       bankCode: request.bankCode,
       accountNumber: request.accountNumber,
     });
 
     // Transform request to match Bread API format
-    const breadRequest = {
+    // Only include identity_id if provided
+    const breadRequest: any = {
       currency: (request.currency || 'NGN').toUpperCase(),
-      identity_id: request.identityId,
       details: {
         account_number: request.accountNumber,
         bank_code: request.bankCode,
       },
     };
+
+    // Only add identity_id if provided (for backward compatibility)
+    if (request.identityId) {
+      breadRequest.identity_id = request.identityId;
+    }
 
     logger.debug({
       msg: 'Bread API request payload',

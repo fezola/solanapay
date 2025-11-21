@@ -177,7 +177,7 @@ export interface BreadIdentity {
 
 export interface BreadBeneficiary {
   id: string;
-  identityId: string;
+  identityId?: string; // Optional - KYC no longer required
   bankCode: string;
   accountNumber: string;
   accountName?: string;
@@ -237,7 +237,7 @@ export interface CreateIdentityResponse {
 }
 
 export interface CreateBeneficiaryRequest {
-  identityId: string;
+  identityId?: string; // Optional - KYC no longer required
   bankCode: string;
   accountNumber: string;
   currency?: string; // Defaults to NGN

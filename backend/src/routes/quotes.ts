@@ -37,19 +37,7 @@ export const quoteRoutes: FastifyPluginAsync = async (fastify) => {
       request.log.info({ body: request.body }, '🔵 Creating quote...');
       const body = createQuoteSchema.parse(request.body);
 
-      // Check KYC status
-      const { data: user } = await supabaseAdmin
-        .from('users')
-        .select('kyc_tier, kyc_status')
-        .eq('id', userId)
-        .single();
-
-      if (!user || user.kyc_tier < 1 || user.kyc_status !== 'approved') {
-        return reply.status(403).send({
-          error: 'KYC verification required',
-          message: 'You must complete KYC Tier 1 to create quotes',
-        });
-      }
+      // KYC check removed - offramp is now open for all users
 
     // Check limits
     const { data: limits } = await supabaseAdmin

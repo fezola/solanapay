@@ -590,60 +590,8 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         return { beneficiary: existing };
       }
 
-      // Get user details to create/get Bread identity
-      const { data: user } = await supabaseAdmin
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
-      }
-
-      // Get or create Bread identity
-      let breadIdentityId = user.bread_identity_id;
-
-      if (!breadIdentityId) {
-        // Parse full name into first and last name
-        const fullName = user.full_name || user.email.split('@')[0];
-        const nameParts = fullName.trim().split(' ');
-        const firstName = nameParts[0] || 'User';
-        const lastName = nameParts.slice(1).join(' ') || 'Name';
-
-        // Ensure phone number is in international format
-        let phoneNumber = user.phone || user.phone_number || '';
-        if (phoneNumber && !phoneNumber.startsWith('+')) {
-          // Assume Nigerian number if no country code
-          phoneNumber = phoneNumber.startsWith('0')
-            ? '+234' + phoneNumber.slice(1)
-            : '+234' + phoneNumber;
-        }
-        if (!phoneNumber) {
-          phoneNumber = '+2348000000000'; // Placeholder if no phone
-        }
-
-        // Create Bread identity for the user
-        const breadIdentity = await breadService.identity.createIdentity({
-          firstName,
-          lastName,
-          email: user.email,
-          phoneNumber,
-          address: {
-            country: 'NG',
-          },
-        });
-
-        breadIdentityId = breadIdentity.id;
-
-        // Save Bread identity ID to user record
-        await supabaseAdmin
-          .from('users')
-          .update({ bread_identity_id: breadIdentityId })
-          .eq('id', userId);
-      }
-
       // STEP 1: Lookup account to verify it exists (required by Bread)
+      // Note: KYC/Identity creation is no longer required - offramp is open for all
       request.log.info({
         msg: 'Step 1: Looking up bank account',
         bankCode: body.bank_code,
@@ -661,19 +609,19 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       // STEP 2: Create beneficiary in Bread with verified account details
+      // No identity required - offramp is open for all
       let breadBeneficiaryId = body.bread_beneficiary_id;
       let accountName = lookupResult.account_name; // Use verified name from lookup
 
       if (!breadBeneficiaryId) {
         request.log.info({
-          msg: 'Step 2: Creating beneficiary in Bread',
-          identityId: breadIdentityId,
+          msg: 'Step 2: Creating beneficiary in Bread (no KYC required)',
           bankCode: body.bank_code,
           accountNumber: body.account_number,
         });
 
         const breadBeneficiary = await breadService.beneficiary.createBeneficiary({
-          identityId: breadIdentityId,
+          // No identityId - KYC no longer required
           bankCode: body.bank_code,
           accountNumber: body.account_number,
           currency: 'NGN',
@@ -684,92 +632,13 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         accountName = lookupResult.account_name || breadBeneficiary.accountName || 'Account Holder';
 
         request.log.info({
-          msg: 'Beneficiary created in Bread',
+          msg: 'Beneficiary created in Bread (no KYC)',
           beneficiaryId: breadBeneficiaryId,
           accountName,
         });
 
-        // 🔥 CRITICAL: Create Bread wallet for offramp after beneficiary is created
-        // This wallet is required for the offramp to work
-        request.log.info({
-          msg: '🔵 Creating Bread offramp wallet',
-          identityId: breadIdentityId,
-          beneficiaryId: breadBeneficiaryId,
-        });
-
-        try {
-          // Create wallet for each supported chain (Solana and Base)
-          // Use 'basic' type so user can select any bank account when offramping
-          const solanaWallet = await breadService.wallet.createWallet(
-            breadIdentityId,
-            'solana',
-            'basic' // Always use 'basic' - user can choose bank account at offramp time
-          );
-
-          const baseWallet = await breadService.wallet.createWallet(
-            breadIdentityId,
-            'base',
-            'basic' // Always use 'basic' - user can choose bank account at offramp time
-          );
-
-          // Extract addresses - handle both string and object formats
-          const solanaAddress = typeof solanaWallet.address === 'string'
-            ? solanaWallet.address
-            : (solanaWallet.address as any).svm || solanaWallet.address;
-
-          const baseAddress = typeof baseWallet.address === 'string'
-            ? baseWallet.address
-            : (baseWallet.address as any).evm || baseWallet.address;
-
-          request.log.info({
-            msg: '✅ Bread wallets created successfully',
-            solanaWalletId: solanaWallet.id,
-            solanaAddress,
-            baseWalletId: baseWallet.id,
-            baseAddress,
-          });
-
-          // Update deposit_addresses table with Bread wallet IDs
-          // Solana wallet
-          await supabaseAdmin
-            .from('deposit_addresses')
-            .update({
-              bread_wallet_id: solanaWallet.id,
-              bread_wallet_address: solanaAddress,
-              bread_wallet_type: 'offramp',
-              bread_synced_at: new Date().toISOString(),
-            })
-            .eq('user_id', userId)
-            .eq('network', 'solana');
-
-          // Base wallet
-          await supabaseAdmin
-            .from('deposit_addresses')
-            .update({
-              bread_wallet_id: baseWallet.id,
-              bread_wallet_address: baseAddress,
-              bread_wallet_type: 'offramp',
-              bread_synced_at: new Date().toISOString(),
-            })
-            .eq('user_id', userId)
-            .eq('network', 'base');
-
-          request.log.info({
-            msg: '✅ Deposit addresses updated with Bread wallet IDs',
-          });
-        } catch (walletError: any) {
-          request.log.error({
-            error: walletError,
-            message: walletError.message,
-            response: walletError.response?.data,
-          }, '❌ Failed to create Bread wallets');
-
-          // Don't fail the beneficiary creation if wallet creation fails
-          // User can still add the bank, but offramp won't work until wallets are created
-          request.log.warn({
-            msg: '⚠️ Beneficiary created but Bread wallets failed. Offramp will not work until wallets are created.',
-          });
-        }
+        // Note: Wallet creation removed - no longer needed without identity/KYC
+        // Offramp will work directly with beneficiary
       }
 
       // Save beneficiary to our database with verified account name from Bread
