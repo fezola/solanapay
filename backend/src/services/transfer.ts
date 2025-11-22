@@ -726,10 +726,26 @@ async function checkEVMBalance(request: BalanceCheckRequest): Promise<number> {
   ];
 
   // Get token address for this chain and asset
+  logger.info({
+    msg: 'Looking up token address for balance check',
+    chain: request.chain,
+    asset: request.asset,
+    assetUpper: request.asset.toUpperCase(),
+    availableChains: Object.keys(EVM_TOKEN_ADDRESSES),
+    availableAssetsForChain: EVM_TOKEN_ADDRESSES[request.chain] ? Object.keys(EVM_TOKEN_ADDRESSES[request.chain]) : 'chain not found',
+  });
+
   const tokenAddress = EVM_TOKEN_ADDRESSES[request.chain]?.[request.asset.toUpperCase()];
   if (!tokenAddress) {
-    throw new Error(`Unsupported asset ${request.asset} on chain ${request.chain}`);
+    throw new Error(`Unsupported asset ${request.asset} on chain ${request.chain}. Available: ${JSON.stringify(EVM_TOKEN_ADDRESSES[request.chain])}`);
   }
+
+  logger.info({
+    msg: 'Token address found for balance check',
+    tokenAddress,
+    chain: request.chain,
+    asset: request.asset,
+  });
 
   const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, provider);
 

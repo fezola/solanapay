@@ -351,6 +351,13 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       }, '✅ Transfer to Bread wallet completed (platform fee collected)');
 
       // Step 5: Check Bread wallet balance
+      request.log.info({
+        msg: '🔍 About to check Bread wallet balance',
+        chain: body.chain,
+        asset: body.asset,
+        walletAddress: depositAddress.bread_wallet_address,
+      });
+
       const breadBalance = await checkBreadWalletBalance({
         chain: body.chain,
         asset: body.asset,
