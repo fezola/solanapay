@@ -1,19 +1,24 @@
 /**
  * SAFE SCRIPT: Recreate Bread Wallets for Base Chain
- * 
+ *
  * PROBLEM:
  * - Old Bread wallet IDs don't exist in Bread's system (404 errors)
+ * - Database has Solana addresses instead of EVM addresses for Base chain
  * - Need to create new Bread wallets and update database
- * 
+ *
  * SOLUTION:
  * - Create new Bread wallets for each user's Base chain
  * - Update bread_wallet_id and bread_wallet_address in database
  * - Does NOT touch user funds or private keys
- * 
+ *
  * SAFETY:
  * - User funds remain in their deposit wallets (untouched)
  * - Only updates Bread wallet references
  * - Dry run mode by default
+ *
+ * USAGE:
+ * - Dry run: node recreate-base-bread-wallets-safe.js
+ * - Apply:    node recreate-base-bread-wallets-safe.js --apply
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -27,6 +32,7 @@ const BREAD_API_URL = 'https://processor-prod.up.railway.app';
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !BREAD_API_KEY) {
   console.error('❌ Missing required environment variables');
+  console.error('   Required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, BREAD_API_KEY');
   process.exit(1);
 }
 
