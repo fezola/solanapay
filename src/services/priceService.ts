@@ -52,15 +52,16 @@ class PriceService {
 
       // Fallback rates if no cache available
       const fallbackRates: { [key: string]: number } = {
-        'USDC-solana': 1600,
-        'USDC-base': 1600,
-        'USDC-polygon': 1600,
-        'USDT-solana': 1600,
-        'USDT-polygon': 1600,
+        'USDC-solana': 1458,
+        'USDC-base': 1458,
+        'USDC-polygon': 1458,
+        'USDT-solana': 1458,
+        'USDT-base': 1458,
+        'USDT-polygon': 1458,
         'SOL-solana': 250000,
       };
 
-      return fallbackRates[cacheKey] || 1600;
+      return fallbackRates[cacheKey] || 1458;
     }
   }
 

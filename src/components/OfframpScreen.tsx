@@ -180,6 +180,7 @@ export function OfframpScreen({
           { id: 'usdc-base', breadAsset: 'base:usdc', amount: 1 },
           { id: 'usdc-polygon', breadAsset: 'polygon:usdc', amount: 1 },
           { id: 'usdt-solana', breadAsset: 'solana:usdt', amount: 1 },
+          { id: 'usdt-base', breadAsset: 'base:usdt', amount: 1 },
           { id: 'usdt-polygon', breadAsset: 'polygon:usdt', amount: 1 },
         ];
 
