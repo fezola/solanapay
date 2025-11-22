@@ -531,19 +531,39 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
     chain: request.chain,
   });
 
-  // STEP 1: Send ETH from treasury to user wallet for gas
-  const feeData = await provider.getFeeData();
-  const gasLimit = 100000n; // Standard ERC20 transfer gas limit
-  const maxGasCost = (feeData.maxFeePerGas || feeData.gasPrice || 0n) * gasLimit;
+  // STEP 1: Estimate gas for the actual ERC20 transfer
+  let estimatedGas: bigint;
+  try {
+    estimatedGas = await tokenContract.transfer.estimateGas(request.toAddress, amountInTokenUnits);
+    // Add 20% buffer to estimated gas
+    estimatedGas = (estimatedGas * 120n) / 100n;
+  } catch (error) {
+    // Fallback to standard ERC20 transfer gas limit
+    estimatedGas = 100000n;
+    logger.warn({
+      msg: 'Failed to estimate gas, using fallback',
+      error: error instanceof Error ? error.message : String(error),
+      fallbackGas: estimatedGas.toString(),
+    });
+  }
 
-  // Add 20% buffer for gas price fluctuations
-  const gasToSend = (maxGasCost * 120n) / 100n;
+  const feeData = await provider.getFeeData();
+
+  // Use the higher of maxFeePerGas or gasPrice, with a minimum floor of 1 gwei
+  const gasPrice = feeData.maxFeePerGas || feeData.gasPrice || ethers.parseUnits('1', 'gwei');
+  const maxGasCost = gasPrice * estimatedGas;
+
+  // Add 100% buffer for gas price fluctuations (doubled for safety)
+  const gasToSend = maxGasCost * 2n;
 
   logger.info({
     msg: 'Sending gas from treasury to user wallet',
     from: treasuryWallet.address,
     to: userWallet.address,
     gasToSend: ethers.formatEther(gasToSend),
+    gasPrice: ethers.formatUnits(gasPrice, 'gwei'),
+    estimatedGas: estimatedGas.toString(),
+    maxGasCost: ethers.formatEther(maxGasCost),
     chain: request.chain,
   });
 
@@ -561,9 +581,7 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
   });
 
   // STEP 2: Execute ERC20 transfer from user wallet (now has gas)
-  const tx = await tokenContract.transfer(request.toAddress, amountInTokenUnits, {
-    gasLimit,
-  });
+  const tx = await tokenContract.transfer(request.toAddress, amountInTokenUnits);
 
   logger.info({
     msg: 'ERC20 transfer submitted (gas paid by user wallet, funded by treasury)',
