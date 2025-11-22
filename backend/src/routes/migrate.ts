@@ -34,10 +34,16 @@ export const migrateRoutes: FastifyPluginAsync = async (fastify) => {
     async function createBreadWallet(userId: string, chain: string = 'base') {
       try {
         const reference = `wallet_${userId}_${chain}_${Date.now()}`;
-        
+
+        // CRITICAL: Bread API needs network parameter (svm or evm)
+        const network = chain === 'solana' ? 'svm' : 'evm';
+
         const response = await axios.post(
           `${BREAD_API_URL}/wallet`,
-          { reference },
+          {
+            reference,
+            network, // This is why it was failing!
+          },
           {
             headers: {
               'Authorization': `Bearer ${BREAD_API_KEY}`,
@@ -50,10 +56,11 @@ export const migrateRoutes: FastifyPluginAsync = async (fastify) => {
         const walletId = walletData.wallet_id || walletData.id;
         const evmAddress = walletData.address?.evm || null;
 
-        return { walletId, evmAddress };
+        return { walletId, evmAddress, error: null };
       } catch (error: any) {
-        fastify.log.error({ msg: 'Error creating Bread wallet', error: error.response?.data || error.message });
-        return null;
+        const errorDetails = error.response?.data || error.message;
+        fastify.log.error({ msg: 'Error creating Bread wallet', error: errorDetails });
+        return { walletId: null, evmAddress: null, error: errorDetails };
       }
     }
 
@@ -104,7 +111,8 @@ export const migrateRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!newWallet || !newWallet.walletId) {
         result.action = 'FAILED';
-        result.error = 'Failed to create Bread wallet';
+        result.error = newWallet?.error || 'Failed to create Bread wallet';
+        result.breadApiError = newWallet?.error; // Show actual Bread API error
         results.push(result);
         continue;
       }
