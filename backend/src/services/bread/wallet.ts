@@ -103,7 +103,16 @@ export class BreadWalletService {
     // Bread API returns: { success, status, message, timestamp, data: { wallet_id, address: { svm, evm }, ... } }
     const walletData = response.data || response;
     const walletId = walletData.wallet_id || walletData.id;
-    const address = walletData.address?.svm || walletData.address?.evm || walletData.address;
+
+    // Extract the correct address format based on network type
+    let address: string;
+    if (network === 'svm') {
+      address = walletData.address?.svm || walletData.address;
+    } else if (network === 'evm') {
+      address = walletData.address?.evm || walletData.address;
+    } else {
+      address = walletData.address?.svm || walletData.address?.evm || walletData.address;
+    }
 
     if (!walletId) {
       logger.error({ response }, 'Failed to extract wallet ID from Bread response');
@@ -146,12 +155,23 @@ export class BreadWalletService {
     // Bread API wraps response in { success, status, message, data: {...} }
     const walletData = response.data || response;
 
+    // Determine network type from response
+    const network: BreadNetwork = walletData.network || 'svm';
+
     // Extract the address based on network type
-    const address = walletData.address?.svm || walletData.address?.evm || walletData.address || '';
+    let address: string;
+    if (network === 'svm') {
+      address = walletData.address?.svm || walletData.address || '';
+    } else if (network === 'evm') {
+      address = walletData.address?.evm || walletData.address || '';
+    } else {
+      address = walletData.address?.svm || walletData.address?.evm || walletData.address || '';
+    }
 
     logger.debug({
       msg: 'Bread wallet fetched',
       walletId,
+      network,
       address,
       rawResponse: JSON.stringify(response),
     });
@@ -161,7 +181,7 @@ export class BreadWalletService {
       id: walletData.wallet_id || walletData.id || walletId,
       identityId: walletData.identity_id || walletData.identityId || '',
       type: walletData.type || 'offramp',
-      network: walletData.network || 'svm',
+      network,
       chain: walletData.chain || 'solana',
       address,
       beneficiaryId: walletData.beneficiary_id || walletData.beneficiaryId,

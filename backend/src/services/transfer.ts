@@ -31,6 +31,7 @@ const SOLANA_USDT_MINT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 const EVM_TOKEN_ADDRESSES: Record<string, Record<string, string>> = {
   base: {
     USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    USDT: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
   },
   polygon: {
     USDC: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
