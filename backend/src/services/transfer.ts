@@ -479,9 +479,24 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
     throw new Error('Deposit wallet private key not found');
   }
 
-  // Decrypt the private key
+  // Decrypt the user's private key (owns the tokens)
   const privateKeyHex = decrypt(depositAddress.private_key_encrypted);
-  const wallet = new ethers.Wallet(privateKeyHex, provider);
+  const userWallet = new ethers.Wallet(privateKeyHex, provider);
+
+  // Get treasury wallet (will pay for gas by sending ETH to user wallet first)
+  const treasuryPrivateKey = getTreasuryPrivateKey(request.chain);
+  if (!treasuryPrivateKey) {
+    throw new Error(`Treasury private key not configured for chain: ${request.chain}`);
+  }
+  const treasuryWallet = new ethers.Wallet(treasuryPrivateKey, provider);
+
+  logger.info({
+    msg: 'EVM transfer wallets initialized',
+    chain: request.chain,
+    userWallet: userWallet.address,
+    treasuryWallet: treasuryWallet.address,
+    gasSponsor: 'treasury',
+  });
 
   // ERC20 ABI for transfer function
   const erc20Abi = [
@@ -495,7 +510,7 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
     throw new Error(`Unsupported asset ${request.asset} on chain ${request.chain}`);
   }
 
-  const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, wallet);
+  const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, userWallet);
 
   // Get token decimals
   const decimals = await tokenContract.decimals();
@@ -516,17 +531,53 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
     chain: request.chain,
   });
 
-  // Execute transfer
-  const tx = await tokenContract.transfer(request.toAddress, amountInTokenUnits);
+  // STEP 1: Send ETH from treasury to user wallet for gas
+  const feeData = await provider.getFeeData();
+  const gasLimit = 100000n; // Standard ERC20 transfer gas limit
+  const maxGasCost = (feeData.maxFeePerGas || feeData.gasPrice || 0n) * gasLimit;
+
+  // Add 20% buffer for gas price fluctuations
+  const gasToSend = (maxGasCost * 120n) / 100n;
 
   logger.info({
-    msg: 'ERC20 transfer submitted',
+    msg: 'Sending gas from treasury to user wallet',
+    from: treasuryWallet.address,
+    to: userWallet.address,
+    gasToSend: ethers.formatEther(gasToSend),
+    chain: request.chain,
+  });
+
+  const gasTx = await treasuryWallet.sendTransaction({
+    to: userWallet.address,
+    value: gasToSend,
+  });
+
+  await gasTx.wait();
+
+  logger.info({
+    msg: 'Gas sent to user wallet',
+    txHash: gasTx.hash,
+    amount: ethers.formatEther(gasToSend),
+  });
+
+  // STEP 2: Execute ERC20 transfer from user wallet (now has gas)
+  const tx = await tokenContract.transfer(request.toAddress, amountInTokenUnits, {
+    gasLimit,
+  });
+
+  logger.info({
+    msg: 'ERC20 transfer submitted (gas paid by user wallet, funded by treasury)',
     txHash: tx.hash,
     chain: request.chain,
+    gasFundedBy: treasuryWallet.address,
   });
 
   // Wait for confirmation
   const receipt = await tx.wait();
+
+  if (!receipt) {
+    throw new Error('Transaction receipt is null');
+  }
 
   logger.info({
     msg: 'ERC20 transfer confirmed',
@@ -535,6 +586,8 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
     amount: request.amount,
     asset: request.asset,
     chain: request.chain,
+    gasUsed: receipt.gasUsed.toString(),
+    gasFundedBy: treasuryWallet.address,
   });
 
   return {
@@ -543,6 +596,20 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
     asset: request.asset,
     chain: request.chain,
   };
+}
+
+/**
+ * Get treasury private key for a specific chain
+ */
+function getTreasuryPrivateKey(chain: string): string | undefined {
+  switch (chain.toLowerCase()) {
+    case 'base':
+      return env.BASE_TREASURY_PRIVATE_KEY;
+    case 'polygon':
+      return env.POLYGON_TREASURY_PRIVATE_KEY;
+    default:
+      return undefined;
+  }
 }
 
 /**
