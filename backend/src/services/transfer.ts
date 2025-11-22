@@ -498,13 +498,18 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
 
   // Get token decimals
   const decimals = await tokenContract.decimals();
-  const amountInTokenUnits = ethers.parseUnits(request.amount.toString(), decimals);
+
+  // Round amount to token decimals to avoid "too many decimals" error
+  // This handles floating point precision issues from platform fee calculations
+  const roundedAmount = parseFloat(request.amount.toFixed(Number(decimals)));
+  const amountInTokenUnits = ethers.parseUnits(roundedAmount.toString(), decimals);
 
   logger.info({
     msg: `Creating ERC20 transfer on ${request.chain}`,
     from: request.fromAddress,
     to: request.toAddress,
     amount: request.amount,
+    roundedAmount,
     amountInTokenUnits: amountInTokenUnits.toString(),
     tokenAddress,
     chain: request.chain,
