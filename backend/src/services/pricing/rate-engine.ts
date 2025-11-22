@@ -70,6 +70,7 @@ export class RateEngine {
       USDT: '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b', // USDT/USD
       SOL: '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d', // SOL/USD
       ETH: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace', // ETH/USD
+      MATIC: '0x5de33a9112c2b700b8d30b8a3402c103578ccfa2765696471cc672bd5cf6ac52', // MATIC/USD
     };
 
     const priceId = priceIds[asset];
@@ -246,7 +247,7 @@ export class RateEngine {
    * Get all current prices
    */
   async getAllPrices(): Promise<Record<Asset, number>> {
-    const assets: Asset[] = ['USDC', 'USDT', 'SOL', 'ETH'];
+    const assets: Asset[] = ['USDC', 'USDT', 'SOL', 'ETH', 'MATIC'];
     const prices: Partial<Record<Asset, number>> = {};
 
     await Promise.all(
