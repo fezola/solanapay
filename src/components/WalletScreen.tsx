@@ -13,6 +13,7 @@ interface WalletScreenProps {
     usdcPolygon: string;
     sol: string;
     usdtSolana: string;
+    usdtBase: string;
     usdtPolygon: string;
   };
 }
@@ -32,6 +33,7 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
     if (cryptoId === 'usdc' && networkId === 'polygon') return depositAddresses.usdcPolygon;
     if (cryptoId === 'sol' && networkId === 'solana') return depositAddresses.sol;
     if (cryptoId === 'usdt' && networkId === 'solana') return depositAddresses.usdtSolana;
+    if (cryptoId === 'usdt' && networkId === 'base') return depositAddresses.usdtBase;
     if (cryptoId === 'usdt' && networkId === 'polygon') return depositAddresses.usdtPolygon;
     // For other networks, return placeholder (will be implemented later)
     return 'Coming soon - Address will be generated';
@@ -140,12 +142,11 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
             transition={{ delay: 0.2 }}
             className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200"
           >
-            <div className="grid grid-cols-4 gap-6">
+            <div className="grid grid-cols-3 gap-6">
               {[
                 { name: 'USDC', logo: '/usd-coin-usdc-logo.svg' },
                 { name: 'USDT', logo: '/tether-usdt-logo.svg' },
                 { name: 'SOL', logo: '/solana-sol-logo.svg' },
-                { name: 'ETH', logo: '/ethereum-eth-logo.svg' },
               ].map((crypto, index) => (
                 <motion.div
                   key={crypto.name}
@@ -179,10 +180,7 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
               {[
                 { name: 'Solana', logo: '/solana-sol-logo.svg' },
                 { name: 'Base', logo: '/BASE.png' },
-                { name: 'Ethereum', logo: '/ethereum-eth-logo.svg' },
                 { name: 'Polygon', logo: '/polygon-matic-logo.svg' },
-                { name: 'Arbitrum', logo: '/arbitrum-arb-logo.svg' },
-                { name: 'Optimism', logo: '/optimism-ethereum-op-logo.svg' },
               ].map((network, index) => (
                 <motion.div
                   key={network.name}

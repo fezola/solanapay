@@ -73,16 +73,18 @@ class PriceService {
     usdcBase: number;
     usdcPolygon: number;
     usdtSolana: number;
+    usdtBase: number;
     usdtPolygon: number;
     sol: number;
   }> {
     try {
       // Fetch all rates in parallel
-      const [usdcSolana, usdcBase, usdcPolygon, usdtSolana, usdtPolygon, sol] = await Promise.all([
+      const [usdcSolana, usdcBase, usdcPolygon, usdtSolana, usdtBase, usdtPolygon, sol] = await Promise.all([
         this.getRate('USDC', 'solana'),
         this.getRate('USDC', 'base'),
         this.getRate('USDC', 'polygon'),
         this.getRate('USDT', 'solana'),
+        this.getRate('USDT', 'base'),
         this.getRate('USDT', 'polygon'),
         this.getRate('SOL', 'solana'),
       ]);
@@ -92,6 +94,7 @@ class PriceService {
         usdcBase,
         usdcPolygon,
         usdtSolana,
+        usdtBase,
         usdtPolygon,
         sol,
       };
@@ -104,6 +107,7 @@ class PriceService {
         usdcBase: 1600,
         usdcPolygon: 1600,
         usdtSolana: 1600,
+        usdtBase: 1600,
         usdtPolygon: 1600,
         sol: 250000,
       };

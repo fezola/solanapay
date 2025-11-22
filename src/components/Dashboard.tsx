@@ -20,6 +20,7 @@ interface DashboardProps {
     usdcPolygon: number;
     sol: number;
     usdtSolana: number;
+    usdtBase: number;
     usdtPolygon: number;
     naira: number;
   };
@@ -36,6 +37,7 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
     usdcBase: 1600,
     usdcPolygon: 1600,
     usdtSolana: 1600,
+    usdtBase: 1600,
     usdtPolygon: 1600,
     sol: 250000,
   });

@@ -13,12 +13,18 @@ const ERC20_ABI = [
 export class BaseWalletService {
   private provider: ethers.JsonRpcProvider;
   private usdcContract: ethers.Contract;
+  private usdtContract: ethers.Contract;
   private treasuryHot: string;
 
   constructor() {
     this.provider = new ethers.JsonRpcProvider(env.BASE_RPC_URL);
     this.usdcContract = new ethers.Contract(
       env.BASE_USDC_CONTRACT,
+      ERC20_ABI,
+      this.provider
+    );
+    this.usdtContract = new ethers.Contract(
+      env.BASE_USDT_CONTRACT,
       ERC20_ABI,
       this.provider
     );
@@ -85,6 +91,14 @@ export class BaseWalletService {
   }
 
   /**
+   * Get USDT balance
+   */
+  async getUSDTBalance(address: string): Promise<number> {
+    const balance = await this.usdtContract.balanceOf(address);
+    return parseFloat(ethers.formatUnits(balance, 6)); // USDT has 6 decimals
+  }
+
+  /**
    * Get ERC20 token balance
    */
   async getTokenBalance(address: string, tokenAddress: string): Promise<number> {
@@ -138,13 +152,32 @@ export class BaseWalletService {
   ): Promise<string> {
     const wallet = this.getWallet(encryptedPrivateKey);
     const contract = this.usdcContract.connect(wallet) as ethers.Contract;
-    
+
     const amountInSmallestUnit = ethers.parseUnits(amount.toString(), 6);
 
     const tx = await contract.transfer(this.treasuryHot, amountInSmallestUnit);
     const receipt = await tx.wait();
 
     logger.info(`Swept ${amount} USDC to treasury: ${receipt.hash}`);
+    return receipt.hash;
+  }
+
+  /**
+   * Sweep USDT from user wallet to treasury
+   */
+  async sweepUSDT(
+    encryptedPrivateKey: string,
+    amount: number
+  ): Promise<string> {
+    const wallet = this.getWallet(encryptedPrivateKey);
+    const contract = this.usdtContract.connect(wallet) as ethers.Contract;
+
+    const amountInSmallestUnit = ethers.parseUnits(amount.toString(), 6);
+
+    const tx = await contract.transfer(this.treasuryHot, amountInSmallestUnit);
+    const receipt = await tx.wait();
+
+    logger.info(`Swept ${amount} USDT to treasury: ${receipt.hash}`);
     return receipt.hash;
   }
 

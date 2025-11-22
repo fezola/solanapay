@@ -85,6 +85,7 @@ export default function App() {
     usdcPolygon: 0,
     sol: 0,
     usdtSolana: 0,
+    usdtBase: 0,
     usdtPolygon: 0,
     naira: 0,
   });
@@ -96,6 +97,7 @@ export default function App() {
     usdcPolygon: '',
     sol: '',
     usdtSolana: '',
+    usdtBase: '',
     usdtPolygon: '',
   });
 
@@ -162,6 +164,7 @@ export default function App() {
           usdcPolygon: cryptoData.balances.usdcPolygon || 0,
           sol: cryptoData.balances.sol || 0,
           usdtSolana: cryptoData.balances.usdtSolana || 0,
+          usdtBase: cryptoData.balances.usdtBase || 0,
           usdtPolygon: cryptoData.balances.usdtPolygon || 0,
           naira: walletData.balance?.naira || 0,
         });
@@ -177,6 +180,7 @@ export default function App() {
           usdcPolygon: cryptoData.balances.usdcPolygon || 0,
           sol: cryptoData.balances.sol || 0,
           usdtSolana: cryptoData.balances.usdtSolana || 0,
+          usdtBase: cryptoData.balances.usdtBase || 0,
           usdtPolygon: cryptoData.balances.usdtPolygon || 0,
           naira: 0,
         });
@@ -345,10 +349,16 @@ export default function App() {
                   newAddresses.usdcSolana = addr.address;
                 } else if (addr.asset === 'USDC' && addr.chain === 'base') {
                   newAddresses.usdcBase = addr.address;
+                } else if (addr.asset === 'USDC' && addr.chain === 'polygon') {
+                  newAddresses.usdcPolygon = addr.address;
                 } else if (addr.asset === 'SOL' && addr.chain === 'solana') {
                   newAddresses.sol = addr.address;
                 } else if (addr.asset === 'USDT' && addr.chain === 'solana') {
                   newAddresses.usdtSolana = addr.address;
+                } else if (addr.asset === 'USDT' && addr.chain === 'base') {
+                  newAddresses.usdtBase = addr.address;
+                } else if (addr.asset === 'USDT' && addr.chain === 'polygon') {
+                  newAddresses.usdtPolygon = addr.address;
                 }
               });
 

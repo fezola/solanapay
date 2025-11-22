@@ -1,5 +1,5 @@
 export type Chain = 'solana' | 'base' | 'ethereum' | 'polygon' | 'arbitrum' | 'optimism' | 'bsc' | 'tron';
-export type Asset = 'USDC' | 'SOL' | 'USDT' | 'ETH';
+export type Asset = 'USDC' | 'SOL' | 'USDT' | 'ETH' | 'MATIC';
 export type Network = 'mainnet' | 'testnet' | 'devnet';
 
 export type KYCTier = 0 | 1 | 2;

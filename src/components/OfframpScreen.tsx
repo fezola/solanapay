@@ -19,6 +19,7 @@ interface OfframpScreenProps {
     usdcPolygon: number;
     sol: number;
     usdtSolana: number;
+    usdtBase: number;
     usdtPolygon: number;
     naira: number;
   };
@@ -41,7 +42,7 @@ interface OfframpScreenProps {
   userId: string;
 }
 
-type AssetId = 'usdc-solana' | 'usdc-base' | 'usdc-polygon' | 'sol' | 'usdt-solana' | 'usdt-polygon';
+type AssetId = 'usdc-solana' | 'usdc-base' | 'usdc-polygon' | 'sol' | 'usdt-solana' | 'usdt-base' | 'usdt-polygon';
 
 export function OfframpScreen({
   balance,
@@ -64,6 +65,7 @@ export function OfframpScreen({
     'usdc-polygon': 1600,
     'sol': 250000,
     'usdt-solana': 1600,
+    'usdt-base': 1600,
     'usdt-polygon': 1600,
   });
   const [showPINModal, setShowPINModal] = useState(false);
@@ -129,6 +131,18 @@ export function OfframpScreen({
       logo: '/tether-usdt-logo.svg',
       networkLogo: '/solana-sol-logo.svg',
       breadAsset: 'solana:usdt',
+    },
+    {
+      id: 'usdt-base' as AssetId,
+      name: 'USDT (Base)',
+      symbol: 'USDT',
+      network: 'Base',
+      balance: balance.usdtBase,
+      rate: rates['usdt-base'],
+      minAmount: 1,
+      logo: '/tether-usdt-logo.svg',
+      networkLogo: '/BASE.png',
+      breadAsset: 'base:usdt',
     },
     {
       id: 'usdt-polygon' as AssetId,

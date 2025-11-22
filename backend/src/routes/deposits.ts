@@ -117,9 +117,13 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       const balances: any = {
         usdcSolana: 0,
         usdcBase: 0,
+        usdcPolygon: 0,
         sol: 0,
         usdtSolana: 0,
+        usdtBase: 0,
+        usdtPolygon: 0,
         eth: 0,
+        matic: 0,
       };
 
       // If no addresses, return zero balances
@@ -150,9 +154,23 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
             if (asset_symbol === 'USDC') {
               balance = await baseWalletService.getUSDCBalance(address);
               balances.usdcBase = balance;
+            } else if (asset_symbol === 'USDT') {
+              balance = await baseWalletService.getUSDTBalance(address);
+              balances.usdtBase = balance;
             } else if (asset_symbol === 'ETH') {
               balance = await baseWalletService.getETHBalance(address);
               balances.eth = balance;
+            }
+          } else if (network === 'polygon') {
+            if (asset_symbol === 'USDC') {
+              balance = await polygonWalletService.getUSDCBalance(address);
+              balances.usdcPolygon = balance;
+            } else if (asset_symbol === 'USDT') {
+              balance = await polygonWalletService.getUSDTBalance(address);
+              balances.usdtPolygon = balance;
+            } else if (asset_symbol === 'MATIC') {
+              balance = await polygonWalletService.getMATICBalance(address);
+              balances.matic = balance;
             }
           }
 
@@ -308,7 +326,7 @@ async function generateUserAddresses(userId: string) {
     }
   }
 
-  // Generate ONE Base wallet for USDC and USDT
+  // Generate ONE Base wallet for USDC and USDT (ETH gas is paid by treasury)
   const baseWallet = await baseWalletService.generateWallet(userId, accountIndex++);
   const baseAssets: Asset[] = ['USDC', 'USDT'];
 
@@ -340,7 +358,7 @@ async function generateUserAddresses(userId: string) {
     }
   }
 
-  // Generate ONE Polygon wallet for USDC and USDT
+  // Generate ONE Polygon wallet for USDC and USDT (MATIC gas is paid by treasury)
   const polygonWallet = await polygonWalletService.generateWallet(userId, accountIndex++);
   const polygonAssets: Asset[] = ['USDC', 'USDT'];
 

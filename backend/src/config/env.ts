@@ -32,6 +32,7 @@ const envSchema = z.object({
   BASE_TREASURY_ADDRESS: z.string().optional(),
   BASE_TREASURY_PRIVATE_KEY: z.string().optional(),
   BASE_USDC_CONTRACT: z.string().default('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'),
+  BASE_USDT_CONTRACT: z.string().default('0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2'),
 
   // Polygon (EVM)
   POLYGON_RPC_URL: z.string().url().default('https://polygon-rpc.com'),
