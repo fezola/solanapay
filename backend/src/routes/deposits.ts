@@ -248,8 +248,11 @@ async function generateUserAddresses(userId: string) {
 
   // Create Bread wallets for all users (no KYC/identity required)
   let breadSolanaWalletId: string | undefined;
+  let breadSolanaWalletAddress: string | undefined;
   let breadBaseWalletId: string | undefined;
+  let breadBaseWalletAddress: string | undefined;
   let breadPolygonWalletId: string | undefined;
+  let breadPolygonWalletAddress: string | undefined;
 
   try {
     // Create Bread wallet for Solana (shared by SOL, USDC, USDT)
@@ -262,7 +265,8 @@ async function generateUserAddresses(userId: string) {
     );
     // Note: Bread API returns wallet_id but our type interface uses id
     breadSolanaWalletId = (breadSolanaWallet as any).wallet_id || breadSolanaWallet.id;
-    logger.info({ msg: 'Bread Solana wallet created', walletId: breadSolanaWalletId });
+    breadSolanaWalletAddress = breadSolanaWallet.address;
+    logger.info({ msg: 'Bread Solana wallet created', walletId: breadSolanaWalletId, address: breadSolanaWalletAddress });
 
     // Create Bread wallet for Base (shared by USDC, USDT)
     logger.info({ msg: 'Creating Bread wallet for Base (no KYC required)', userId });
@@ -273,7 +277,8 @@ async function generateUserAddresses(userId: string) {
     );
     // Note: Bread API returns wallet_id but our type interface uses id
     breadBaseWalletId = (breadBaseWallet as any).wallet_id || breadBaseWallet.id;
-    logger.info({ msg: 'Bread Base wallet created', walletId: breadBaseWalletId });
+    breadBaseWalletAddress = breadBaseWallet.address;
+    logger.info({ msg: 'Bread Base wallet created', walletId: breadBaseWalletId, address: breadBaseWalletAddress });
 
     // Create Bread wallet for Polygon (shared by USDC, USDT)
     logger.info({ msg: 'Creating Bread wallet for Polygon (no KYC required)', userId });
@@ -284,7 +289,8 @@ async function generateUserAddresses(userId: string) {
     );
     // Note: Bread API returns wallet_id but our type interface uses id
     breadPolygonWalletId = (breadPolygonWallet as any).wallet_id || breadPolygonWallet.id;
-    logger.info({ msg: 'Bread Polygon wallet created', walletId: breadPolygonWalletId });
+    breadPolygonWalletAddress = breadPolygonWallet.address;
+    logger.info({ msg: 'Bread Polygon wallet created', walletId: breadPolygonWalletId, address: breadPolygonWalletAddress });
   } catch (error: any) {
     logger.error({
       msg: 'Failed to create Bread wallets',
@@ -310,6 +316,7 @@ async function generateUserAddresses(userId: string) {
         private_key_encrypted: solanaWallet.encryptedPrivateKey,
         wallet_type: walletType,
         bread_wallet_id: breadSolanaWalletId, // Link to Bread wallet
+        bread_wallet_address: breadSolanaWalletAddress, // Store Bread wallet address
         bread_wallet_type: breadSolanaWalletId ? 'basic' : null,
         bread_synced_at: breadSolanaWalletId ? new Date().toISOString() : null,
       })
@@ -342,6 +349,7 @@ async function generateUserAddresses(userId: string) {
         private_key_encrypted: baseWallet.encryptedPrivateKey,
         wallet_type: walletType,
         bread_wallet_id: breadBaseWalletId, // Link to Bread wallet
+        bread_wallet_address: breadBaseWalletAddress, // Store Bread wallet address (EVM format)
         bread_wallet_type: breadBaseWalletId ? 'basic' : null,
         bread_synced_at: breadBaseWalletId ? new Date().toISOString() : null,
       })
@@ -374,6 +382,7 @@ async function generateUserAddresses(userId: string) {
         private_key_encrypted: polygonWallet.encryptedPrivateKey,
         wallet_type: walletType,
         bread_wallet_id: breadPolygonWalletId, // Link to Bread wallet
+        bread_wallet_address: breadPolygonWalletAddress, // Store Bread wallet address (EVM format)
         bread_wallet_type: breadPolygonWalletId ? 'basic' : null,
         bread_synced_at: breadPolygonWalletId ? new Date().toISOString() : null,
       })
