@@ -302,7 +302,31 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      request.log.info({ depositAddress: depositAddress.address }, 'Deposit address found');
+      // CRITICAL: Validate bread_wallet_address exists
+      if (!depositAddress.bread_wallet_address) {
+        request.log.error({
+          depositAddress,
+          chain: body.chain,
+          asset: body.asset,
+        }, '❌ CRITICAL: bread_wallet_address is NULL');
+
+        return reply.status(400).send({
+          error: 'Bread wallet address missing',
+          message: `Bread wallet address not found for ${body.asset} on ${body.chain}. Please contact support.`,
+          details: {
+            hasBreadWalletId: !!depositAddress.bread_wallet_id,
+            hasBreadWalletAddress: !!depositAddress.bread_wallet_address,
+            chain: body.chain,
+            asset: body.asset,
+          },
+        });
+      }
+
+      request.log.info({
+        depositAddress: depositAddress.address,
+        breadWalletAddress: depositAddress.bread_wallet_address,
+        breadWalletId: depositAddress.bread_wallet_id,
+      }, 'Deposit address and Bread wallet found');
 
       // Step 3.5: Collect platform fee in crypto BEFORE sending to Bread
       const { collectPlatformFee } = await import('../services/platform-fee-collector.js');

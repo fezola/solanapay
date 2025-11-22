@@ -21,6 +21,22 @@ import { decrypt } from '../utils/encryption.js';
 import { gasSponsorService } from './gas-sponsor/index.js';
 import { env } from '../config/env.js';
 
+/**
+ * Validate and checksum an Ethereum address
+ * Throws if address is null, undefined, or invalid
+ */
+function validateAddress(addr: string | null | undefined, name = 'address'): string {
+  if (!addr) {
+    throw new Error(`${name} is null/undefined`);
+  }
+  try {
+    // getAddress checksums and validates
+    return ethers.getAddress(addr);
+  } catch (err) {
+    throw new Error(`${name} is invalid: ${addr}`);
+  }
+}
+
 const SOLANA_RPC_URL = env.SOLANA_RPC_URL;
 
 // Token mint addresses
@@ -536,10 +552,13 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
   const roundedAmount = parseFloat(request.amount.toFixed(Number(decimals)));
   const amountInTokenUnits = ethers.parseUnits(roundedAmount.toString(), decimals);
 
+  // CRITICAL: Validate recipient address before any contract calls
+  const validatedToAddress = validateAddress(request.toAddress, 'recipient (toAddress)');
+
   logger.info({
     msg: `Creating ERC20 transfer on ${request.chain}`,
     from: request.fromAddress,
-    to: request.toAddress,
+    to: validatedToAddress,
     amount: request.amount,
     roundedAmount,
     amountInTokenUnits: amountInTokenUnits.toString(),
@@ -550,7 +569,7 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
   // STEP 1: Estimate gas for the actual ERC20 transfer
   let estimatedGas: bigint;
   try {
-    estimatedGas = await tokenContract.transfer.estimateGas(request.toAddress, amountInTokenUnits);
+    estimatedGas = await tokenContract.transfer.estimateGas(validatedToAddress, amountInTokenUnits);
     // Add 20% buffer to estimated gas
     estimatedGas = (estimatedGas * 120n) / 100n;
   } catch (error) {
@@ -597,7 +616,7 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
   });
 
   // STEP 2: Execute ERC20 transfer from user wallet (now has gas)
-  const tx = await tokenContract.transfer(request.toAddress, amountInTokenUnits);
+  const tx = await tokenContract.transfer(validatedToAddress, amountInTokenUnits);
 
   logger.info({
     msg: 'ERC20 transfer submitted (gas paid by user wallet, funded by treasury)',
