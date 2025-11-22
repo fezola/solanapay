@@ -129,6 +129,18 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       isFiat: false,
     },
     {
+      id: 'usdt-base',
+      name: 'USDT',
+      symbol: 'USDT',
+      amount: balance.usdtBase,
+      usdValue: balance.usdtBase * (rates.usdtBase / rates.usdcSolana), // USDT rate in USD
+      ngnValue: balance.usdtBase * rates.usdtBase,
+      logo: '/tether-usdt-logo.svg',
+      network: 'Base',
+      networkLogo: '/BASE.png',
+      isFiat: false,
+    },
+    {
       id: 'usdt-polygon',
       name: 'USDT',
       symbol: 'USDT',
