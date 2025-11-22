@@ -69,9 +69,9 @@ export class BreadWalletService {
 
     // Build Bread API request based on wallet type
     // For offramp wallets, we need to include offramp: true and beneficiary_id
+    // NOTE: Bread API returns BOTH svm and evm addresses in response, we don't send network parameter
     const breadRequest: any = {
       reference,
-      network, // CRITICAL: Bread API needs to know if it's SVM or EVM!
     };
 
     // If this is an offramp wallet, include offramp flag and beneficiary

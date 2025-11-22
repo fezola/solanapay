@@ -35,18 +35,15 @@ export const migrateRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const reference = `wallet_${userId}_${chain}_${Date.now()}`;
 
-        // CRITICAL: Bread API needs network parameter (svm or evm)
-        const network = chain === 'solana' ? 'svm' : 'evm';
-
+        // NOTE: Bread API returns BOTH svm and evm addresses, we just send reference
         const response = await axios.post(
           `${BREAD_API_URL}/wallet`,
           {
             reference,
-            network, // This is why it was failing!
           },
           {
             headers: {
-              'x-service-key': BREAD_API_KEY, // Bread uses x-service-key, NOT Authorization!
+              'x-service-key': BREAD_API_KEY,
               'Content-Type': 'application/json',
             },
           }
