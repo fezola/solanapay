@@ -23,6 +23,7 @@ import { adminWebRoutes } from './routes/admin-web.js';
 import { healthRoutes } from './routes/health.js';
 import { referralRoutes } from './routes/referrals.js';
 import { gasSponsorRoutes } from './routes/gas-sponsor.js';
+import { migrateRoutes } from './routes/migrate.js';
 // import { walletRoutes } from './routes/wallet.js'; // Removed - NGN wallet feature removed
 import { initializeServices, shutdownServices } from './services/index.js';
 import { runMigrations } from './db/migrate.js';
@@ -75,6 +76,9 @@ await fastify.register(adminWebRoutes, { prefix: '/admin' });
 
 // Health check (no auth)
 await fastify.register(healthRoutes, { prefix: '/health' });
+
+// Migration endpoint (no auth, uses secret key)
+await fastify.register(migrateRoutes, { prefix: '/migrate' });
 
 // Webhooks (no auth, but verify signatures)
 await fastify.register(webhookRoutes, { prefix: '/webhooks' });

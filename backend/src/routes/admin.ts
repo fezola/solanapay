@@ -604,10 +604,26 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * MIGRATION: Recreate Bread wallets for Base chain
-   * GET /admin/migrate-base-wallets?dry_run=true (default - safe preview)
-   * GET /admin/migrate-base-wallets?dry_run=false (apply changes)
+   * GET /admin/migrate-base-wallets?dry_run=true&secret=xxx (default - safe preview)
+   * GET /admin/migrate-base-wallets?dry_run=false&secret=xxx (apply changes)
+   *
+   * Note: This endpoint bypasses admin middleware for migration purposes
+   * Requires ENCRYPTION_KEY as secret parameter for security
    */
-  fastify.get('/migrate-base-wallets', async (request, reply) => {
+  fastify.get('/migrate-base-wallets', {
+    onRequest: async (request, reply) => {
+      // Skip admin middleware, use secret key instead
+      const { secret } = request.query as { secret?: string };
+      const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+
+      if (!secret || secret !== ENCRYPTION_KEY) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          message: 'Invalid or missing secret parameter'
+        });
+      }
+    }
+  }, async (request, reply) => {
     const { dry_run = 'true' } = request.query as { dry_run?: string };
     const isDryRun = dry_run === 'true';
 
