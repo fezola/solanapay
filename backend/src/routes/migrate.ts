@@ -46,7 +46,7 @@ export const migrateRoutes: FastifyPluginAsync = async (fastify) => {
           },
           {
             headers: {
-              'Authorization': `Bearer ${BREAD_API_KEY}`,
+              'x-service-key': BREAD_API_KEY, // Bread uses x-service-key, NOT Authorization!
               'Content-Type': 'application/json',
             },
           }
