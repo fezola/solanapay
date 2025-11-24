@@ -494,12 +494,39 @@ export default function App() {
     setNotifications([]);
   };
 
-  const handleAddBankAccount = (account: Omit<BankAccount, 'id'>) => {
-    const newAccount = {
-      ...account,
-      id: `BANK${Date.now()}`,
-    };
-    setBankAccounts([...bankAccounts, newAccount]);
+  const handleAddBankAccount = async (account: Omit<BankAccount, 'id'>) => {
+    // Reload bank accounts from database to get the real UUID
+    // The bank account was already saved to the database by BankAccountScreen
+    if (isAuthenticated && userId) {
+      try {
+        const { data: accounts, error } = await supabase
+          .from('bank_accounts')
+          .select('*')
+          .eq('user_id', userId)
+          .order('is_default', { ascending: false })
+          .order('created_at', { ascending: false});
+
+        if (error) {
+          console.error('Error fetching bank accounts:', error);
+          return;
+        }
+
+        const transformedAccounts = (accounts || []).map((account: any) => ({
+          id: account.id, // Use real database UUID
+          bankName: account.bank_name,
+          bankCode: account.bank_code,
+          accountNumber: account.account_number,
+          accountName: account.account_name,
+          isVerified: !!account.verified_at,
+          breadBeneficiaryId: account.bread_beneficiary_id,
+          logo: undefined,
+        }));
+        setBankAccounts(transformedAccounts);
+        console.log('✅ Reloaded bank accounts after add:', transformedAccounts.length);
+      } catch (error) {
+        console.error('Failed to reload bank accounts:', error);
+      }
+    }
   };
 
   const handleDeleteBankAccount = (id: string) => {
