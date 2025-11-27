@@ -16,9 +16,10 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { PINSetupScreen } from './components/PINSetupScreen';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { WithdrawScreen } from './components/WithdrawScreen';
-import { authService, userService, bankAccountService, supabase } from './services/supabase';
+import { authService, userService, bankAccountService, supabase, bonusService, BonusTransaction } from './services/supabase';
 import { NotificationListener, notificationService } from './services/notifications';
 import { transactionsApi } from './services/api';
+import { BonusNotificationCard } from './components/BonusNotificationCard';
 
 interface BankAccount {
   id: string;
