@@ -10,6 +10,7 @@ declare module 'fastify' {
       role?: string;
     };
     userId?: string;
+    adminEmail?: string;
   }
 }
 
@@ -98,6 +99,7 @@ export async function adminMiddleware(
       email: user.email!,
       role: 'admin',
     };
+    request.adminEmail = user.email!;
   } catch (error) {
     request.log.error({ error }, 'Admin middleware error');
     return reply.status(401).send({
