@@ -415,6 +415,27 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         }, '⚠️ Using partial amount due to insufficient balance');
       }
 
+      // Step 5.5: Get CORRECT quote for the ACTUAL amount we're sending
+      // CRITICAL FIX: We need to get a quote for actualOfframpAmount, not the original body.amount
+      request.log.info({
+        msg: '📊 Getting quote for ACTUAL offramp amount',
+        actualAmount: actualOfframpAmount,
+        originalAmount: body.amount,
+      });
+
+      const actualQuoteResponse = await breadService.offramp.getQuote(
+        body.asset as Asset,
+        body.chain as Chain,
+        actualOfframpAmount
+      );
+
+      request.log.info({
+        actualAmount: actualOfframpAmount,
+        rate: actualQuoteResponse.data.rate,
+        outputAmount: actualQuoteResponse.data.output_amount,
+        fee: actualQuoteResponse.data.fee,
+      }, '✅ Got correct quote for actual amount');
+
       // Step 6: Execute Bread offramp to bank account
       request.log.info({
         breadWalletId: depositAddress.bread_wallet_id,
@@ -437,9 +458,9 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         status: offrampResult.data?.status,
       }, '✅ Bread offramp executed successfully');
 
-      // Step 7: Create quote record
-      const lockExpiresAt = quoteResponse.data.expiry
-        ? new Date(quoteResponse.data.expiry)
+      // Step 7: Create quote record using ACTUAL quote (not original quote)
+      const lockExpiresAt = actualQuoteResponse.data.expiry
+        ? new Date(actualQuoteResponse.data.expiry)
         : new Date(Date.now() + 300 * 1000);
 
       const { data: quoteRecord, error: quoteError } = await supabaseAdmin
@@ -449,21 +470,23 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           crypto_asset: body.asset,
           crypto_network: body.chain,
           crypto_amount: actualOfframpAmount.toString(),
-          spot_price: quoteResponse.data.rate.toString(),
-          fx_rate: quoteResponse.data.rate.toString(),
+          spot_price: actualQuoteResponse.data.rate.toString(),
+          fx_rate: actualQuoteResponse.data.rate.toString(),
           spread_bps: 0,
-          flat_fee: (quoteResponse.data.fee * actualOfframpAmount).toString(),
-          variable_fee_bps: Math.floor(quoteResponse.data.fee * 10000),
-          total_fees: (quoteResponse.data.fee * actualOfframpAmount).toString(),
-          fiat_amount: quoteResponse.data.output_amount.toString(),
-          final_amount: quoteResponse.data.output_amount.toString(),
+          flat_fee: (actualQuoteResponse.data.fee * actualOfframpAmount).toString(),
+          variable_fee_bps: Math.floor(actualQuoteResponse.data.fee * 10000),
+          total_fees: (actualQuoteResponse.data.fee * actualOfframpAmount).toString(),
+          fiat_amount: actualQuoteResponse.data.output_amount.toString(),
+          final_amount: actualQuoteResponse.data.output_amount.toString(),
           locked_until: lockExpiresAt.toISOString(),
           is_used: true,
           used_at: new Date().toISOString(),
           metadata: {
             currency: body.currency,
             provider: 'bread',
-            bread_quote_type: quoteResponse.data.type,
+            bread_quote_type: actualQuoteResponse.data.type,
+            original_requested_amount: body.amount,
+            platform_fee_collected: feeCollection.platformFee,
           },
         })
         .select()
@@ -477,14 +500,14 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Step 8: Create payout record
+      // Step 8: Create payout record using ACTUAL quote
       const { data: payout, error: payoutError } = await supabaseAdmin
         .from('payouts')
         .insert({
           user_id: userId,
           quote_id: quoteRecord.id,
           beneficiary_id: beneficiary.id,
-          fiat_amount: quoteResponse.data.output_amount.toString(),
+          fiat_amount: actualQuoteResponse.data.output_amount.toString(),
           currency: body.currency,
           provider: 'bread',
           provider_reference: offrampResult.data?.id || `OFFRAMP-${nanoid(16)}`,
@@ -505,7 +528,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       return {
         success: true,
-        message: `₦${quoteResponse.data.output_amount.toLocaleString()} sent to ${beneficiary.bank_name}`,
+        message: `₦${actualQuoteResponse.data.output_amount.toLocaleString()} sent to ${beneficiary.bank_name}`,
         payout,
         transfer: {
           reference: offrampResult.data?.id,
@@ -517,7 +540,13 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           accountNumber: beneficiary.account_number,
           accountName: beneficiary.account_name,
         },
-        quote: quoteResponse.data,
+        quote: actualQuoteResponse.data,
+        platformFee: {
+          amount: feeCollection.platformFee,
+          asset: body.asset,
+          originalAmount: body.amount,
+          actualAmount: actualOfframpAmount,
+        },
       };
     } catch (error: any) {
       request.log.error({ error: error.message, stack: error.stack }, 'Offramp execution failed');
