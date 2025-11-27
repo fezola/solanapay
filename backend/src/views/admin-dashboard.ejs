@@ -110,6 +110,12 @@
             margin-bottom: 30px;
         }
         .section-title { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #333; }
+        .bonus-form-card {
+            background: linear-gradient(135deg, #f5f3ff 0%, #faf5ff 100%);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid #e9d5ff;
+        }
         .transaction-list { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
         th {
@@ -165,6 +171,37 @@
                 <div class="chart-card">
                     <div class="chart-title">💰 Asset Distribution</div>
                     <canvas id="assetDistributionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Send Bonus Section -->
+            <div class="section">
+                <div class="section-title">🎁 Send Bonus to User</div>
+                <div class="bonus-form-card">
+                    <form id="bonusForm" style="display: grid; gap: 15px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #374151;">User Email</label>
+                                <input type="email" id="userEmail" required placeholder="user@example.com"
+                                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #374151;">Amount (USDC)</label>
+                                <input type="number" id="bonusAmount" required min="1" step="0.01" placeholder="5.00"
+                                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                            </div>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #374151;">Reason</label>
+                            <input type="text" id="bonusReason" required placeholder="Highest offramp transaction - November 2024! 🎉"
+                                style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                        </div>
+                        <button type="submit" id="sendBonusBtn"
+                            style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; transition: all 0.3s;">
+                            Send Bonus 🎁
+                        </button>
+                        <div id="bonusResult" style="display: none; padding: 12px; border-radius: 8px; font-size: 14px;"></div>
+                    </form>
                 </div>
             </div>
 
@@ -438,6 +475,79 @@
 
         // Auto-refresh every 30 seconds
         setInterval(fetchDashboardData, 30000);
+
+        // Bonus form submission
+        document.getElementById('bonusForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const userEmail = document.getElementById('userEmail').value;
+            const amount = parseFloat(document.getElementById('bonusAmount').value);
+            const reason = document.getElementById('bonusReason').value;
+            const resultDiv = document.getElementById('bonusResult');
+            const submitBtn = document.getElementById('sendBonusBtn');
+
+            // Disable button and show loading
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+            resultDiv.style.display = 'none';
+
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/admin/send-bonus', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        user_email: userEmail,
+                        amount: amount,
+                        asset: 'USDC',
+                        chain: 'solana',
+                        reason: reason
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Success
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.background = '#d1fae5';
+                    resultDiv.style.color = '#065f46';
+                    resultDiv.style.border = '1px solid #6ee7b7';
+                    resultDiv.innerHTML = `
+                        <strong>✅ Success!</strong><br>
+                        Sent $${amount} USDC to ${data.bonus.user.name || userEmail}<br>
+                        <a href="${data.bonus.explorer_url}" target="_blank" style="color: #059669; text-decoration: underline;">View on Solscan</a>
+                    `;
+
+                    // Clear form
+                    document.getElementById('bonusForm').reset();
+
+                    // Refresh dashboard data
+                    setTimeout(fetchDashboardData, 2000);
+                } else {
+                    // Error
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.background = '#fee2e2';
+                    resultDiv.style.color = '#991b1b';
+                    resultDiv.style.border = '1px solid #fca5a5';
+                    resultDiv.innerHTML = `<strong>❌ Error:</strong> ${data.error || 'Failed to send bonus'}`;
+                }
+            } catch (error) {
+                console.error('Bonus send error:', error);
+                resultDiv.style.display = 'block';
+                resultDiv.style.background = '#fee2e2';
+                resultDiv.style.color = '#991b1b';
+                resultDiv.style.border = '1px solid #fca5a5';
+                resultDiv.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+            } finally {
+                // Re-enable button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send Bonus 🎁';
+            }
+        });
     </script>
 </body>
 </html>

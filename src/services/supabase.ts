@@ -520,3 +520,114 @@ export const realtimeService = {
   },
 };
 
+// ============================================================================
+// BONUS NOTIFICATIONS
+// ============================================================================
+
+export interface BonusTransaction {
+  id: string;
+  user_id: string;
+  admin_email: string;
+  amount: number;
+  asset: string;
+  chain: string;
+  reason: string;
+  tx_hash: string | null;
+  status: 'pending' | 'processing' | 'success' | 'failed';
+  error_message: string | null;
+  notification_shown: boolean;
+  notification_shown_at: string | null;
+  shared_on_twitter: boolean;
+  shared_at: string | null;
+  metadata: any;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export const bonusService = {
+  // Get unread bonuses for user
+  async getUnreadBonuses(userId: string): Promise<BonusTransaction[]> {
+    const { data, error } = await supabase
+      .from('bonus_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'success')
+      .eq('notification_shown', false)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching unread bonuses:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  // Get all bonuses for user
+  async getAllBonuses(userId: string): Promise<BonusTransaction[]> {
+    const { data, error } = await supabase
+      .from('bonus_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching bonuses:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  // Mark bonus notification as shown
+  async markBonusAsShown(bonusId: string): Promise<void> {
+    const { error } = await supabase
+      .from('bonus_transactions')
+      .update({
+        notification_shown: true,
+        notification_shown_at: new Date().toISOString(),
+      })
+      .eq('id', bonusId);
+
+    if (error) {
+      console.error('Error marking bonus as shown:', error);
+    }
+  },
+
+  // Mark bonus as shared on Twitter
+  async markBonusAsShared(bonusId: string): Promise<void> {
+    const { error } = await supabase
+      .from('bonus_transactions')
+      .update({
+        shared_on_twitter: true,
+        shared_at: new Date().toISOString(),
+      })
+      .eq('id', bonusId);
+
+    if (error) {
+      console.error('Error marking bonus as shared:', error);
+    }
+  },
+
+  // Subscribe to new bonuses
+  subscribeToNewBonuses(userId: string, callback: (bonus: BonusTransaction) => void) {
+    const channel = supabase
+      .channel(`bonus_notifications_${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'bonus_transactions',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          callback(payload.new as BonusTransaction);
+        }
+      )
+      .subscribe();
+
+    return channel;
+  },
+};
+

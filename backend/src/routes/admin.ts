@@ -3,6 +3,10 @@ import { adminMiddleware } from '../middleware/auth.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 import { rateEngine } from '../services/pricing/rate-engine.js';
 import axios from 'axios';
+import { Connection, Keypair, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction } from '@solana/web3.js';
+import { getAssociatedTokenAddress, createTransferInstruction } from '@solana/spl-token';
+import { env } from '../config/env.js';
+import { logger } from '../utils/logger.js';
 
 export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   // Apply admin middleware to all routes
@@ -757,6 +761,264 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         ? 'Dry run complete. Call with ?dry_run=false to apply changes.'
         : 'Migration complete! Users can now offramp on Base chain.',
     });
+  });
+
+  /**
+   * Send bonus to user
+   * POST /api/admin/send-bonus
+   */
+  fastify.post('/send-bonus', async (request, reply) => {
+    const {
+      user_email,
+      amount,
+      asset = 'USDC',
+      chain = 'solana',
+      reason
+    } = request.body as {
+      user_email: string;
+      amount: number;
+      asset?: string;
+      chain?: string;
+      reason: string;
+    };
+
+    const adminEmail = request.adminEmail!;
+
+    logger.info({
+      msg: 'Admin sending bonus',
+      adminEmail,
+      user_email,
+      amount,
+      asset,
+      chain,
+      reason,
+    });
+
+    // Validate inputs
+    if (!user_email || !amount || !reason) {
+      return reply.status(400).send({
+        error: 'Missing required fields: user_email, amount, reason',
+      });
+    }
+
+    if (amount <= 0) {
+      return reply.status(400).send({
+        error: 'Amount must be greater than 0',
+      });
+    }
+
+    // Only support Solana USDC for now
+    if (chain !== 'solana' || asset !== 'USDC') {
+      return reply.status(400).send({
+        error: 'Only Solana USDC bonuses are supported at this time',
+      });
+    }
+
+    // Check treasury wallet is configured
+    if (!env.SOLANA_TREASURY_PRIVATE_KEY) {
+      return reply.status(500).send({
+        error: 'Treasury wallet not configured. Please set SOLANA_TREASURY_PRIVATE_KEY',
+      });
+    }
+
+    try {
+      // Step 1: Find user by email
+      const { data: user, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('id, email, full_name, username')
+        .eq('email', user_email)
+        .single();
+
+      if (userError || !user) {
+        return reply.status(404).send({
+          error: 'User not found',
+          message: `No user found with email: ${user_email}`,
+        });
+      }
+
+      // Step 2: Get user's Solana USDC deposit address
+      const { data: depositAddress, error: addressError } = await supabaseAdmin
+        .from('deposit_addresses')
+        .select('address')
+        .eq('user_id', user.id)
+        .eq('network', 'solana')
+        .eq('asset_symbol', 'USDC')
+        .single();
+
+      if (addressError || !depositAddress) {
+        return reply.status(404).send({
+          error: 'User deposit address not found',
+          message: `User ${user_email} does not have a Solana USDC deposit address`,
+        });
+      }
+
+      const userAddress = depositAddress.address;
+
+      // Step 3: Create bonus transaction record
+      const { data: bonusRecord, error: bonusError } = await supabaseAdmin
+        .from('bonus_transactions')
+        .insert({
+          user_id: user.id,
+          admin_email: adminEmail,
+          amount,
+          asset,
+          chain,
+          reason,
+          status: 'processing',
+        })
+        .select()
+        .single();
+
+      if (bonusError || !bonusRecord) {
+        logger.error({ error: bonusError }, 'Failed to create bonus record');
+        return reply.status(500).send({
+          error: 'Failed to create bonus record',
+        });
+      }
+
+      // Step 4: Send USDC from treasury to user
+      try {
+        const connection = new Connection(env.SOLANA_RPC_URL, 'confirmed');
+
+        // Parse treasury private key
+        const treasurySecretKey = JSON.parse(env.SOLANA_TREASURY_PRIVATE_KEY);
+        const treasuryKeypair = Keypair.fromSecretKey(new Uint8Array(treasurySecretKey));
+
+        const usdcMint = new PublicKey(env.USDC_SOL_MINT);
+        const recipientPubkey = new PublicKey(userAddress);
+
+        // Get token accounts
+        const treasuryTokenAccount = await getAssociatedTokenAddress(
+          usdcMint,
+          treasuryKeypair.publicKey
+        );
+
+        const recipientTokenAccount = await getAssociatedTokenAddress(
+          usdcMint,
+          recipientPubkey
+        );
+
+        // Convert amount to smallest unit (USDC has 6 decimals)
+        const amountInSmallestUnit = Math.floor(amount * 1_000_000);
+
+        // Create transfer instruction
+        const transferInstruction = createTransferInstruction(
+          treasuryTokenAccount,
+          recipientTokenAccount,
+          treasuryKeypair.publicKey,
+          amountInSmallestUnit
+        );
+
+        // Create and send transaction
+        const transaction = new Transaction().add(transferInstruction);
+
+        logger.info({
+          msg: 'Sending bonus transaction',
+          from: treasuryKeypair.publicKey.toBase58(),
+          to: userAddress,
+          amount,
+          amountInSmallestUnit,
+        });
+
+        const signature = await sendAndConfirmTransaction(
+          connection,
+          transaction,
+          [treasuryKeypair],
+          { commitment: 'confirmed' }
+        );
+
+        logger.info({
+          msg: 'Bonus sent successfully',
+          signature,
+          user_email,
+          amount,
+        });
+
+        // Step 5: Update bonus record with success
+        await supabaseAdmin
+          .from('bonus_transactions')
+          .update({
+            status: 'success',
+            tx_hash: signature,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', bonusRecord.id);
+
+        return reply.send({
+          success: true,
+          message: `Successfully sent ${amount} ${asset} bonus to ${user_email}`,
+          bonus: {
+            id: bonusRecord.id,
+            user: {
+              email: user.email,
+              name: user.full_name || user.username,
+            },
+            amount,
+            asset,
+            chain,
+            reason,
+            tx_hash: signature,
+            explorer_url: `https://solscan.io/tx/${signature}`,
+          },
+        });
+
+      } catch (txError: any) {
+        logger.error({
+          error: txError,
+          message: txError.message,
+        }, 'Failed to send bonus transaction');
+
+        // Update bonus record with failure
+        await supabaseAdmin
+          .from('bonus_transactions')
+          .update({
+            status: 'failed',
+            error_message: txError.message,
+          })
+          .eq('id', bonusRecord.id);
+
+        return reply.status(500).send({
+          error: 'Failed to send bonus',
+          message: txError.message,
+        });
+      }
+
+    } catch (error: any) {
+      logger.error({ error }, 'Bonus sending failed');
+      return reply.status(500).send({
+        error: 'Internal server error',
+        message: error.message,
+      });
+    }
+  });
+
+  /**
+   * Get all bonuses
+   * GET /api/admin/bonuses
+   */
+  fastify.get('/bonuses', async (request, reply) => {
+    const { limit = 50, status } = request.query as { limit?: number; status?: string };
+
+    let query = supabaseAdmin
+      .from('bonus_transactions')
+      .select(`
+        *,
+        user:users(email, full_name, username)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data: bonuses, error } = await query;
+
+    if (error) {
+      return reply.status(500).send({ error: 'Failed to fetch bonuses' });
+    }
+
+    return { bonuses };
   });
 };
 
