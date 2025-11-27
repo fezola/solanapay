@@ -96,16 +96,17 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
    * This fetches REAL-TIME balances from the blockchain:
    * 1. Gets user's deposit addresses from database
    * 2. Queries Solana/Base blockchain for actual token balances
-   * 3. Returns current balances for all supported assets
+   * 3. ALSO checks Bread wallet balances (where funds go after deposit)
+   * 4. Returns COMBINED balances (deposit address + Bread wallet)
    */
   fastify.get('/balances', async (request, reply) => {
     const userId = request.userId!;
 
     try {
-      // Get user's deposit addresses
+      // Get user's deposit addresses (need bread_wallet_address too)
       const { data: addresses, error } = await supabaseAdmin
         .from('deposit_addresses')
-        .select('network, asset_symbol, address')
+        .select('network, asset_symbol, address, bread_wallet_address')
         .eq('user_id', userId);
 
       if (error) {
@@ -131,46 +132,97 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         return { balances };
       }
 
+      // Import balance checker
+      const { checkBreadWalletBalance } = await import('../services/transfer.js');
+
       // Fetch real-time balances from blockchain
       for (const addr of addresses) {
-        const { network, asset_symbol, address } = addr;
+        const { network, asset_symbol, address, bread_wallet_address } = addr;
 
         try {
-          let balance = 0;
+          let depositBalance = 0;
+          let breadBalance = 0;
 
-          // Fetch balance based on network and asset
+          // Fetch deposit address balance based on network and asset
           if (network === 'solana') {
             if (asset_symbol === 'SOL') {
-              balance = await solanaWalletService.getSOLBalance(address);
-              balances.sol = balance;
+              depositBalance = await solanaWalletService.getSOLBalance(address);
             } else if (asset_symbol === 'USDC') {
-              balance = await solanaWalletService.getUSDCBalance(address);
-              balances.usdcSolana = balance;
+              depositBalance = await solanaWalletService.getUSDCBalance(address);
             } else if (asset_symbol === 'USDT') {
-              balance = await solanaWalletService.getUSDTBalance(address);
-              balances.usdtSolana = balance;
+              depositBalance = await solanaWalletService.getUSDTBalance(address);
             }
           } else if (network === 'base') {
             if (asset_symbol === 'USDC') {
-              balance = await baseWalletService.getUSDCBalance(address);
-              balances.usdcBase = balance;
+              depositBalance = await baseWalletService.getUSDCBalance(address);
             } else if (asset_symbol === 'USDT') {
-              balance = await baseWalletService.getUSDTBalance(address);
-              balances.usdtBase = balance;
+              depositBalance = await baseWalletService.getUSDTBalance(address);
             } else if (asset_symbol === 'ETH') {
-              balance = await baseWalletService.getETHBalance(address);
-              balances.eth = balance;
+              depositBalance = await baseWalletService.getETHBalance(address);
             }
           } else if (network === 'polygon') {
             if (asset_symbol === 'USDC') {
-              balance = await polygonWalletService.getUSDCBalance(address);
-              balances.usdcPolygon = balance;
+              depositBalance = await polygonWalletService.getUSDCBalance(address);
             } else if (asset_symbol === 'USDT') {
-              balance = await polygonWalletService.getUSDTBalance(address);
-              balances.usdtPolygon = balance;
+              depositBalance = await polygonWalletService.getUSDTBalance(address);
             } else if (asset_symbol === 'MATIC') {
-              balance = await polygonWalletService.getMATICBalance(address);
-              balances.matic = balance;
+              depositBalance = await polygonWalletService.getMATICBalance(address);
+            }
+          }
+
+          // ALSO check Bread wallet balance (where funds go after transfer)
+          // Skip gas tokens (SOL, ETH, MATIC) - they stay in deposit address
+          if (bread_wallet_address && !['SOL', 'ETH', 'MATIC'].includes(asset_symbol)) {
+            try {
+              breadBalance = await checkBreadWalletBalance({
+                chain: network,
+                asset: asset_symbol,
+                walletAddress: bread_wallet_address,
+              });
+
+              logger.debug({
+                network,
+                asset: asset_symbol,
+                depositBalance,
+                breadBalance,
+                totalBalance: depositBalance + breadBalance,
+              }, '💰 Combined balance (deposit + Bread wallet)');
+            } catch (breadError: any) {
+              logger.warn({
+                error: breadError.message,
+                network,
+                asset: asset_symbol,
+              }, 'Failed to fetch Bread wallet balance, using deposit balance only');
+            }
+          }
+
+          // COMBINE deposit address balance + Bread wallet balance
+          const totalBalance = depositBalance + breadBalance;
+
+          // Set combined balance
+          if (network === 'solana') {
+            if (asset_symbol === 'SOL') {
+              balances.sol = totalBalance;
+            } else if (asset_symbol === 'USDC') {
+              balances.usdcSolana = totalBalance;
+            } else if (asset_symbol === 'USDT') {
+              balances.usdtSolana = totalBalance;
+            }
+          } else if (network === 'base') {
+            if (asset_symbol === 'USDC') {
+              balances.usdcBase = totalBalance;
+            } else if (asset_symbol === 'USDT') {
+              balances.usdtBase = totalBalance;
+            } else if (asset_symbol === 'ETH') {
+              balances.eth = totalBalance;
+            }
+          } else if (network === 'polygon') {
+            if (asset_symbol === 'USDC') {
+              balances.usdcPolygon = totalBalance;
+            } else if (asset_symbol === 'USDT') {
+              balances.usdtPolygon = totalBalance;
+            } else if (asset_symbol === 'MATIC') {
+              balances.matic = totalBalance;
             }
           }
 
@@ -178,8 +230,10 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
             network,
             asset: asset_symbol,
             address,
-            balance,
-          }, 'Fetched balance from blockchain');
+            depositBalance,
+            breadBalance,
+            totalBalance,
+          }, 'Fetched combined balance for asset');
 
         } catch (balanceError: any) {
           logger.error({
