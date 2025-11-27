@@ -178,6 +178,8 @@
                                 <th>Date</th>
                                 <th>Type</th>
                                 <th>User</th>
+                                <th>Asset</th>
+                                <th>Chain</th>
                                 <th>Amount</th>
                                 <th>Status</th>
                             </tr>
@@ -361,13 +363,18 @@
                     statusBadge = `<span class="badge">${tx.status}</span>`;
                 }
 
+                // Asset and Chain display
+                const assetDisplay = tx.asset || '<span style="color: #999;">-</span>';
+                const chainDisplay = tx.chain ? tx.chain.charAt(0).toUpperCase() + tx.chain.slice(1) : '<span style="color: #999;">-</span>';
+
                 // Format amount based on transaction type
                 let amountDisplay;
                 if (tx.type === 'deposit') {
                     amountDisplay = formatAmount(tx.amount, tx.asset);
                 } else {
-                    // Offramp: show fiat amount
-                    amountDisplay = formatAmount(tx.fiat_amount, 'NGN');
+                    // Offramp: show both crypto and fiat amounts
+                    const cryptoAmount = tx.crypto_amount ? `${formatAmount(tx.crypto_amount, tx.asset)} → ` : '';
+                    amountDisplay = cryptoAmount + formatAmount(tx.fiat_amount, 'NGN');
                 }
 
                 return `
@@ -375,6 +382,8 @@
                         <td>${formatDate(tx.created_at)}</td>
                         <td>${typeBadge}</td>
                         <td>${userDisplay}</td>
+                        <td>${assetDisplay}</td>
+                        <td>${chainDisplay}</td>
                         <td>${amountDisplay}</td>
                         <td>${statusBadge}</td>
                     </tr>
