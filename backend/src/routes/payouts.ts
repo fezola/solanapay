@@ -347,42 +347,17 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         feeCollected: !!feeCollection.treasuryTxHash,
       }, '💰 Platform fee collection complete');
 
-      // Step 4: Transfer crypto from deposit address to Bread wallet (AFTER fee deduction)
+      // Step 4: Check Bread wallet balance FIRST (funds might already be there from previous failed offramp)
       const { transferToBreadWallet, checkBreadWalletBalance } = await import('../services/transfer.js');
 
       request.log.info({
-        from: depositAddress.address,
-        to: depositAddress.bread_wallet_address,
-        originalAmount: body.amount,
-        platformFee: feeCollection.platformFee,
-        amountToBread: feeCollection.amountToBread,
-        asset: body.asset,
-      }, '🔄 Transferring crypto to Bread wallet (after platform fee)');
-
-      const transferResult = await transferToBreadWallet({
-        chain: body.chain,
-        asset: body.asset,
-        amount: feeCollection.amountToBread, // Send reduced amount (after fee)
-        fromAddress: depositAddress.address,
-        toAddress: depositAddress.bread_wallet_address!,
-        userId,
-      });
-
-      request.log.info({
-        txHash: transferResult.txHash,
-        amount: transferResult.amount,
-        platformFeeCollected: feeCollection.platformFee,
-      }, '✅ Transfer to Bread wallet completed (platform fee collected)');
-
-      // Step 5: Check Bread wallet balance
-      request.log.info({
-        msg: '🔍 About to check Bread wallet balance',
+        msg: '🔍 Checking Bread wallet balance before transfer',
         chain: body.chain,
         asset: body.asset,
         walletAddress: depositAddress.bread_wallet_address,
       });
 
-      const breadBalance = await checkBreadWalletBalance({
+      let breadBalance = await checkBreadWalletBalance({
         chain: body.chain,
         asset: body.asset,
         walletAddress: depositAddress.bread_wallet_address!,
@@ -393,7 +368,53 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         requestedAmount: body.amount,
         amountAfterFee: feeCollection.amountToBread,
         asset: body.asset,
-      }, '💰 Bread wallet balance checked');
+      }, '💰 Initial Bread wallet balance checked');
+
+      // Only transfer if Bread wallet doesn't have enough funds
+      if (breadBalance < feeCollection.amountToBread) {
+        const amountToTransfer = feeCollection.amountToBread - breadBalance;
+
+        request.log.info({
+          from: depositAddress.address,
+          to: depositAddress.bread_wallet_address,
+          breadBalance,
+          amountNeeded: feeCollection.amountToBread,
+          amountToTransfer,
+          asset: body.asset,
+        }, '🔄 Transferring additional crypto to Bread wallet');
+
+        const transferResult = await transferToBreadWallet({
+          chain: body.chain,
+          asset: body.asset,
+          amount: amountToTransfer,
+          fromAddress: depositAddress.address,
+          toAddress: depositAddress.bread_wallet_address!,
+          userId,
+        });
+
+        request.log.info({
+          txHash: transferResult.txHash,
+          amount: transferResult.amount,
+        }, '✅ Transfer to Bread wallet completed');
+
+        // Re-check balance after transfer
+        breadBalance = await checkBreadWalletBalance({
+          chain: body.chain,
+          asset: body.asset,
+          walletAddress: depositAddress.bread_wallet_address!,
+        });
+
+        request.log.info({
+          breadBalance,
+          asset: body.asset,
+        }, '💰 Bread wallet balance after transfer');
+      } else {
+        request.log.info({
+          breadBalance,
+          amountNeeded: feeCollection.amountToBread,
+          asset: body.asset,
+        }, '✅ Bread wallet already has sufficient funds, skipping transfer');
+      }
 
       // Use minimum of amount after fee and available balance
       // IMPORTANT: Use feeCollection.amountToBread (after platform fee), not body.amount
