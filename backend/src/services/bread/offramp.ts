@@ -266,7 +266,7 @@ export class BreadOfframpService {
 
   /**
    * Get offramp status
-   * TODO: Update this when we get actual API documentation for status endpoint
+   * Uses GET /offramp/{id} endpoint to fetch offramp details including status
    */
   async getOfframpStatus(offrampId: string): Promise<OfframpStatusResponse> {
     logger.debug({
@@ -275,7 +275,7 @@ export class BreadOfframpService {
     });
 
     const response = await this.client.get<OfframpStatusResponse>(
-      `/offramp/status/${offrampId}`
+      `/offramp/${offrampId}`
     );
 
     logger.debug({

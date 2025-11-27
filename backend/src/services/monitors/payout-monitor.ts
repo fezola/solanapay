@@ -16,7 +16,7 @@ const breadService = new BreadService({
 
 export class PayoutMonitor {
   private isRunning = false;
-  private pollInterval = 30000; // 30 seconds
+  private pollInterval = 10000; // 10 seconds - faster updates for better UX
 
   /**
    * Start monitoring payout statuses
