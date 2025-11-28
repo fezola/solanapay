@@ -499,19 +499,19 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
   const privateKeyHex = decrypt(depositAddress.private_key_encrypted);
   const userWallet = new ethers.Wallet(privateKeyHex, provider);
 
-  // Get treasury wallet (will pay for gas by sending ETH to user wallet first)
-  const treasuryPrivateKey = getTreasuryPrivateKey(request.chain);
-  if (!treasuryPrivateKey) {
-    throw new Error(`Treasury private key not configured for chain: ${request.chain}`);
+  // Get gas sponsor wallet (will pay for gas by sending ETH/MATIC to user wallet first)
+  const gasSponsorPrivateKey = getGasSponsorPrivateKey(request.chain);
+  if (!gasSponsorPrivateKey) {
+    throw new Error(`Gas sponsor private key not configured for chain: ${request.chain}. Please set ${request.chain.toUpperCase()}_GAS_SPONSOR_PRIVATE_KEY in environment variables.`);
   }
-  const treasuryWallet = new ethers.Wallet(treasuryPrivateKey, provider);
+  const gasSponsorWallet = new ethers.Wallet(gasSponsorPrivateKey, provider);
 
   logger.info({
     msg: 'EVM transfer wallets initialized',
     chain: request.chain,
     userWallet: userWallet.address,
-    treasuryWallet: treasuryWallet.address,
-    gasSponsor: 'treasury',
+    gasSponsorWallet: gasSponsorWallet.address,
+    gasSponsor: 'dedicated_gas_sponsor',
   });
 
   // ERC20 ABI for transfer function
@@ -592,8 +592,8 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
   const gasToSend = maxGasCost * 2n;
 
   logger.info({
-    msg: 'Sending gas from treasury to user wallet',
-    from: treasuryWallet.address,
+    msg: 'Sending gas from gas sponsor to user wallet',
+    from: gasSponsorWallet.address,
     to: userWallet.address,
     gasToSend: ethers.formatEther(gasToSend),
     gasPrice: ethers.formatUnits(gasPrice, 'gwei'),
@@ -602,7 +602,7 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
     chain: request.chain,
   });
 
-  const gasTx = await treasuryWallet.sendTransaction({
+  const gasTx = await gasSponsorWallet.sendTransaction({
     to: userWallet.address,
     value: gasToSend,
   });
@@ -619,10 +619,10 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
   const tx = await tokenContract.transfer(validatedToAddress, amountInTokenUnits);
 
   logger.info({
-    msg: 'ERC20 transfer submitted (gas paid by user wallet, funded by treasury)',
+    msg: 'ERC20 transfer submitted (gas paid by user wallet, funded by gas sponsor)',
     txHash: tx.hash,
     chain: request.chain,
-    gasFundedBy: treasuryWallet.address,
+    gasFundedBy: gasSponsorWallet.address,
   });
 
   // Wait for confirmation
@@ -640,7 +640,7 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
     asset: request.asset,
     chain: request.chain,
     gasUsed: receipt.gasUsed.toString(),
-    gasFundedBy: treasuryWallet.address,
+    gasFundedBy: gasSponsorWallet.address,
   });
 
   return {
@@ -652,7 +652,23 @@ async function transferEVM(request: TransferRequest): Promise<TransferResult> {
 }
 
 /**
- * Get treasury private key for a specific chain
+ * Get gas sponsor private key for a specific chain
+ * Gas sponsor wallets pay for transaction fees on EVM chains
+ */
+function getGasSponsorPrivateKey(chain: string): string | undefined {
+  switch (chain.toLowerCase()) {
+    case 'base':
+      return env.BASE_GAS_SPONSOR_PRIVATE_KEY;
+    case 'polygon':
+      return env.POLYGON_GAS_SPONSOR_PRIVATE_KEY;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Get treasury private key for a specific chain (DEPRECATED - use gas sponsor instead)
+ * Kept for backward compatibility
  */
 function getTreasuryPrivateKey(chain: string): string | undefined {
   switch (chain.toLowerCase()) {

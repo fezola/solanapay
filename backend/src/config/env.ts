@@ -31,6 +31,8 @@ const envSchema = z.object({
   BASE_CHAIN_ID: z.string().default('8453').transform(Number),
   BASE_TREASURY_ADDRESS: z.string().optional(),
   BASE_TREASURY_PRIVATE_KEY: z.string().optional(),
+  BASE_GAS_SPONSOR_ADDRESS: z.string().optional(),
+  BASE_GAS_SPONSOR_PRIVATE_KEY: z.string().optional(),
   BASE_USDC_CONTRACT: z.string().default('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'),
   BASE_USDT_CONTRACT: z.string().default('0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2'),
 
@@ -39,6 +41,8 @@ const envSchema = z.object({
   POLYGON_CHAIN_ID: z.string().default('137').transform(Number),
   POLYGON_TREASURY_ADDRESS: z.string().optional(),
   POLYGON_TREASURY_PRIVATE_KEY: z.string().optional(),
+  POLYGON_GAS_SPONSOR_ADDRESS: z.string().optional(),
+  POLYGON_GAS_SPONSOR_PRIVATE_KEY: z.string().optional(),
   POLYGON_USDC_CONTRACT: z.string().default('0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'),
   POLYGON_USDT_CONTRACT: z.string().default('0xc2132D05D31c914a87C6611C10748AEb04B58e8F'),
 
