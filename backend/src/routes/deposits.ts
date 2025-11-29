@@ -387,7 +387,7 @@ async function generateUserAddresses(userId: string) {
     }
   }
 
-  // Generate ONE Base wallet for USDC and USDT (ETH gas is paid by treasury)
+  // Generate ONE Base wallet for USDC and USDT (ETH gas is paid by gas sponsor)
   const baseWallet = await baseWalletService.generateWallet(userId, accountIndex++);
   const baseAssets: Asset[] = ['USDC', 'USDT'];
 
@@ -420,7 +420,7 @@ async function generateUserAddresses(userId: string) {
     }
   }
 
-  // Generate ONE Polygon wallet for USDC and USDT (MATIC gas is paid by treasury)
+  // Generate ONE Polygon wallet for USDC and USDT (MATIC gas is paid by gas sponsor)
   const polygonWallet = await polygonWalletService.generateWallet(userId, accountIndex++);
   const polygonAssets: Asset[] = ['USDC', 'USDT'];
 

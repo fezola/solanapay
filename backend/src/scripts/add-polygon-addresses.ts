@@ -1,6 +1,6 @@
 /**
  * Add Polygon deposit addresses for existing users
- * 
+ *
  * This script creates Polygon (USDC, USDT) deposit addresses for users who don't have them.
  * Run this after adding Polygon support to the platform.
  */

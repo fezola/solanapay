@@ -16,6 +16,16 @@ const envSchema = z.object({
 
   // Security
   ENCRYPTION_KEY: z.string().min(32),
+  WALLET_ENCRYPTION_KEY: z.string().optional(),
+
+  // Platform Treasury Wallets
+  PLATFORM_TREASURY_ADDRESS_SOLANA: z.string().optional(),
+  PLATFORM_TREASURY_ADDRESS_BASE: z.string().optional(),
+  PLATFORM_TREASURY_ADDRESS_POLYGON: z.string().optional(),
+  PLATFORM_TREASURY_ADDRESS: z.string().optional(),
+
+  // App URL
+  APP_URL: z.string().url().optional(),
 
   // Solana
   SOLANA_RPC_URL: z.string().url(),
