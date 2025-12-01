@@ -418,16 +418,16 @@ export function OfframpScreen({
                   <SelectTrigger className="h-14 px-4 bg-gray-50 border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-3">
-                        <div className="relative w-9 h-9 flex-shrink-0">
+                        <div className="flex items-center -space-x-1.5">
                           <img
                             src={currentAsset.logo}
                             alt={currentAsset.symbol}
-                            className="w-9 h-9 rounded-full"
+                            className="w-7 h-7 rounded-full border-2 border-white z-10"
                           />
                           <img
                             src={currentAsset.networkLogo}
                             alt={currentAsset.network}
-                            className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-gray-50 bg-white"
+                            className="w-5 h-5 rounded-full border-2 border-white"
                           />
                         </div>
                         <div className="text-left">
@@ -450,16 +450,16 @@ export function OfframpScreen({
                       >
                         <div className="flex items-center justify-between w-full gap-4">
                           <div className="flex items-center gap-3">
-                            <div className="relative w-8 h-8 flex-shrink-0">
+                            <div className="flex items-center -space-x-1.5">
                               <img
                                 src={asset.logo}
                                 alt={asset.symbol}
-                                className="w-8 h-8 rounded-full"
+                                className="w-6 h-6 rounded-full border-2 border-white z-10"
                               />
                               <img
                                 src={asset.networkLogo}
                                 alt={asset.network}
-                                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-[1.5px] border-white bg-white"
+                                className="w-4 h-4 rounded-full border-2 border-white"
                               />
                             </div>
                             <div>
