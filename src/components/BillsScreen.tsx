@@ -43,12 +43,12 @@ const PAYMENT_ASSETS = [
   { id: 'usdt-polygon' as PaymentAsset, name: 'USDT', network: 'Polygon', logo: '/tether-usdt-logo.svg', networkLogo: '/polygon-matic-logo.svg' },
 ];
 
-// Nigerian network operator colors and icons
-const OPERATOR_STYLES: Record<string, { bg: string; text: string; color: string }> = {
-  'MTN': { bg: 'bg-yellow-400', text: 'text-black', color: '#FBBF24' },
-  'Airtel': { bg: 'bg-red-600', text: 'text-white', color: '#DC2626' },
-  'Glo': { bg: 'bg-green-600', text: 'text-white', color: '#16A34A' },
-  '9Mobile': { bg: 'bg-green-500', text: 'text-white', color: '#22C55E' },
+// Nigerian network operator logos
+const OPERATOR_LOGOS: Record<string, string> = {
+  'MTN': '/mtn-logo.png',
+  'Airtel': '/Airtel_logo.png',
+  'Glo': '/Glo_logo.png',
+  '9Mobile': '/9mobile-logo.png',
 };
 
 // Get operator display name
@@ -60,10 +60,10 @@ const getOperatorDisplayName = (name: string): string => {
   return name;
 };
 
-// Get operator style
-const getOperatorStyle = (name: string): { bg: string; text: string; color: string } => {
+// Get operator logo
+const getOperatorLogo = (name: string): string => {
   const displayName = getOperatorDisplayName(name);
-  return OPERATOR_STYLES[displayName] || { bg: 'bg-gray-500', text: 'text-white', color: '#6B7280' };
+  return OPERATOR_LOGOS[displayName] || '';
 };
 
 export function BillsScreen({ balance }: BillsScreenProps) {
@@ -238,28 +238,28 @@ export function BillsScreen({ balance }: BillsScreenProps) {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-3">
               {operators.slice(0, 4).map((op) => {
                 const isSelected = selectedOperator === op.id;
                 const displayName = getOperatorDisplayName(op.name);
-                const style = getOperatorStyle(op.name);
+                const logoUrl = getOperatorLogo(op.name);
 
                 return (
                   <button
                     key={op.id}
                     onClick={() => setSelectedOperator(op.id)}
-                    className={`flex flex-col items-center justify-center py-3 px-2 rounded-xl border-2 transition-all min-h-[80px] ${
+                    className={`flex flex-col items-center justify-center py-4 px-2 rounded-xl border-2 transition-all ${
                       isSelected
                         ? 'border-indigo-500 bg-white shadow-md'
                         : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
                     }`}
                   >
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${style.bg} ${style.text}`}
-                    >
-                      <span className="text-sm font-bold">
-                        {displayName === '9Mobile' ? '9M' : displayName.slice(0, 2).toUpperCase()}
-                      </span>
+                    <div className="w-10 h-10 flex items-center justify-center mb-2">
+                      <img
+                        src={logoUrl}
+                        alt={displayName}
+                        className="w-10 h-10 object-contain"
+                      />
                     </div>
                     <span className={`text-xs font-semibold ${isSelected ? 'text-indigo-600' : 'text-gray-700'}`}>
                       {displayName}
