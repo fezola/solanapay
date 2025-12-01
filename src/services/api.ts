@@ -507,6 +507,81 @@ export const transactionsApi = {
   },
 };
 
+// ============================================================================
+// BILLS API (Airtime & Data)
+// ============================================================================
+
+export const billsApi = {
+  /**
+   * Check if bills service is available
+   */
+  async getStatus() {
+    return apiRequest<{ available: boolean; message: string }>('/api/bills/status');
+  },
+
+  /**
+   * Get Nigerian mobile operators
+   */
+  async getOperators() {
+    return apiRequest<{
+      operators: Array<{
+        id: number;
+        name: string;
+        logo: string | null;
+        supportsData: boolean;
+        supportsAirtime: boolean;
+        minAmount: number | null;
+        maxAmount: number | null;
+        fixedAmounts: number[];
+      }>;
+    }>('/api/bills/operators');
+  },
+
+  /**
+   * Auto-detect operator from phone number
+   */
+  async detectOperator(phoneNumber: string) {
+    return apiRequest<{
+      operator_id: number;
+      name: string;
+      supports_data: boolean;
+    }>(`/api/bills/detect-operator/${phoneNumber}`);
+  },
+
+  /**
+   * Purchase airtime
+   */
+  async purchaseAirtime(params: {
+    phone_number: string;
+    amount_ngn: number;
+    operator_id?: number;
+    crypto_asset: 'USDC' | 'USDT';
+    crypto_chain: 'solana' | 'base' | 'polygon';
+  }) {
+    return apiRequest<{
+      success: boolean;
+      transaction_id: string;
+      reloadly_id: number;
+      delivered_amount: number;
+      operator: string;
+      phone_number: string;
+    }>('/api/bills/airtime', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  },
+
+  /**
+   * Get bill transaction history
+   */
+  async getHistory(limit?: number, offset?: number) {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+    return apiRequest<{ transactions: any[] }>(`/api/bills/history?${params}`);
+  },
+};
+
 // Export utility functions
 export { getAuthToken, setAuthToken, clearAuthToken, ApiError };
 

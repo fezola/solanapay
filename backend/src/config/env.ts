@@ -100,6 +100,12 @@ const envSchema = z.object({
   SWEEP_THRESHOLD_SOL: z.string().default('0.1').transform(Number),
   SWEEP_THRESHOLD_USDC: z.string().default('10').transform(Number),
   SWEEP_THRESHOLD_USDT: z.string().default('10').transform(Number),
+
+  // Reloadly API (Airtime & Data)
+  RELOADLY_CLIENT_ID: z.string().optional(),
+  RELOADLY_CLIENT_SECRET: z.string().optional(),
+  RELOADLY_WEBHOOK_KEY: z.string().optional(),
+  RELOADLY_SANDBOX: z.string().transform(v => v === 'true').default('false'),
 });
 
 export const env = envSchema.parse(process.env);

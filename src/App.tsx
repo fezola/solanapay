@@ -16,6 +16,7 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { PINSetupScreen } from './components/PINSetupScreen';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { WithdrawScreen } from './components/WithdrawScreen';
+import { BillsScreen } from './components/BillsScreen';
 import { authService, userService, bankAccountService, supabase, bonusService, BonusTransaction } from './services/supabase';
 import { NotificationListener, notificationService } from './services/notifications';
 import { transactionsApi } from './services/api';
@@ -670,6 +671,10 @@ export default function App() {
         
         {currentScreen === 'wallets' && (
           <WalletScreen depositAddresses={depositAddresses} />
+        )}
+
+        {currentScreen === 'bills' && (
+          <BillsScreen balance={balance} />
         )}
 
         {currentScreen === 'banks' && (
