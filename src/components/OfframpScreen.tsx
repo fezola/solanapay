@@ -418,16 +418,16 @@ export function OfframpScreen({
                   <SelectTrigger className="h-14 px-4 bg-gray-50 border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-3">
-                        <div className="relative">
+                        <div className="relative w-9 h-9 flex-shrink-0">
                           <img
                             src={currentAsset.logo}
                             alt={currentAsset.symbol}
-                            className="w-8 h-8 rounded-full"
+                            className="w-9 h-9 rounded-full"
                           />
                           <img
                             src={currentAsset.networkLogo}
                             alt={currentAsset.network}
-                            className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-gray-50"
+                            className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-gray-50 bg-white"
                           />
                         </div>
                         <div className="text-left">
@@ -446,11 +446,11 @@ export function OfframpScreen({
                       <SelectItem
                         key={asset.id}
                         value={asset.id}
-                        className="rounded-lg px-3 py-3 cursor-pointer hover:bg-gray-50 focus:bg-gray-50 data-[state=checked]:bg-indigo-50"
+                        className="rounded-lg px-3 py-2.5 cursor-pointer hover:bg-gray-50 focus:bg-gray-50 data-[state=checked]:bg-indigo-50"
                       >
                         <div className="flex items-center justify-between w-full gap-4">
                           <div className="flex items-center gap-3">
-                            <div className="relative flex-shrink-0">
+                            <div className="relative w-8 h-8 flex-shrink-0">
                               <img
                                 src={asset.logo}
                                 alt={asset.symbol}
@@ -459,16 +459,16 @@ export function OfframpScreen({
                               <img
                                 src={asset.networkLogo}
                                 alt={asset.network}
-                                className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white"
+                                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-[1.5px] border-white bg-white"
                               />
                             </div>
                             <div>
-                              <p className="font-semibold text-gray-900">{asset.symbol}</p>
+                              <p className="font-medium text-gray-900 text-sm">{asset.symbol}</p>
                               <p className="text-xs text-gray-500">{asset.network}</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium text-gray-700">{asset.balance} {asset.symbol}</p>
+                            <p className="text-sm text-gray-600">{asset.balance} {asset.symbol}</p>
                           </div>
                         </div>
                       </SelectItem>
