@@ -409,47 +409,72 @@ export function OfframpScreen({
           <Card className="p-6 border border-gray-100">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Select Asset</Label>
+                <Label className="text-sm font-medium text-gray-700">Select Asset</Label>
                 <Select value={selectedAsset} onValueChange={(value: AssetId) => {
                   setSelectedAsset(value);
                   setAmount('');
                   setQuoteLockTime(120);
                 }}>
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="h-14 px-4 bg-gray-50 border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <img
+                            src={currentAsset.logo}
+                            alt={currentAsset.symbol}
+                            className="w-8 h-8 rounded-full"
+                          />
+                          <img
+                            src={currentAsset.networkLogo}
+                            alt={currentAsset.network}
+                            className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-gray-50"
+                          />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-gray-900">{currentAsset.symbol}</p>
+                          <p className="text-xs text-gray-500">{currentAsset.network}</p>
+                        </div>
+                      </div>
+                      <div className="text-right mr-2">
+                        <p className="font-medium text-gray-900">{currentAsset.balance}</p>
+                        <p className="text-xs text-gray-500">Available</p>
+                      </div>
+                    </div>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl border-gray-200 shadow-lg p-1 max-h-80">
                     {assets.map((asset) => (
-                      <SelectItem key={asset.id} value={asset.id}>
-                        <div className="flex items-center justify-between w-full gap-3">
-                          <div className="flex items-center gap-2">
-                            {/* Token and Network logos side by side */}
-                            <div className="flex items-center -space-x-2">
+                      <SelectItem
+                        key={asset.id}
+                        value={asset.id}
+                        className="rounded-lg px-3 py-3 cursor-pointer hover:bg-gray-50 focus:bg-gray-50 data-[state=checked]:bg-indigo-50"
+                      >
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="relative flex-shrink-0">
                               <img
                                 src={asset.logo}
                                 alt={asset.symbol}
-                                className="w-6 h-6 rounded-full border-2 border-white z-10"
+                                className="w-8 h-8 rounded-full"
                               />
                               <img
                                 src={asset.networkLogo}
                                 alt={asset.network}
-                                className="w-6 h-6 rounded-full border-2 border-white"
+                                className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white"
                               />
                             </div>
-                            <span>{asset.symbol}/{asset.network}</span>
+                            <div>
+                              <p className="font-semibold text-gray-900">{asset.symbol}</p>
+                              <p className="text-xs text-gray-500">{asset.network}</p>
+                            </div>
                           </div>
-                          <span className="text-gray-500 ml-4">
-                            {asset.balance} {asset.symbol}
-                          </span>
+                          <div className="text-right">
+                            <p className="font-medium text-gray-700">{asset.balance} {asset.symbol}</p>
+                          </div>
                         </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <div className="flex items-center justify-between">
-                  <p className="text-gray-500">Available balance</p>
-                  <p className="text-gray-700">{currentAsset.balance} {currentAsset.symbol}</p>
-                </div>
               </div>
 
               <div className="space-y-2">
