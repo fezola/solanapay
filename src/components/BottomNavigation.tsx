@@ -17,7 +17,7 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-      <div className="max-w-lg mx-auto grid grid-cols-6">
+      <div className="max-w-lg mx-auto flex flex-row justify-around items-center">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -26,7 +26,7 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
                 isActive ? 'text-gray-900' : 'text-gray-500'
               }`}
               style={{
