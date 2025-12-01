@@ -43,9 +43,45 @@ export const billsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/operators', async (request, reply) => {
     try {
       const operators = await reloadlyService.getNigerianOperators();
-      
+
+      // Filter to only main airtime operators (not data bundles)
+      // The main operators have names like "MTN Nigeria", "Airtel Nigeria", etc.
+      const mainOperatorNames = [
+        'MTN Nigeria',
+        'Airtel Nigeria',
+        'Glo',
+        '9mobile',
+        '9mobile (Etisalat)',
+        'Globacom Nigeria',
+      ];
+
+      // Filter and deduplicate - prefer operators that support airtime
+      const mainOperators = operators.filter((op) => {
+        const isMainOperator = mainOperatorNames.some(name =>
+          op.name.toLowerCase() === name.toLowerCase() ||
+          op.name.toLowerCase().startsWith(name.toLowerCase().split(' ')[0])
+        );
+        // Exclude data-only bundles
+        const isNotDataBundle = !op.name.toLowerCase().includes('bundle') &&
+                                !op.name.toLowerCase().includes('data');
+        return isMainOperator && isNotDataBundle;
+      });
+
+      // Deduplicate by carrier name (keep first match which is usually the main airtime operator)
+      const seenCarriers = new Set<string>();
+      const uniqueOperators = mainOperators.filter((op) => {
+        const carrier = op.name.toLowerCase().includes('mtn') ? 'mtn' :
+                        op.name.toLowerCase().includes('airtel') ? 'airtel' :
+                        op.name.toLowerCase().includes('glo') ? 'glo' :
+                        op.name.toLowerCase().includes('9mobile') || op.name.toLowerCase().includes('etisalat') ? '9mobile' :
+                        op.name.toLowerCase();
+        if (seenCarriers.has(carrier)) return false;
+        seenCarriers.add(carrier);
+        return true;
+      });
+
       // Map to simplified format for frontend
-      const simplified = operators.map((op) => ({
+      const simplified = uniqueOperators.map((op) => ({
         id: op.operatorId,
         name: op.name,
         logo: op.logoUrls?.[0] || null,
