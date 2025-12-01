@@ -43,16 +43,12 @@ const PAYMENT_ASSETS = [
   { id: 'usdt-polygon' as PaymentAsset, name: 'USDT', network: 'Polygon', logo: '/tether-usdt-logo.svg', networkLogo: '/polygon-matic-logo.svg' },
 ];
 
-// Nigerian network operator logos - using online URLs as fallback
-const OPERATOR_LOGOS: Record<string, string> = {
-  'MTN Nigeria': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/New-mtn-logo.svg/120px-New-mtn-logo.svg.png',
-  'MTN': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/New-mtn-logo.svg/120px-New-mtn-logo.svg.png',
-  'Airtel Nigeria': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Airtel_logo.svg/120px-Airtel_logo.svg.png',
-  'Airtel': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Airtel_logo.svg/120px-Airtel_logo.svg.png',
-  'Glo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Globacom_Limited_Logo.svg/120px-Globacom_Limited_Logo.svg.png',
-  'Globacom Nigeria': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Globacom_Limited_Logo.svg/120px-Globacom_Limited_Logo.svg.png',
-  '9mobile': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/9mobile_logo.svg/120px-9mobile_logo.svg.png',
-  '9mobile (Etisalat)': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/9mobile_logo.svg/120px-9mobile_logo.svg.png',
+// Nigerian network operator colors and icons
+const OPERATOR_STYLES: Record<string, { bg: string; text: string; color: string }> = {
+  'MTN': { bg: 'bg-yellow-400', text: 'text-black', color: '#FBBF24' },
+  'Airtel': { bg: 'bg-red-600', text: 'text-white', color: '#DC2626' },
+  'Glo': { bg: 'bg-green-600', text: 'text-white', color: '#16A34A' },
+  '9Mobile': { bg: 'bg-green-500', text: 'text-white', color: '#22C55E' },
 };
 
 // Get operator display name
@@ -64,16 +60,10 @@ const getOperatorDisplayName = (name: string): string => {
   return name;
 };
 
-// Get operator logo
-const getOperatorLogo = (name: string, apiLogo: string | null): string => {
-  // First try our predefined logos
-  for (const [key, logo] of Object.entries(OPERATOR_LOGOS)) {
-    if (name.toLowerCase().includes(key.toLowerCase().split(' ')[0])) {
-      return logo;
-    }
-  }
-  // Fall back to API logo
-  return apiLogo || '';
+// Get operator style
+const getOperatorStyle = (name: string): { bg: string; text: string; color: string } => {
+  const displayName = getOperatorDisplayName(name);
+  return OPERATOR_STYLES[displayName] || { bg: 'bg-gray-500', text: 'text-white', color: '#6B7280' };
 };
 
 export function BillsScreen({ balance }: BillsScreenProps) {
@@ -195,7 +185,7 @@ export function BillsScreen({ balance }: BillsScreenProps) {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="px-4 py-6 space-y-5">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="px-4 py-6 space-y-6 pb-8">
       {/* Header */}
       <div className="text-center pt-2">
         <h1 className="text-xl font-bold text-gray-900">Buy Airtime & Data</h1>
@@ -220,7 +210,7 @@ export function BillsScreen({ balance }: BillsScreenProps) {
         </button>
       </div>
 
-      <Card className="p-5 space-y-5 border-0 shadow-sm">
+      <Card className="p-6 space-y-6 border-0 shadow-sm">
         {/* Phone Number */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-700">Phone Number</Label>
@@ -248,39 +238,30 @@ export function BillsScreen({ balance }: BillsScreenProps) {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-2">
               {operators.slice(0, 4).map((op) => {
                 const isSelected = selectedOperator === op.id;
-                const logoUrl = getOperatorLogo(op.name, op.logo);
                 const displayName = getOperatorDisplayName(op.name);
+                const style = getOperatorStyle(op.name);
 
                 return (
                   <button
                     key={op.id}
                     onClick={() => setSelectedOperator(op.id)}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                    className={`flex flex-col items-center justify-center py-3 px-2 rounded-xl border-2 transition-all min-h-[80px] ${
                       isSelected
-                        ? 'border-indigo-500 bg-indigo-50 shadow-sm'
-                        : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                        ? 'border-indigo-500 bg-white shadow-md'
+                        : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
                     }`}
                   >
-                    <div className="w-10 h-10 flex items-center justify-center mb-1.5">
-                      {logoUrl ? (
-                        <img
-                          src={logoUrl}
-                          alt={displayName}
-                          className="w-8 h-8 object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold">
-                          {displayName.charAt(0)}
-                        </div>
-                      )}
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${style.bg} ${style.text}`}
+                    >
+                      <span className="text-sm font-bold">
+                        {displayName === '9Mobile' ? '9M' : displayName.slice(0, 2).toUpperCase()}
+                      </span>
                     </div>
-                    <span className={`text-xs font-medium ${isSelected ? 'text-indigo-600' : 'text-gray-600'}`}>
+                    <span className={`text-xs font-semibold ${isSelected ? 'text-indigo-600' : 'text-gray-700'}`}>
                       {displayName}
                     </span>
                   </button>
@@ -321,22 +302,21 @@ export function BillsScreen({ balance }: BillsScreenProps) {
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-700">Pay with</Label>
           <Select value={selectedPaymentAsset} onValueChange={(v) => setSelectedPaymentAsset(v as PaymentAsset)}>
-            <SelectTrigger className="h-14 rounded-xl border-gray-200 px-4">
+            <SelectTrigger className="h-16 rounded-xl border-gray-200 px-4 overflow-hidden">
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-3">
-                  <div className="relative w-8 h-8 flex-shrink-0">
-                    <img src={currentPaymentAsset.logo} alt="" className="w-8 h-8 rounded-full" />
-                    <img src={currentPaymentAsset.networkLogo} alt="" className="w-3.5 h-3.5 rounded-full absolute -bottom-0.5 -right-0.5 border-2 border-white bg-white" />
+                  <div className="relative w-10 h-10 flex-shrink-0">
+                    <img src={currentPaymentAsset.logo} alt="" className="w-10 h-10 rounded-full" />
+                    <img src={currentPaymentAsset.networkLogo} alt="" className="w-4 h-4 rounded-full absolute bottom-0 right-0 border-2 border-white bg-white" />
                   </div>
                   <div className="text-left">
                     <p className="text-sm font-medium text-gray-900">{currentPaymentAsset.name} ({currentPaymentAsset.network})</p>
                     <p className="text-xs text-gray-500">Balance: {currentBalance.toFixed(2)}</p>
                   </div>
                 </div>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
               </div>
             </SelectTrigger>
-            <SelectContent className="rounded-xl overflow-hidden">
+            <SelectContent className="rounded-xl">
               {PAYMENT_ASSETS.map((asset) => (
                 <SelectItem
                   key={asset.id}
@@ -344,9 +324,9 @@ export function BillsScreen({ balance }: BillsScreenProps) {
                   className="py-3 px-4 cursor-pointer hover:bg-gray-50"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="relative w-8 h-8 flex-shrink-0">
-                      <img src={asset.logo} alt="" className="w-8 h-8 rounded-full" />
-                      <img src={asset.networkLogo} alt="" className="w-3.5 h-3.5 rounded-full absolute -bottom-0.5 -right-0.5 border-2 border-white bg-white" />
+                    <div className="relative w-10 h-10 flex-shrink-0">
+                      <img src={asset.logo} alt="" className="w-10 h-10 rounded-full" />
+                      <img src={asset.networkLogo} alt="" className="w-4 h-4 rounded-full absolute bottom-0 right-0 border-2 border-white bg-white" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">{asset.name} ({asset.network})</p>
