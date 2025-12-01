@@ -238,7 +238,7 @@ export function BillsScreen({ balance }: BillsScreenProps) {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-2">
               {operators.slice(0, 4).map((op) => {
                 const isSelected = selectedOperator === op.id;
                 const displayName = getOperatorDisplayName(op.name);
@@ -248,20 +248,20 @@ export function BillsScreen({ balance }: BillsScreenProps) {
                   <button
                     key={op.id}
                     onClick={() => setSelectedOperator(op.id)}
-                    className={`flex flex-col items-center justify-center py-4 px-2 rounded-xl border-2 transition-all ${
+                    className={`flex flex-col items-center justify-center pt-4 pb-3 px-1 rounded-xl border-2 transition-all ${
                       isSelected
                         ? 'border-indigo-500 bg-white shadow-md'
                         : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
                     }`}
                   >
-                    <div className="w-10 h-10 flex items-center justify-center mb-2">
+                    <div className="w-12 h-12 flex items-center justify-center mb-2">
                       <img
                         src={logoUrl}
                         alt={displayName}
-                        className="w-10 h-10 object-contain"
+                        className="w-12 h-12 object-contain"
                       />
                     </div>
-                    <span className={`text-xs font-semibold ${isSelected ? 'text-indigo-600' : 'text-gray-700'}`}>
+                    <span className={`text-[11px] font-semibold ${isSelected ? 'text-indigo-600' : 'text-gray-700'}`}>
                       {displayName}
                     </span>
                   </button>
