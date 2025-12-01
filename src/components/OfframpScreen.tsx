@@ -441,34 +441,32 @@ export function OfframpScreen({
                       </div>
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-gray-200 shadow-lg p-1 max-h-80">
+                  <SelectContent className="rounded-xl border-gray-200 shadow-lg p-2 max-h-80 min-w-[320px]">
                     {assets.map((asset) => (
                       <SelectItem
                         key={asset.id}
                         value={asset.id}
-                        className="rounded-lg px-3 py-2.5 cursor-pointer hover:bg-gray-50 focus:bg-gray-50 data-[state=checked]:bg-indigo-50"
+                        className="rounded-lg py-3 px-3 cursor-pointer hover:bg-gray-50 focus:bg-gray-50 data-[state=checked]:bg-indigo-50"
                       >
-                        <div className="flex items-center justify-between w-full gap-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center -space-x-1.5">
-                              <img
-                                src={asset.logo}
-                                alt={asset.symbol}
-                                className="w-6 h-6 rounded-full border-2 border-white z-10"
-                              />
-                              <img
-                                src={asset.networkLogo}
-                                alt={asset.network}
-                                className="w-4 h-4 rounded-full border-2 border-white"
-                              />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 text-sm">{asset.symbol}</p>
-                              <p className="text-xs text-gray-500">{asset.network}</p>
-                            </div>
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="relative flex-shrink-0">
+                            <img
+                              src={asset.logo}
+                              alt={asset.symbol}
+                              className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
+                            />
+                            <img
+                              src={asset.networkLogo}
+                              alt={asset.network}
+                              className="w-4 h-4 rounded-full border-2 border-white absolute -bottom-0.5 -right-0.5 shadow-sm"
+                            />
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm text-gray-600">{asset.balance} {asset.symbol}</p>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="font-semibold text-gray-900 text-sm">{asset.symbol}</span>
+                            <span className="text-xs text-gray-500">{asset.network}</span>
+                          </div>
+                          <div className="flex-shrink-0 text-right ml-auto">
+                            <span className="text-sm font-medium text-gray-700">{asset.balance} {asset.symbol}</span>
                           </div>
                         </div>
                       </SelectItem>
