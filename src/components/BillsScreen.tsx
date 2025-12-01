@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Card } from './ui/card';
-import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -375,14 +374,15 @@ export function BillsScreen({ balance }: BillsScreenProps) {
         )}
 
         {/* Purchase Button */}
-        <Button
+        <button
           onClick={handlePurchase}
           disabled={isLoading || !selectedOperator || !phoneNumber || !amount || cryptoAmount > currentBalance}
-          className="w-full h-12 text-base font-semibold bg-indigo-600 hover:bg-indigo-700 rounded-xl"
+          className="w-full h-12 text-base font-semibold rounded-xl text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ backgroundColor: (isLoading || !selectedOperator || !phoneNumber || !amount || cryptoAmount > currentBalance) ? '#9CA3AF' : '#4F46E5' }}
         >
           {isLoading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              <Loader2 className="w-4 h-4 animate-spin" />
               Processing...
             </>
           ) : cryptoAmount > currentBalance ? (
@@ -392,7 +392,7 @@ export function BillsScreen({ balance }: BillsScreenProps) {
           ) : (
             `Buy ₦${amount || '0'} ${billType === 'airtime' ? 'Airtime' : 'Data'}`
           )}
-        </Button>
+        </button>
       </Card>
     </motion.div>
   );
