@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Phone, Smartphone, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Phone, Wifi, Loader2, CheckCircle, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { billsApi } from '../services/api';
 
@@ -44,13 +44,37 @@ const PAYMENT_ASSETS = [
   { id: 'usdt-polygon' as PaymentAsset, name: 'USDT', network: 'Polygon', logo: '/tether-usdt-logo.svg', networkLogo: '/polygon-matic-logo.svg' },
 ];
 
-// Nigerian network operator logos
+// Nigerian network operator logos - using online URLs as fallback
 const OPERATOR_LOGOS: Record<string, string> = {
-  'MTN Nigeria': '/mtn-logo.png',
-  'Airtel Nigeria': '/airtel-logo.png',
-  'Glo': '/glo-logo.png',
-  '9mobile': '/9mobile-logo.png',
-  '9mobile (Etisalat)': '/9mobile-logo.png',
+  'MTN Nigeria': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/New-mtn-logo.svg/120px-New-mtn-logo.svg.png',
+  'MTN': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/New-mtn-logo.svg/120px-New-mtn-logo.svg.png',
+  'Airtel Nigeria': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Airtel_logo.svg/120px-Airtel_logo.svg.png',
+  'Airtel': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Airtel_logo.svg/120px-Airtel_logo.svg.png',
+  'Glo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Globacom_Limited_Logo.svg/120px-Globacom_Limited_Logo.svg.png',
+  'Globacom Nigeria': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Globacom_Limited_Logo.svg/120px-Globacom_Limited_Logo.svg.png',
+  '9mobile': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/9mobile_logo.svg/120px-9mobile_logo.svg.png',
+  '9mobile (Etisalat)': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/9mobile_logo.svg/120px-9mobile_logo.svg.png',
+};
+
+// Get operator display name
+const getOperatorDisplayName = (name: string): string => {
+  if (name.toLowerCase().includes('mtn')) return 'MTN';
+  if (name.toLowerCase().includes('airtel')) return 'Airtel';
+  if (name.toLowerCase().includes('glo')) return 'Glo';
+  if (name.toLowerCase().includes('9mobile') || name.toLowerCase().includes('etisalat')) return '9Mobile';
+  return name;
+};
+
+// Get operator logo
+const getOperatorLogo = (name: string, apiLogo: string | null): string => {
+  // First try our predefined logos
+  for (const [key, logo] of Object.entries(OPERATOR_LOGOS)) {
+    if (name.toLowerCase().includes(key.toLowerCase().split(' ')[0])) {
+      return logo;
+    }
+  }
+  // Fall back to API logo
+  return apiLogo || '';
 };
 
 export function BillsScreen({ balance }: BillsScreenProps) {
@@ -161,7 +185,7 @@ export function BillsScreen({ balance }: BillsScreenProps) {
 
   if (purchaseStatus === 'success') {
     return (
-      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-16">
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-16 px-6">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
           <CheckCircle className="w-10 h-10 text-green-600" />
         </div>
@@ -172,42 +196,42 @@ export function BillsScreen({ balance }: BillsScreenProps) {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="px-4 py-6 space-y-5">
       {/* Header */}
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Buy Airtime & Data</h1>
-        <p className="text-gray-600 mt-1">Pay with crypto, receive instantly</p>
+      <div className="text-center pt-2">
+        <h1 className="text-xl font-bold text-gray-900">Buy Airtime & Data</h1>
+        <p className="text-gray-500 text-sm mt-1">Pay with crypto, receive instantly</p>
       </div>
 
-      {/* Bill Type Toggle */}
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+      {/* Bill Type Toggle - Compact */}
+      <div className="flex p-1 bg-gray-100 rounded-xl">
         <button
           onClick={() => setBillType('airtime')}
-          className={`flex-1 py-3 rounded-lg font-medium transition-all ${billType === 'airtime' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'}`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${billType === 'airtime' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}
         >
-          <Phone className="w-4 h-4 inline mr-2" />
-          Airtime
+          <Phone className="w-4 h-4" />
+          <span>Airtime</span>
         </button>
         <button
           onClick={() => setBillType('data')}
-          className={`flex-1 py-3 rounded-lg font-medium transition-all ${billType === 'data' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'}`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${billType === 'data' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}
         >
-          <Smartphone className="w-4 h-4 inline mr-2" />
-          Data
+          <Wifi className="w-4 h-4" />
+          <span>Data</span>
         </button>
       </div>
 
-      <Card className="p-6 space-y-5">
+      <Card className="p-5 space-y-5 border-0 shadow-sm">
         {/* Phone Number */}
         <div className="space-y-2">
-          <Label>Phone Number</Label>
+          <Label className="text-sm font-medium text-gray-700">Phone Number</Label>
           <div className="relative">
             <Input
               type="tel"
               placeholder="08012345678"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
-              className="h-14 text-lg pl-4 pr-12"
+              className="h-12 text-base pl-4 pr-12 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
             />
             {isDetectingOperator && (
               <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 animate-spin text-gray-400" />
@@ -216,42 +240,77 @@ export function BillsScreen({ balance }: BillsScreenProps) {
         </div>
 
         {/* Network Operator */}
-        <div className="space-y-2">
-          <Label>Network</Label>
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-gray-700">Network</Label>
           {isLoadingOperators ? (
-            <div className="h-14 bg-gray-100 rounded-xl animate-pulse" />
-          ) : (
-            <div className="grid grid-cols-4 gap-2">
-              {operators.filter(op => op.supportsAirtime).slice(0, 4).map((op) => (
-                <button
-                  key={op.id}
-                  onClick={() => setSelectedOperator(op.id)}
-                  className={`p-3 rounded-xl border-2 transition-all ${selectedOperator === op.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
-                >
-                  <img src={OPERATOR_LOGOS[op.name] || op.logo || '/placeholder.png'} alt={op.name} className="w-10 h-10 mx-auto object-contain" />
-                  <p className="text-xs text-center mt-1 font-medium truncate">{op.name.replace(' Nigeria', '')}</p>
-                </button>
+            <div className="grid grid-cols-4 gap-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
               ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-3">
+              {operators.slice(0, 4).map((op) => {
+                const isSelected = selectedOperator === op.id;
+                const logoUrl = getOperatorLogo(op.name, op.logo);
+                const displayName = getOperatorDisplayName(op.name);
+
+                return (
+                  <button
+                    key={op.id}
+                    onClick={() => setSelectedOperator(op.id)}
+                    className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                      isSelected
+                        ? 'border-indigo-500 bg-indigo-50 shadow-sm'
+                        : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                    }`}
+                  >
+                    <div className="w-10 h-10 flex items-center justify-center mb-1.5">
+                      {logoUrl ? (
+                        <img
+                          src={logoUrl}
+                          alt={displayName}
+                          className="w-8 h-8 object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold">
+                          {displayName.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <span className={`text-xs font-medium ${isSelected ? 'text-indigo-600' : 'text-gray-600'}`}>
+                      {displayName}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Amount */}
-        <div className="space-y-2">
-          <Label>Amount (₦)</Label>
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-gray-700">Amount (₦)</Label>
           <Input
             type="number"
             placeholder="Enter amount"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="h-14 text-lg"
+            className="h-12 text-base rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
           />
           <div className="flex flex-wrap gap-2 mt-2">
             {QUICK_AMOUNTS.map((amt) => (
               <button
                 key={amt}
                 onClick={() => setAmount(amt.toString())}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${amount === amt.toString() ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  amount === amt.toString()
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
               >
                 ₦{amt.toLocaleString()}
               </button>
@@ -261,33 +320,38 @@ export function BillsScreen({ balance }: BillsScreenProps) {
 
         {/* Payment Asset */}
         <div className="space-y-2">
-          <Label>Pay with</Label>
+          <Label className="text-sm font-medium text-gray-700">Pay with</Label>
           <Select value={selectedPaymentAsset} onValueChange={(v) => setSelectedPaymentAsset(v as PaymentAsset)}>
-            <SelectTrigger className="h-16 rounded-xl">
-              <SelectValue>
-                <div className="flex items-center gap-4">
-                  <div className="relative w-10 h-10 flex-shrink-0">
-                    <img src={currentPaymentAsset.logo} className="w-10 h-10 rounded-full" />
-                    <img src={currentPaymentAsset.networkLogo} className="w-4 h-4 rounded-full absolute -bottom-0.5 -right-0.5 border-2 border-white" />
+            <SelectTrigger className="h-14 rounded-xl border-gray-200 px-4">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <div className="relative w-8 h-8 flex-shrink-0">
+                    <img src={currentPaymentAsset.logo} alt="" className="w-8 h-8 rounded-full" />
+                    <img src={currentPaymentAsset.networkLogo} alt="" className="w-3.5 h-3.5 rounded-full absolute -bottom-0.5 -right-0.5 border-2 border-white bg-white" />
                   </div>
                   <div className="text-left">
-                    <p className="font-semibold">{currentPaymentAsset.name} ({currentPaymentAsset.network})</p>
-                    <p className="text-sm text-gray-500">Balance: {currentBalance.toFixed(2)}</p>
+                    <p className="text-sm font-medium text-gray-900">{currentPaymentAsset.name} ({currentPaymentAsset.network})</p>
+                    <p className="text-xs text-gray-500">Balance: {currentBalance.toFixed(2)}</p>
                   </div>
                 </div>
-              </SelectValue>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </div>
             </SelectTrigger>
-            <SelectContent className="rounded-xl p-2 min-w-[320px]">
+            <SelectContent className="rounded-xl overflow-hidden">
               {PAYMENT_ASSETS.map((asset) => (
-                <SelectItem key={asset.id} value={asset.id} className="rounded-lg py-3 px-3">
+                <SelectItem
+                  key={asset.id}
+                  value={asset.id}
+                  className="py-3 px-4 cursor-pointer hover:bg-gray-50"
+                >
                   <div className="flex items-center gap-3">
-                    <div className="relative flex-shrink-0">
-                      <img src={asset.logo} className="w-8 h-8 rounded-full" />
-                      <img src={asset.networkLogo} className="w-4 h-4 rounded-full absolute -bottom-0.5 -right-0.5 border-2 border-white" />
+                    <div className="relative w-8 h-8 flex-shrink-0">
+                      <img src={asset.logo} alt="" className="w-8 h-8 rounded-full" />
+                      <img src={asset.networkLogo} alt="" className="w-3.5 h-3.5 rounded-full absolute -bottom-0.5 -right-0.5 border-2 border-white bg-white" />
                     </div>
                     <div>
-                      <p className="font-medium">{asset.name} ({asset.network})</p>
-                      <p className="text-sm text-gray-500">{getBalance(asset.id).toFixed(2)} available</p>
+                      <p className="text-sm font-medium text-gray-900">{asset.name} ({asset.network})</p>
+                      <p className="text-xs text-gray-500">{getBalance(asset.id).toFixed(2)} available</p>
                     </div>
                   </div>
                 </SelectItem>
@@ -298,14 +362,14 @@ export function BillsScreen({ balance }: BillsScreenProps) {
 
         {/* Summary */}
         {amount && parseFloat(amount) > 0 && (
-          <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+          <div className="bg-indigo-50 rounded-xl p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">You pay</span>
-              <span className="font-medium">~{cryptoAmount.toFixed(4)} {currentPaymentAsset.name}</span>
+              <span className="font-semibold text-gray-900">~{cryptoAmount.toFixed(4)} {currentPaymentAsset.name}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Recipient gets</span>
-              <span className="font-medium">₦{parseFloat(amount).toLocaleString()} airtime</span>
+              <span className="font-semibold text-gray-900">₦{parseFloat(amount).toLocaleString()} {billType}</span>
             </div>
           </div>
         )}
@@ -314,14 +378,19 @@ export function BillsScreen({ balance }: BillsScreenProps) {
         <Button
           onClick={handlePurchase}
           disabled={isLoading || !selectedOperator || !phoneNumber || !amount || cryptoAmount > currentBalance}
-          className="w-full h-14 text-lg font-semibold bg-indigo-600 hover:bg-indigo-700"
+          className="w-full h-12 text-base font-semibold bg-indigo-600 hover:bg-indigo-700 rounded-xl"
         >
           {isLoading ? (
-            <><Loader2 className="w-5 h-5 animate-spin mr-2" /> Processing...</>
+            <>
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              Processing...
+            </>
           ) : cryptoAmount > currentBalance ? (
             'Insufficient Balance'
+          ) : !selectedOperator ? (
+            'Select a network'
           ) : (
-            `Buy ₦${amount || '0'} Airtime`
+            `Buy ₦${amount || '0'} ${billType === 'airtime' ? 'Airtime' : 'Data'}`
           )}
         </Button>
       </Card>
