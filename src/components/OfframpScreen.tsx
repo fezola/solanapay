@@ -415,19 +415,19 @@ export function OfframpScreen({
                   setAmount('');
                   setQuoteLockTime(120);
                 }}>
-                  <SelectTrigger className="h-14 px-4 bg-gray-50 border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center -space-x-1.5">
+                  <SelectTrigger className="h-16 px-4 bg-gray-50 border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center justify-between w-full gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="relative flex-shrink-0 w-10 h-10">
                           <img
                             src={currentAsset.logo}
                             alt={currentAsset.symbol}
-                            className="w-7 h-7 rounded-full border-2 border-white z-10"
+                            className="w-10 h-10 rounded-full border-2 border-white shadow-sm"
                           />
                           <img
                             src={currentAsset.networkLogo}
                             alt={currentAsset.network}
-                            className="w-5 h-5 rounded-full border-2 border-white"
+                            className="w-5 h-5 rounded-full border-2 border-white shadow-sm absolute -bottom-0.5 -right-0.5"
                           />
                         </div>
                         <div className="text-left">
