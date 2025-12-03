@@ -450,9 +450,37 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           depositsQuery = depositsQuery.eq('user_id', user_id);
         }
 
-        const { data: deposits } = await depositsQuery;
+        const { data: deposits, error: depositsError } = await depositsQuery;
+
+        if (depositsError) {
+          request.log.error({ error: depositsError }, 'Failed to fetch deposits with relations');
+        }
 
         if (deposits) {
+          // If user relations didn't work, fetch users separately
+          const depositsWithMissingUser = deposits.filter((d: any) => !d.user && d.user_id);
+
+          if (depositsWithMissingUser.length > 0) {
+            request.log.warn({
+              count: depositsWithMissingUser.length
+            }, 'Some deposits missing user relation, fetching manually');
+
+            const userIds = [...new Set(depositsWithMissingUser.map((d: any) => d.user_id))];
+            const { data: users } = await supabaseAdmin
+              .from('users')
+              .select('id, email, full_name')
+              .in('id', userIds);
+
+            if (users) {
+              const usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+              for (const deposit of deposits as any[]) {
+                if (!deposit.user && deposit.user_id && usersMap[deposit.user_id]) {
+                  deposit.user = usersMap[deposit.user_id];
+                }
+              }
+            }
+          }
+
           transactions.push(
             ...deposits.map((d: any) => ({
               id: d.id,
@@ -497,9 +525,61 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           payoutsQuery = payoutsQuery.eq('user_id', user_id);
         }
 
-        const { data: payouts } = await payoutsQuery;
+        const { data: payouts, error: payoutsError } = await payoutsQuery;
+
+        if (payoutsError) {
+          request.log.error({ error: payoutsError }, 'Failed to fetch payouts with relations');
+        }
 
         if (payouts) {
+          // If relations didn't work, fetch users and quotes separately
+          const payoutsWithMissingData = payouts.filter((p: any) => !p.user || !p.quote);
+
+          if (payoutsWithMissingData.length > 0) {
+            request.log.warn({
+              count: payoutsWithMissingData.length,
+              sampleIds: payoutsWithMissingData.slice(0, 3).map((p: any) => p.id)
+            }, 'Some payouts missing user/quote relations, fetching manually');
+
+            // Get all unique user_ids and quote_ids that need to be fetched
+            const userIds = [...new Set(payouts.filter((p: any) => !p.user && p.user_id).map((p: any) => p.user_id))];
+            const quoteIds = [...new Set(payouts.filter((p: any) => !p.quote && p.quote_id).map((p: any) => p.quote_id))];
+
+            // Fetch missing users
+            let usersMap: Record<string, any> = {};
+            if (userIds.length > 0) {
+              const { data: users } = await supabaseAdmin
+                .from('users')
+                .select('id, email, full_name')
+                .in('id', userIds);
+              if (users) {
+                usersMap = Object.fromEntries(users.map(u => [u.id, u]));
+              }
+            }
+
+            // Fetch missing quotes
+            let quotesMap: Record<string, any> = {};
+            if (quoteIds.length > 0) {
+              const { data: quotes } = await supabaseAdmin
+                .from('quotes')
+                .select('*')
+                .in('id', quoteIds);
+              if (quotes) {
+                quotesMap = Object.fromEntries(quotes.map(q => [q.id, q]));
+              }
+            }
+
+            // Merge the data
+            for (const payout of payouts as any[]) {
+              if (!payout.user && payout.user_id && usersMap[payout.user_id]) {
+                payout.user = usersMap[payout.user_id];
+              }
+              if (!payout.quote && payout.quote_id && quotesMap[payout.quote_id]) {
+                payout.quote = quotesMap[payout.quote_id];
+              }
+            }
+          }
+
           transactions.push(
             ...payouts.map((p: any) => ({
               id: p.id,
