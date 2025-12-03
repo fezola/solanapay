@@ -435,12 +435,10 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Get deposits if requested
       if (!type || type === 'deposit') {
+        // Fetch deposits first (without relations - more reliable)
         let depositsQuery = supabaseAdmin
           .from('onchain_deposits')
-          .select(`
-            *,
-            user:users(id, email, full_name)
-          `)
+          .select('*')
           .order('detected_at', { ascending: false });
 
         if (status) {
@@ -453,69 +451,61 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         const { data: deposits, error: depositsError } = await depositsQuery;
 
         if (depositsError) {
-          request.log.error({ error: depositsError }, 'Failed to fetch deposits with relations');
+          request.log.error({ error: depositsError }, 'Failed to fetch deposits');
         }
 
-        if (deposits) {
-          // If user relations didn't work, fetch users separately
-          const depositsWithMissingUser = deposits.filter((d: any) => !d.user && d.user_id);
+        if (deposits && deposits.length > 0) {
+          // ALWAYS fetch users separately (more reliable than Supabase joins with RLS)
+          const userIds = [...new Set(deposits.map((d: any) => d.user_id).filter(Boolean))] as string[];
 
-          if (depositsWithMissingUser.length > 0) {
-            request.log.warn({
-              count: depositsWithMissingUser.length
-            }, 'Some deposits missing user relation, fetching manually');
-
-            const userIds = [...new Set(depositsWithMissingUser.map((d: any) => d.user_id))];
-            const { data: users } = await supabaseAdmin
+          let usersMap: Record<string, any> = {};
+          if (userIds.length > 0) {
+            const { data: users, error: usersError } = await supabaseAdmin
               .from('users')
               .select('id, email, full_name')
               .in('id', userIds);
-
+            if (usersError) {
+              request.log.error({ error: usersError }, 'Failed to fetch users for deposits');
+            }
             if (users) {
-              const usersMap = Object.fromEntries(users.map(u => [u.id, u]));
-              for (const deposit of deposits as any[]) {
-                if (!deposit.user && deposit.user_id && usersMap[deposit.user_id]) {
-                  deposit.user = usersMap[deposit.user_id];
-                }
-              }
+              usersMap = Object.fromEntries(users.map(u => [u.id, u]));
             }
           }
 
           transactions.push(
-            ...deposits.map((d: any) => ({
-              id: d.id,
-              type: 'deposit',
-              user_id: d.user_id,
-              user_email: d.user?.email || null,
-              user_name: d.user?.full_name || null,
-              deposit_address: d.address,
-              asset: d.asset,
-              chain: d.chain,
-              amount: parseFloat(d.amount),
-              status: d.status,
-              tx_hash: d.tx_hash,
-              confirmations: d.confirmations,
-              required_confirmations: d.required_confirmations,
-              from_address: d.from_address,
-              to_address: d.address,
-              created_at: d.detected_at,
-              confirmed_at: d.confirmed_at,
-              swept_at: d.swept_at,
-            }))
+            ...deposits.map((d: any) => {
+              const user = usersMap[d.user_id];
+              return {
+                id: d.id,
+                type: 'deposit',
+                user_id: d.user_id,
+                user_email: user?.email || null,
+                user_name: user?.full_name || null,
+                deposit_address: d.address,
+                asset: d.asset,
+                chain: d.chain,
+                amount: parseFloat(d.amount),
+                status: d.status,
+                tx_hash: d.tx_hash,
+                confirmations: d.confirmations,
+                required_confirmations: d.required_confirmations,
+                from_address: d.from_address,
+                to_address: d.address,
+                created_at: d.detected_at,
+                confirmed_at: d.confirmed_at,
+                swept_at: d.swept_at,
+              };
+            })
           );
         }
       }
 
       // Get offramps if requested
       if (!type || type === 'offramp') {
+        // Fetch payouts first (without relations - more reliable)
         let payoutsQuery = supabaseAdmin
           .from('payouts')
-          .select(`
-            *,
-            user:users(id, email, full_name),
-            quote:quotes(*),
-            beneficiary:bank_accounts(*)
-          `)
+          .select('*')
           .order('created_at', { ascending: false });
 
         if (status) {
@@ -528,80 +518,88 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         const { data: payouts, error: payoutsError } = await payoutsQuery;
 
         if (payoutsError) {
-          request.log.error({ error: payoutsError }, 'Failed to fetch payouts with relations');
+          request.log.error({ error: payoutsError }, 'Failed to fetch payouts');
         }
 
-        if (payouts) {
-          // If relations didn't work, fetch users and quotes separately
-          const payoutsWithMissingData = payouts.filter((p: any) => !p.user || !p.quote);
+        if (payouts && payouts.length > 0) {
+          // ALWAYS fetch users and quotes separately (more reliable than Supabase joins with RLS)
+          const userIds = [...new Set(payouts.map((p: any) => p.user_id).filter(Boolean))] as string[];
+          const quoteIds = [...new Set(payouts.map((p: any) => p.quote_id).filter(Boolean))] as string[];
+          const beneficiaryIds = [...new Set(payouts.map((p: any) => p.beneficiary_id).filter(Boolean))] as string[];
 
-          if (payoutsWithMissingData.length > 0) {
-            request.log.warn({
-              count: payoutsWithMissingData.length,
-              sampleIds: payoutsWithMissingData.slice(0, 3).map((p: any) => p.id)
-            }, 'Some payouts missing user/quote relations, fetching manually');
-
-            // Get all unique user_ids and quote_ids that need to be fetched
-            const userIds = [...new Set(payouts.filter((p: any) => !p.user && p.user_id).map((p: any) => p.user_id))];
-            const quoteIds = [...new Set(payouts.filter((p: any) => !p.quote && p.quote_id).map((p: any) => p.quote_id))];
-
-            // Fetch missing users
-            let usersMap: Record<string, any> = {};
-            if (userIds.length > 0) {
-              const { data: users } = await supabaseAdmin
-                .from('users')
-                .select('id, email, full_name')
-                .in('id', userIds);
-              if (users) {
-                usersMap = Object.fromEntries(users.map(u => [u.id, u]));
-              }
+          // Fetch all users
+          let usersMap: Record<string, any> = {};
+          if (userIds.length > 0) {
+            const { data: users, error: usersError } = await supabaseAdmin
+              .from('users')
+              .select('id, email, full_name')
+              .in('id', userIds);
+            if (usersError) {
+              request.log.error({ error: usersError }, 'Failed to fetch users for payouts');
             }
-
-            // Fetch missing quotes
-            let quotesMap: Record<string, any> = {};
-            if (quoteIds.length > 0) {
-              const { data: quotes } = await supabaseAdmin
-                .from('quotes')
-                .select('*')
-                .in('id', quoteIds);
-              if (quotes) {
-                quotesMap = Object.fromEntries(quotes.map(q => [q.id, q]));
-              }
+            if (users) {
+              usersMap = Object.fromEntries(users.map(u => [u.id, u]));
             }
+          }
 
-            // Merge the data
-            for (const payout of payouts as any[]) {
-              if (!payout.user && payout.user_id && usersMap[payout.user_id]) {
-                payout.user = usersMap[payout.user_id];
-              }
-              if (!payout.quote && payout.quote_id && quotesMap[payout.quote_id]) {
-                payout.quote = quotesMap[payout.quote_id];
-              }
+          // Fetch all quotes
+          let quotesMap: Record<string, any> = {};
+          if (quoteIds.length > 0) {
+            const { data: quotes, error: quotesError } = await supabaseAdmin
+              .from('quotes')
+              .select('*')
+              .in('id', quoteIds);
+            if (quotesError) {
+              request.log.error({ error: quotesError }, 'Failed to fetch quotes for payouts');
+            }
+            if (quotes) {
+              quotesMap = Object.fromEntries(quotes.map(q => [q.id, q]));
+            }
+          }
+
+          // Fetch all bank accounts
+          let bankAccountsMap: Record<string, any> = {};
+          if (beneficiaryIds.length > 0) {
+            const { data: bankAccounts, error: bankError } = await supabaseAdmin
+              .from('bank_accounts')
+              .select('*')
+              .in('id', beneficiaryIds);
+            if (bankError) {
+              request.log.error({ error: bankError }, 'Failed to fetch bank accounts for payouts');
+            }
+            if (bankAccounts) {
+              bankAccountsMap = Object.fromEntries(bankAccounts.map(b => [b.id, b]));
             }
           }
 
           transactions.push(
-            ...payouts.map((p: any) => ({
-              id: p.id,
-              type: 'offramp',
-              user_id: p.user_id,
-              user_email: p.user?.email || null,
-              user_name: p.user?.full_name || null,
-              asset: p.quote?.crypto_asset || null,
-              chain: p.quote?.crypto_network || null,
-              crypto_amount: p.quote ? parseFloat(p.quote.crypto_amount) : 0,
-              fiat_amount: parseFloat(p.fiat_amount),
-              currency: p.currency,
-              status: p.status,
-              bank_name: p.beneficiary?.bank_name,
-              account_number: p.beneficiary?.account_number,
-              account_name: p.beneficiary?.account_name,
-              provider: p.provider,
-              provider_reference: p.provider_reference,
-              error_message: p.error_message,
-              created_at: p.created_at,
-              completed_at: p.completed_at,
-            }))
+            ...payouts.map((p: any) => {
+              const user = usersMap[p.user_id];
+              const quote = quotesMap[p.quote_id];
+              const beneficiary = bankAccountsMap[p.beneficiary_id];
+
+              return {
+                id: p.id,
+                type: 'offramp',
+                user_id: p.user_id,
+                user_email: user?.email || null,
+                user_name: user?.full_name || null,
+                asset: quote?.crypto_asset || null,
+                chain: quote?.crypto_network || null,
+                crypto_amount: quote ? parseFloat(quote.crypto_amount) : 0,
+                fiat_amount: parseFloat(p.fiat_amount),
+                currency: p.currency,
+                status: p.status,
+                bank_name: beneficiary?.bank_name,
+                account_number: beneficiary?.account_number,
+                account_name: beneficiary?.account_name,
+                provider: p.provider,
+                provider_reference: p.provider_reference,
+                error_message: p.error_message,
+                created_at: p.created_at,
+                completed_at: p.completed_at,
+              };
+            })
           );
         }
       }
