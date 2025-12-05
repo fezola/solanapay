@@ -6,7 +6,7 @@
 ALTER TABLE deposit_addresses
 DROP CONSTRAINT IF EXISTS deposit_addresses_network_check;
 
--- Add new constraint that includes 'polygon'
+-- Add new constraint that includes 'polygon' .
 ALTER TABLE deposit_addresses
 ADD CONSTRAINT deposit_addresses_network_check
 CHECK (network IN ('solana', 'base', 'ethereum', 'polygon'));
