@@ -102,24 +102,26 @@ export function CryptoSelectionScreen({ onBack, onSelectCrypto }: CryptoSelectio
         },
       ],
     },
-    {
-      id: 'sol',
-      name: 'Solana',
-      symbol: 'SOL',
-      logo: '/solana-sol-logo.svg',
-      description: 'Native Solana token',
-      networks: [
-        {
-          id: 'solana',
-          name: 'Solana',
-          logo: '/solana-sol-logo.svg',
-          confirmations: 1,
-          minDeposit: 0.01,
-          estimatedTime: '~30 seconds',
-          explorerUrl: 'https://solscan.io',
-        },
-      ],
-    },
+    // NOTE: SOL deposits disabled - we cannot offramp native SOL currently
+    // Users who deposit SOL will need manual refunds
+    // {
+    //   id: 'sol',
+    //   name: 'Solana',
+    //   symbol: 'SOL',
+    //   logo: '/solana-sol-logo.svg',
+    //   description: 'Native Solana token',
+    //   networks: [
+    //     {
+    //       id: 'solana',
+    //       name: 'Solana',
+    //       logo: '/solana-sol-logo.svg',
+    //       confirmations: 1,
+    //       minDeposit: 0.01,
+    //       estimatedTime: '~30 seconds',
+    //       explorerUrl: 'https://solscan.io',
+    //     },
+    //   ],
+    // },
   ];
 
   return (

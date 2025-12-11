@@ -104,18 +104,21 @@ export function Dashboard({ userName, balance, onNavigate, kycTier, kycStatus, n
       networkLogo: '/polygon-matic-logo.svg',
       isFiat: false,
     },
-    {
-      id: 'sol',
-      name: 'SOL',
-      symbol: 'SOL',
-      amount: balance.sol,
-      usdValue: balance.sol * solPriceUSD,
-      ngnValue: balance.sol * rates.sol,
-      logo: '/solana-sol-logo.svg',
-      network: 'Solana',
-      networkLogo: '/solana-sol-logo.svg',
-      isFiat: false,
-    },
+    // SOL is hidden from dashboard - deposits not supported
+    // If user has SOL balance, they need to contact support for refund
+    // {
+    //   id: 'sol',
+    //   name: 'SOL',
+    //   symbol: 'SOL',
+    //   amount: balance.sol,
+    //   usdValue: balance.sol * solPriceUSD,
+    //   ngnValue: balance.sol * rates.sol,
+    //   logo: '/solana-sol-logo.svg',
+    //   network: 'Solana',
+    //   networkLogo: '/solana-sol-logo.svg',
+    //   isFiat: false,
+    //   notSupported: true, // Flag for unsupported assets
+    // },
     {
       id: 'usdt-solana',
       name: 'USDT',

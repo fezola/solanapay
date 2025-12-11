@@ -142,11 +142,11 @@ export function WalletScreen({ depositAddresses }: WalletScreenProps) {
             transition={{ delay: 0.2 }}
             className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200"
           >
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 gap-6">
               {[
                 { name: 'USDC', logo: '/usd-coin-usdc-logo.svg' },
                 { name: 'USDT', logo: '/tether-usdt-logo.svg' },
-                { name: 'SOL', logo: '/solana-sol-logo.svg' },
+                // SOL deposits disabled - we cannot offramp native SOL
               ].map((crypto, index) => (
                 <motion.div
                   key={crypto.name}
