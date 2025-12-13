@@ -213,9 +213,8 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
             asset: asset_symbol,
             address,
             depositBalance,
-            breadBalance,
             totalBalance,
-          }, 'Fetched combined balance for asset');
+          }, 'Fetched balance for asset');
 
         } catch (balanceError: any) {
           logger.error({
