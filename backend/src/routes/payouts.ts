@@ -357,64 +357,38 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         walletAddress: depositAddress.bread_wallet_address,
       });
 
-      let breadBalance = await checkBreadWalletBalance({
+      // ALWAYS transfer from SolPay wallet to Bread wallet at offramp time
+      // Bread basic wallets don't auto-recognize on-chain deposits, so we must
+      // transfer fresh funds each time and let Bread process immediately
+      const amountToTransfer = feeCollection.amountToBread;
+
+      request.log.info({
+        from: depositAddress.address,
+        to: depositAddress.bread_wallet_address,
+        amountToTransfer,
+        asset: body.asset,
+      }, '🔄 Transferring crypto from SolPay wallet to Bread for offramp');
+
+      const transferResult = await transferToBreadWallet({
         chain: body.chain,
         asset: body.asset,
-        walletAddress: depositAddress.bread_wallet_address!,
+        amount: amountToTransfer,
+        fromAddress: depositAddress.address,
+        toAddress: depositAddress.bread_wallet_address!,
+        userId,
       });
 
       request.log.info({
-        breadBalance,
-        requestedAmount: body.amount,
-        amountAfterFee: feeCollection.amountToBread,
-        asset: body.asset,
-      }, '💰 Initial Bread wallet balance checked');
+        txHash: transferResult.txHash,
+        amount: transferResult.amount,
+      }, '✅ Transfer to Bread wallet completed');
 
-      // Only transfer if Bread wallet doesn't have enough funds
-      if (breadBalance < feeCollection.amountToBread) {
-        const amountToTransfer = feeCollection.amountToBread - breadBalance;
+      // Wait for Bread to detect the incoming transfer (basic wallets need time to sync)
+      request.log.info({ msg: '⏳ Waiting for Bread to detect incoming transfer...' });
+      await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
 
-        request.log.info({
-          from: depositAddress.address,
-          to: depositAddress.bread_wallet_address,
-          breadBalance,
-          amountNeeded: feeCollection.amountToBread,
-          amountToTransfer,
-          asset: body.asset,
-        }, '🔄 Transferring additional crypto to Bread wallet');
-
-        const transferResult = await transferToBreadWallet({
-          chain: body.chain,
-          asset: body.asset,
-          amount: amountToTransfer,
-          fromAddress: depositAddress.address,
-          toAddress: depositAddress.bread_wallet_address!,
-          userId,
-        });
-
-        request.log.info({
-          txHash: transferResult.txHash,
-          amount: transferResult.amount,
-        }, '✅ Transfer to Bread wallet completed');
-
-        // Re-check balance after transfer
-        breadBalance = await checkBreadWalletBalance({
-          chain: body.chain,
-          asset: body.asset,
-          walletAddress: depositAddress.bread_wallet_address!,
-        });
-
-        request.log.info({
-          breadBalance,
-          asset: body.asset,
-        }, '💰 Bread wallet balance after transfer');
-      } else {
-        request.log.info({
-          breadBalance,
-          amountNeeded: feeCollection.amountToBread,
-          asset: body.asset,
-        }, '✅ Bread wallet already has sufficient funds, skipping transfer');
-      }
+      // Use the amount we just transferred
+      const breadBalance = amountToTransfer;
 
       // Use minimum of amount after fee and available balance
       // IMPORTANT: Use feeCollection.amountToBread (after platform fee), not body.amount

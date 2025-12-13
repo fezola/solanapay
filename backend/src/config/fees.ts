@@ -10,11 +10,11 @@
 
 /**
  * Platform fee configuration
- * 1.5% flat fee on all transactions
+ * 2% flat fee on all transactions
  */
 export const FEE_CONFIG = {
-  /** Fee percentage (1.5% = 0.015) */
-  FEE_PERCENT: 0.015,
+  /** Fee percentage (2% = 0.02) */
+  FEE_PERCENT: 0.02,
   /** Minimum fee in NGN (none - just flat 1.5%) */
   MIN_FEE_NGN: 0,
   /** Minimum offramp amount in USD */
