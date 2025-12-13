@@ -15,7 +15,7 @@
 export const FEE_CONFIG = {
   /** Fee percentage (2% = 0.02) */
   FEE_PERCENT: 0.02,
-  /** Minimum fee in NGN (none - just flat 1.5%) */
+  /** Minimum fee in NGN (none - just flat 2%) */
   MIN_FEE_NGN: 0,
   /** Minimum offramp amount in USD */
   MIN_OFFRAMP_USD: 1,
