@@ -395,7 +395,22 @@ export async function getPlatformFeeStats(): Promise<{
 }
 
 /**
+ * Get gas sponsor private key for a specific chain
+ */
+function getGasSponsorPrivateKey(chain: string): string | undefined {
+  switch (chain.toLowerCase()) {
+    case 'base':
+      return process.env.BASE_GAS_SPONSOR_PRIVATE_KEY;
+    case 'polygon':
+      return process.env.POLYGON_GAS_SPONSOR_PRIVATE_KEY;
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Transfer platform fee to treasury wallet on EVM chains (Base, Polygon)
+ * Uses gas sponsorship - gas sponsor wallet funds user wallet with gas, then user wallet sends fee
  */
 async function transferFeeToTreasuryEVM(params: {
   fromAddress: string;
@@ -442,7 +457,21 @@ async function transferFeeToTreasuryEVM(params: {
 
   // Connect to EVM network
   const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const wallet = new ethers.Wallet(privateKey, provider);
+  const userWallet = new ethers.Wallet(privateKey, provider);
+
+  // Get gas sponsor wallet (pays for gas by sending ETH/MATIC to user wallet first)
+  const gasSponsorPrivateKey = getGasSponsorPrivateKey(chain);
+  if (!gasSponsorPrivateKey) {
+    throw new Error(`Gas sponsor private key not configured for chain: ${chain}. Please set ${chain.toUpperCase()}_GAS_SPONSOR_PRIVATE_KEY in environment variables.`);
+  }
+  const gasSponsorWallet = new ethers.Wallet(gasSponsorPrivateKey, provider);
+
+  logger.info({
+    msg: 'Platform fee transfer wallets initialized',
+    chain,
+    userWallet: userWallet.address,
+    gasSponsorWallet: gasSponsorWallet.address,
+  });
 
   // Get token contract address
   let tokenAddress: string;
@@ -470,7 +499,7 @@ async function transferFeeToTreasuryEVM(params: {
     'function decimals() view returns (uint8)',
   ];
 
-  const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, wallet);
+  const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, userWallet);
 
   // Get token decimals
   const decimals = await tokenContract.decimals();
@@ -485,7 +514,39 @@ async function transferFeeToTreasuryEVM(params: {
     tokenAddress,
   }, `💰 Transferring ${amount} ${asset} (${amountInTokenUnits.toString()} units)`);
 
-  // Execute transfer
+  // STEP 1: Check if user wallet has enough gas, if not, send gas from sponsor
+  const userGasBalance = await provider.getBalance(userWallet.address);
+  const gasPrice = await provider.getFeeData();
+  const estimatedGas = await tokenContract.transfer.estimateGas(treasuryAddress, amountInTokenUnits);
+  const maxGasCost = estimatedGas * (gasPrice.maxFeePerGas || gasPrice.gasPrice || 50000000000n);
+
+  if (userGasBalance < maxGasCost) {
+    // Add 100% buffer for gas price fluctuations
+    const gasToSend = maxGasCost * 2n;
+
+    logger.info({
+      msg: 'Sending gas from gas sponsor to user wallet for platform fee transfer',
+      from: gasSponsorWallet.address,
+      to: userWallet.address,
+      gasToSend: ethers.formatEther(gasToSend),
+      chain,
+    });
+
+    const gasTx = await gasSponsorWallet.sendTransaction({
+      to: userWallet.address,
+      value: gasToSend,
+    });
+
+    await gasTx.wait();
+
+    logger.info({
+      msg: '✅ Gas sent to user wallet for platform fee transfer',
+      txHash: gasTx.hash,
+      chain,
+    });
+  }
+
+  // STEP 2: Execute ERC20 transfer from user wallet to treasury
   const tx = await tokenContract.transfer(treasuryAddress, amountInTokenUnits);
 
   logger.info({
@@ -495,6 +556,7 @@ async function transferFeeToTreasuryEVM(params: {
     amount,
     asset,
     chain,
+    gasFundedBy: gasSponsorWallet.address,
   }, `📤 Platform fee transfer transaction sent on ${chain}`);
 
   // Wait for confirmation
@@ -504,6 +566,7 @@ async function transferFeeToTreasuryEVM(params: {
     txHash: receipt.hash,
     blockNumber: receipt.blockNumber,
     status: receipt.status,
+    gasFundedBy: gasSponsorWallet.address,
   }, `✅ Platform fee transfer confirmed on ${chain}`);
 
   return receipt.hash;
