@@ -7,16 +7,17 @@
 
 export const FeeConfig = {
   /**
-   * Platform fee: 1.5% of transaction amount (minimum ₦500)
+   * Platform fee: 1.5% flat fee on all transactions
    *
    * Examples:
-   * - ₦10,000 → 1.5% = ₦150, but minimum is ₦500 → Fee: ₦500
-   * - ₦50,000 → 1.5% = ₦750 → Fee: ₦750
-   * - ₦100,000 → 1.5% = ₦1,500 → Fee: ₦1,500
-   * - ₦1,000,000 → 1.5% = ₦15,000 → Fee: ₦15,000
+   * - $1 (₦1,500) → 1.5% = ₦22.50
+   * - $5 (₦7,500) → 1.5% = ₦112.50
+   * - $50 (₦75,000) → 1.5% = ₦1,125
+   * - $100 (₦150,000) → 1.5% = ₦2,250
+   * - $1,000 (₦1,500,000) → 1.5% = ₦22,500
    */
   FEE_PERCENT: 0.015,  // 1.5%
-  MIN_FEE_NGN: 500,    // Minimum fee in NGN
+  MIN_FEE_NGN: 0,      // No minimum fee - just flat 1.5%
 
   /**
    * Default exchange rate for USD/NGN
@@ -25,31 +26,27 @@ export const FeeConfig = {
   DEFAULT_EXCHANGE_RATE: 1500,
 
   /**
-   * Minimum transaction amount (in NGN)
-   * Transactions below this amount will be rejected
+   * Minimum offramp amount in USD
    */
-  MIN_TRANSACTION_AMOUNT: 100,
+  MIN_OFFRAMP_USD: 1,
 };
 
 /**
  * Calculate platform fee for a given transaction amount
- * Fee: 1.5% of transaction (minimum ₦500)
+ * Fee: 1.5% flat fee
  *
  * @param nairaAmount - Transaction amount in NGN
  * @returns Platform fee in NGN
  *
  * @example
- * calculatePlatformFee(150000) // ₦100 at ₦1,500 rate = 1.5% = ₦2,250
- * calculatePlatformFee(15000)  // ₦10 at ₦1,500 rate = 1.5% = ₦225, but min ₦500
+ * calculatePlatformFee(7500)   // $5 → 1.5% = ₦112.50
+ * calculatePlatformFee(150000) // $100 → 1.5% = ₦2,250
  */
 export function calculatePlatformFee(nairaAmount: number): number {
   if (nairaAmount <= 0) return 0;
 
   // Calculate 1.5% fee
-  const percentageFee = nairaAmount * FeeConfig.FEE_PERCENT;
-
-  // Apply minimum fee
-  return Math.max(percentageFee, FeeConfig.MIN_FEE_NGN);
+  return nairaAmount * FeeConfig.FEE_PERCENT;
 }
 
 /**

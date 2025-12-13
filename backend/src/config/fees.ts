@@ -10,13 +10,15 @@
 
 /**
  * Platform fee configuration
- * 1.5% fee on all transactions with a minimum fee
+ * 1.5% flat fee on all transactions
  */
 export const FEE_CONFIG = {
   /** Fee percentage (1.5% = 0.015) */
   FEE_PERCENT: 0.015,
-  /** Minimum fee in NGN (protects against tiny transactions) */
-  MIN_FEE_NGN: 500,
+  /** Minimum fee in NGN (none - just flat 1.5%) */
+  MIN_FEE_NGN: 0,
+  /** Minimum offramp amount in USD */
+  MIN_OFFRAMP_USD: 1,
 };
 
 /**
@@ -30,19 +32,19 @@ export const TIERED_FEES = [
 /**
  * Calculate platform fee for an offramp transaction
  *
- * Fee: 1.5% of transaction amount (minimum ₦500)
+ * Fee: 1.5% flat fee on all transactions
  *
  * @param grossAmountNaira - Gross NGN amount before fee
  * @param exchangeRate - Current NGN/USD exchange rate (e.g., 1500 for ₦1,500 per USD)
  * @returns Platform fee in Naira
  *
  * @example
- * // $100 at ₦1,500 = ₦150,000 → 1.5% = ₦2,250 fee
- * calculatePlatformFee(150000, 1500) // Returns: 2250
+ * // $5 at ₦1,500 = ₦7,500 → 1.5% = ₦112.50 fee
+ * calculatePlatformFee(7500, 1500) // Returns: 112.50
  *
  * @example
- * // $10 at ₦1,500 = ₦15,000 → 1.5% = ₦225, but minimum is ₦500
- * calculatePlatformFee(15000, 1500) // Returns: 500
+ * // $100 at ₦1,500 = ₦150,000 → 1.5% = ₦2,250 fee
+ * calculatePlatformFee(150000, 1500) // Returns: 2250
  */
 export function calculatePlatformFee(grossAmountNaira: number, exchangeRate: number = 1500): number {
   // Calculate 1% fee
