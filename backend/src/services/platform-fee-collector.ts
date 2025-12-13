@@ -6,7 +6,7 @@
  */
 
 import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getAssociatedTokenAddress, createTransferInstruction, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, getAccount } from '@solana/spl-token';
 import { ethers } from 'ethers';
 import { logger } from '../utils/logger.js';
 import { supabaseAdmin } from '../utils/supabase.js';
@@ -249,6 +249,18 @@ async function transferFeeToTreasurySolana(params: {
   const fromTokenAccount = await getAssociatedTokenAddress(mintPubkey, fromPubkey);
   const toTokenAccount = await getAssociatedTokenAddress(mintPubkey, toPubkey);
 
+  // Check if treasury token account exists
+  let treasuryAccountExists = false;
+  try {
+    await getAccount(connection, toTokenAccount);
+    treasuryAccountExists = true;
+  } catch {
+    logger.info({
+      treasury: toPubkey.toBase58(),
+      asset,
+    }, '📝 Treasury token account does not exist - will create it');
+  }
+
   // Convert amount to token units (6 decimals for USDC/USDT)
   const decimals = 6;
   const amountInTokenUnits = BigInt(Math.floor(amount * Math.pow(10, decimals)));
@@ -259,19 +271,8 @@ async function transferFeeToTreasurySolana(params: {
     amount,
     amountInTokenUnits: amountInTokenUnits.toString(),
     asset,
+    treasuryAccountExists,
   }, '🔄 Transferring platform fee to treasury');
-
-  // Create transaction
-  const transaction = new Transaction().add(
-    createTransferInstruction(
-      fromTokenAccount,
-      toTokenAccount,
-      fromPubkey,
-      amountInTokenUnits,
-      [],
-      TOKEN_PROGRAM_ID
-    )
-  );
 
   // Use gas sponsor wallet to pay for transaction fees
   const { gasSponsorService } = await import('./gas-sponsor/index.js');
@@ -281,6 +282,40 @@ async function transferFeeToTreasurySolana(params: {
     logger.error('Gas sponsor wallet not available for platform fee collection');
     throw new Error('Gas sponsorship not available. Cannot collect platform fee without SOL.');
   }
+
+  // Create transaction
+  const transaction = new Transaction();
+
+  // Add instruction to create treasury token account if it doesn't exist (gas sponsor pays)
+  if (!treasuryAccountExists) {
+    logger.info({
+      payer: gasSponsorWallet.publicKey.toBase58(),
+      ata: toTokenAccount.toBase58(),
+      owner: toPubkey.toBase58(),
+      mint: mintPubkey.toBase58(),
+    }, '📝 Adding instruction to create treasury token account');
+
+    transaction.add(
+      createAssociatedTokenAccountInstruction(
+        gasSponsorWallet.publicKey,  // payer (gas sponsor pays for rent)
+        toTokenAccount,              // ata to create
+        toPubkey,                    // owner (treasury wallet)
+        mintPubkey                   // token mint
+      )
+    );
+  }
+
+  // Add transfer instruction
+  transaction.add(
+    createTransferInstruction(
+      fromTokenAccount,
+      toTokenAccount,
+      fromPubkey,
+      amountInTokenUnits,
+      [],
+      TOKEN_PROGRAM_ID
+    )
+  );
 
   // Set gas sponsor as fee payer
   transaction.feePayer = gasSponsorWallet.publicKey;
