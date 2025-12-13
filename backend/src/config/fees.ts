@@ -9,44 +9,47 @@
 // ============================================================================
 
 /**
- * Tiered fee structure for offramp transactions
- * Customer-friendly pricing that scales with transaction size
+ * Platform fee configuration
+ * 1.5% fee on all transactions with a minimum fee
+ */
+export const FEE_CONFIG = {
+  /** Fee percentage (1.5% = 0.015) */
+  FEE_PERCENT: 0.015,
+  /** Minimum fee in NGN (protects against tiny transactions) */
+  MIN_FEE_NGN: 500,
+};
+
+/**
+ * Legacy tiered fees (kept for backwards compatibility)
+ * @deprecated Use FEE_CONFIG instead
  */
 export const TIERED_FEES = [
-  { maxAmountUSD: 20, feeNGN: 5 },        // $0-$20: ₦5
-  { maxAmountUSD: 100, feeNGN: 50 },      // $20-$100: ₦50
-  { maxAmountUSD: 500, feeNGN: 100 },     // $100-$500: ₦100
-  { maxAmountUSD: 1000, feeNGN: 200 },    // $500-$1,000: ₦200
-  { maxAmountUSD: Infinity, feePercent: 0.003, maxFeeNGN: 500 }, // $1,000+: 0.3% (max ₦500)
+  { maxAmountUSD: Infinity, feePercent: FEE_CONFIG.FEE_PERCENT, minFeeNGN: FEE_CONFIG.MIN_FEE_NGN },
 ];
 
 /**
- * Calculate platform fee for an offramp transaction using tiered structure
+ * Calculate platform fee for an offramp transaction
+ *
+ * Fee: 1.5% of transaction amount (minimum ₦500)
  *
  * @param grossAmountNaira - Gross NGN amount before fee
- * @param exchangeRate - Current NGN/USD exchange rate (e.g., 1453 for ₦1,453 per USD)
+ * @param exchangeRate - Current NGN/USD exchange rate (e.g., 1500 for ₦1,500 per USD)
  * @returns Platform fee in Naira
+ *
+ * @example
+ * // $100 at ₦1,500 = ₦150,000 → 1.5% = ₦2,250 fee
+ * calculatePlatformFee(150000, 1500) // Returns: 2250
+ *
+ * @example
+ * // $10 at ₦1,500 = ₦15,000 → 1.5% = ₦225, but minimum is ₦500
+ * calculatePlatformFee(15000, 1500) // Returns: 500
  */
-export function calculatePlatformFee(grossAmountNaira: number, exchangeRate: number = 1453): number {
-  // Convert NGN to USD for tier calculation
-  const amountUSD = grossAmountNaira / exchangeRate;
+export function calculatePlatformFee(grossAmountNaira: number, exchangeRate: number = 1500): number {
+  // Calculate 1% fee
+  const percentageFee = grossAmountNaira * FEE_CONFIG.FEE_PERCENT;
 
-  // Find the appropriate tier
-  for (const tier of TIERED_FEES) {
-    if (amountUSD <= tier.maxAmountUSD) {
-      if (tier.feeNGN !== undefined) {
-        // Flat fee tier
-        return tier.feeNGN;
-      } else if (tier.feePercent !== undefined) {
-        // Percentage-based tier with cap
-        const percentageFee = grossAmountNaira * tier.feePercent;
-        return Math.min(percentageFee, tier.maxFeeNGN || Infinity);
-      }
-    }
-  }
-
-  // Fallback (should never reach here)
-  return 5;
+  // Apply minimum fee
+  return Math.max(percentageFee, FEE_CONFIG.MIN_FEE_NGN);
 }
 
 /**
