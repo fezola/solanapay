@@ -7,15 +7,29 @@ import 'dotenv/config';
 
 const BREAD_API_URL = 'https://processor-prod.up.railway.app';
 const BREAD_API_KEY = process.env.BREAD_API_KEY;
-const WALLET_ID = '6921925b5908e7571e4aad40';
+const WALLET_ID = '691321d541ddc0fb44631963';
+const IDENTITY_ID = '690cd240196a18d7bd587965';
 
 async function checkBreadBalance() {
   console.log('\n🔍 CHECKING BREAD AFRICA API BALANCE\n');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   console.log('Wallet ID:', WALLET_ID);
+  console.log('Identity ID:', IDENTITY_ID);
   console.log('');
 
   try {
+    // First list all wallets for this identity
+    console.log('📡 Calling GET /identity/' + IDENTITY_ID + '/wallets');
+    const walletsResponse = await fetch(`${BREAD_API_URL}/identity/${IDENTITY_ID}/wallets`, {
+      headers: {
+        'x-service-key': BREAD_API_KEY,
+      },
+    });
+    const walletsData = await walletsResponse.json();
+    console.log('\n📥 Wallets Response:');
+    console.log(JSON.stringify(walletsData, null, 2));
+    console.log('');
+
     // Get wallet details
     console.log('📡 Calling GET /wallet/' + WALLET_ID);
     const walletResponse = await fetch(`${BREAD_API_URL}/wallet/${WALLET_ID}`, {

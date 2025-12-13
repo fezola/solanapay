@@ -458,6 +458,22 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       }, '✅ Got correct quote for actual amount');
 
       // Step 6: Execute Bread offramp to bank account
+      // First, check Bread's INTERNAL balance (via their API) vs on-chain balance
+      try {
+        const breadApiBalance = await breadService.wallet.getWalletBalance(depositAddress.bread_wallet_id);
+        request.log.info({
+          breadWalletId: depositAddress.bread_wallet_id,
+          breadApiBalance: breadApiBalance.balance,
+          breadApiAsset: breadApiBalance.asset,
+          onChainBalance: breadBalance,
+        }, '📊 Bread API balance vs On-chain balance');
+      } catch (balanceError: any) {
+        request.log.warn({
+          breadWalletId: depositAddress.bread_wallet_id,
+          error: balanceError.message,
+        }, '⚠️ Failed to fetch Bread API balance (continuing with offramp)');
+      }
+
       request.log.info({
         breadWalletId: depositAddress.bread_wallet_id,
         amount: actualOfframpAmount,

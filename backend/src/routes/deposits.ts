@@ -132,16 +132,12 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         return { balances };
       }
 
-      // Import balance checker
-      const { checkBreadWalletBalance } = await import('../services/transfer.js');
-
       // Fetch real-time balances from blockchain
       for (const addr of addresses) {
         const { network, asset_symbol, address, bread_wallet_address } = addr;
 
         try {
           let depositBalance = 0;
-          let breadBalance = 0;
 
           // Fetch deposit address balance based on network and asset
           if (network === 'solana') {
@@ -170,34 +166,20 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
             }
           }
 
-          // ALSO check Bread wallet balance (where funds go after transfer)
-          // Skip gas tokens (SOL, ETH, MATIC) - they stay in deposit address
-          if (bread_wallet_address && !['SOL', 'ETH', 'MATIC'].includes(asset_symbol)) {
-            try {
-              breadBalance = await checkBreadWalletBalance({
-                chain: network,
-                asset: asset_symbol,
-                walletAddress: bread_wallet_address,
-              });
+          // NOTE: We intentionally do NOT include Bread wallet on-chain balance
+          // Bread tracks balance internally and may not recognize on-chain deposits immediately
+          // Including it would show a balance users can't actually offramp, causing confusion
+          // The deposit wallet balance is what users can actually use
 
-              logger.debug({
-                network,
-                asset: asset_symbol,
-                depositBalance,
-                breadBalance,
-                totalBalance: depositBalance + breadBalance,
-              }, '💰 Combined balance (deposit + Bread wallet)');
-            } catch (breadError: any) {
-              logger.warn({
-                error: breadError.message,
-                network,
-                asset: asset_symbol,
-              }, 'Failed to fetch Bread wallet balance, using deposit balance only');
-            }
-          }
+          logger.debug({
+            network,
+            asset: asset_symbol,
+            depositBalance,
+            breadWalletAddress: bread_wallet_address,
+          }, '💰 Deposit wallet balance (Bread balance excluded)');
 
-          // COMBINE deposit address balance + Bread wallet balance
-          const totalBalance = depositBalance + breadBalance;
+          // Only use deposit wallet balance
+          const totalBalance = depositBalance;
 
           // Set combined balance
           if (network === 'solana') {
