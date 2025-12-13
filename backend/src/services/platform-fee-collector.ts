@@ -73,22 +73,53 @@ export async function collectPlatformFee(
     asset,
     chain,
     exchangeRate,
-  }, '💰 Collecting platform fee in crypto');
+    fromAddress,
+  }, '💰 START: Collecting platform fee in crypto');
+
+  // Calculate fee FIRST (this can't fail)
+  let platformFee = 0;
+  let amountToBread = cryptoAmount;
 
   try {
-    // Calculate fee and amount to send to Bread
-    const { platformFee, amountToBread } = calculateAmountAfterFee(
-      cryptoAmount,
-      asset,
-      exchangeRate
-    );
+    const feeCalc = calculateAmountAfterFee(cryptoAmount, asset, exchangeRate);
+    platformFee = feeCalc.platformFee;
+    amountToBread = feeCalc.amountToBread;
+  } catch (calcError: any) {
+    logger.error({ error: calcError.message }, '❌ Fee calculation failed');
+    return {
+      platformFee: 0,
+      amountToBread: cryptoAmount,
+      treasuryTxHash: null,
+      feeRecordId: null,
+    };
+  }
 
-    logger.info({
-      originalAmount: cryptoAmount,
-      platformFee,
-      amountToBread,
-      feePercentage: ((platformFee / cryptoAmount) * 100).toFixed(4) + '%',
-    }, '📊 Fee calculation complete');
+  logger.info({
+    originalAmount: cryptoAmount,
+    platformFee,
+    amountToBread,
+    feePercentage: ((platformFee / cryptoAmount) * 100).toFixed(4) + '%',
+  }, '📊 Fee calculation complete');
+
+  // Record the fee attempt in database FIRST (before transfer)
+  // This way we can track what's happening even if transfer fails
+  let feeRecordId: string | null = null;
+  try {
+    feeRecordId = await recordPlatformFee({
+      userId,
+      amountNGN: platformFee * exchangeRate,
+      cryptoAmount: platformFee,
+      cryptoAsset: asset,
+      exchangeRate,
+      treasuryTxHash: null, // Will update after transfer
+      quoteId,
+    });
+    logger.info({ feeRecordId }, '💾 Platform fee record created (pending transfer)');
+  } catch (recordError: any) {
+    logger.error({ error: recordError.message }, '❌ Failed to record platform fee - continuing anyway');
+  }
+
+  try {
 
     // Transfer fee to treasury wallet based on chain
     let treasuryTxHash: string | null = null;
@@ -166,23 +197,26 @@ export async function collectPlatformFee(
       }, '❌ PLATFORM FEE NOT COLLECTED - Treasury not configured for this chain! Check environment variables.');
     }
 
-    // Record fee in database
-    const feeRecordId = await recordPlatformFee({
-      userId,
-      amountNGN: platformFee * exchangeRate,
-      cryptoAmount: platformFee,
-      cryptoAsset: asset,
-      exchangeRate,
-      treasuryTxHash,
-      quoteId,
-    });
+    // Update fee record with treasury tx hash if transfer succeeded
+    if (treasuryTxHash && feeRecordId) {
+      try {
+        await supabaseAdmin
+          .from('platform_fees')
+          .update({ treasury_tx_hash: treasuryTxHash })
+          .eq('id', feeRecordId);
+        logger.info({ feeRecordId, treasuryTxHash }, '✅ Platform fee record updated with tx hash');
+      } catch (updateError: any) {
+        logger.error({ error: updateError.message, feeRecordId }, '❌ Failed to update fee record with tx hash');
+      }
+    }
 
     logger.info({
       feeRecordId,
       platformFee,
       amountToBread,
       treasuryTxHash,
-    }, '💾 Platform fee recorded in database');
+      feeCollected: !!treasuryTxHash,
+    }, '💾 Platform fee collection complete');
 
     return {
       platformFee,
@@ -199,15 +233,17 @@ export async function collectPlatformFee(
       asset,
       chain,
       fromAddress,
-    }, '❌ CRITICAL: Failed to collect platform fee - FEE WILL NOT BE COLLECTED!');
+      feeRecordId,
+    }, '❌ CRITICAL: Failed to transfer platform fee to treasury!');
 
-    // Return original amount if fee collection fails
-    // This ensures the offramp can still proceed, but we lose the fee
+    // Fee is already recorded with null treasury_tx_hash
+    // Return the calculated fee and amountToBread so the user pays the fee
+    // even if we couldn't transfer to treasury (we'll manually collect later)
     return {
-      platformFee: 0,
-      amountToBread: cryptoAmount,
+      platformFee,
+      amountToBread,
       treasuryTxHash: null,
-      feeRecordId: null,
+      feeRecordId,
     };
   }
 }
