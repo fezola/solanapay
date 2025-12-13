@@ -281,9 +281,10 @@ async function transferFeeToTreasurySolana(params: {
     throw new Error('Deposit address not found');
   }
 
-  // Decrypt private key
-  const privateKeyArray = JSON.parse(decrypt(depositAddress.private_key_encrypted));
-  const fromWallet = Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
+  // Decrypt private key (stored as base64)
+  const privateKeyBase64 = decrypt(depositAddress.private_key_encrypted);
+  const secretKey = Buffer.from(privateKeyBase64, 'base64');
+  const fromWallet = Keypair.fromSecretKey(secretKey);
 
   const fromPubkey = fromWallet.publicKey;
   const toPubkey = new PublicKey(PLATFORM_TREASURY_ADDRESS_SOLANA!);
