@@ -92,8 +92,21 @@ export async function collectPlatformFee(
 
     // Transfer fee to treasury wallet based on chain
     let treasuryTxHash: string | null = null;
+    const chainLower = chain.toLowerCase();
 
-    if (chain === 'solana' && PLATFORM_TREASURY_ADDRESS_SOLANA) {
+    logger.info({
+      chain,
+      chainLower,
+      solanaTreasuryConfigured: !!PLATFORM_TREASURY_ADDRESS_SOLANA,
+      baseTreasuryConfigured: !!PLATFORM_TREASURY_ADDRESS_BASE,
+      polygonTreasuryConfigured: !!PLATFORM_TREASURY_ADDRESS_POLYGON,
+      solanaTreasuryAddress: PLATFORM_TREASURY_ADDRESS_SOLANA ? 'SET' : 'NOT SET',
+      baseTreasuryAddress: PLATFORM_TREASURY_ADDRESS_BASE ? 'SET' : 'NOT SET',
+      polygonTreasuryAddress: PLATFORM_TREASURY_ADDRESS_POLYGON ? 'SET' : 'NOT SET',
+    }, '🔍 Checking treasury configuration for fee collection');
+
+    if (chainLower === 'solana' && PLATFORM_TREASURY_ADDRESS_SOLANA) {
+      logger.info({ treasury: PLATFORM_TREASURY_ADDRESS_SOLANA }, '📤 Attempting to transfer fee to Solana treasury');
       treasuryTxHash = await transferFeeToTreasurySolana({
         fromAddress,
         amount: platformFee,
@@ -107,7 +120,8 @@ export async function collectPlatformFee(
         asset,
         chain: 'solana',
       }, '✅ Platform fee transferred to Solana treasury');
-    } else if (chain === 'base' && PLATFORM_TREASURY_ADDRESS_BASE) {
+    } else if (chainLower === 'base' && PLATFORM_TREASURY_ADDRESS_BASE) {
+      logger.info({ treasury: PLATFORM_TREASURY_ADDRESS_BASE }, '📤 Attempting to transfer fee to Base treasury');
       treasuryTxHash = await transferFeeToTreasuryEVM({
         fromAddress,
         amount: platformFee,
@@ -124,7 +138,8 @@ export async function collectPlatformFee(
         asset,
         chain: 'base',
       }, '✅ Platform fee transferred to Base treasury');
-    } else if (chain === 'polygon' && PLATFORM_TREASURY_ADDRESS_POLYGON) {
+    } else if (chainLower === 'polygon' && PLATFORM_TREASURY_ADDRESS_POLYGON) {
+      logger.info({ treasury: PLATFORM_TREASURY_ADDRESS_POLYGON }, '📤 Attempting to transfer fee to Polygon treasury');
       treasuryTxHash = await transferFeeToTreasuryEVM({
         fromAddress,
         amount: platformFee,
@@ -142,12 +157,13 @@ export async function collectPlatformFee(
         chain: 'polygon',
       }, '✅ Platform fee transferred to Polygon treasury');
     } else {
-      logger.warn({
+      logger.error({
         chain,
+        chainLower,
         solanaTreasuryConfigured: !!PLATFORM_TREASURY_ADDRESS_SOLANA,
         baseTreasuryConfigured: !!PLATFORM_TREASURY_ADDRESS_BASE,
         polygonTreasuryConfigured: !!PLATFORM_TREASURY_ADDRESS_POLYGON,
-      }, '⚠️  Platform fee not collected - treasury not configured for this chain');
+      }, '❌ PLATFORM FEE NOT COLLECTED - Treasury not configured for this chain! Check environment variables.');
     }
 
     // Record fee in database
@@ -177,13 +193,16 @@ export async function collectPlatformFee(
   } catch (error: any) {
     logger.error({
       error: error.message,
+      errorStack: error.stack,
       userId,
       cryptoAmount,
       asset,
-    }, '❌ Failed to collect platform fee');
+      chain,
+      fromAddress,
+    }, '❌ CRITICAL: Failed to collect platform fee - FEE WILL NOT BE COLLECTED!');
 
     // Return original amount if fee collection fails
-    // This ensures the offramp can still proceed
+    // This ensures the offramp can still proceed, but we lose the fee
     return {
       platformFee: 0,
       amountToBread: cryptoAmount,
