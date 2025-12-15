@@ -59,7 +59,7 @@ interface Transaction {
 }
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState<boolean | null>(null); // null = checking auth
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [needsPINSetup, setNeedsPINSetup] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
@@ -231,8 +231,12 @@ export default function App() {
           }
 
           setIsAuthenticated(true);
+          setShowSplash(false); // Skip splash for authenticated users
+          return;
         }
       }
+      // Not authenticated - show splash screen
+      setShowSplash(true);
     };
     checkSession();
   }, []);
@@ -614,6 +618,19 @@ export default function App() {
     setCurrentScreen('kyc');
   };
 
+  // Show loading while checking auth status
+  if (showSplash === null) {
+    return (
+      <div className="fixed inset-0 bg-zinc-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <img src="/SOLPAY.png" alt="SolPay" className="w-16 h-16 animate-pulse" />
+          <p className="text-white/60 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show splash for non-authenticated users
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
