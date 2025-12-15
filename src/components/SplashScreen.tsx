@@ -1,51 +1,49 @@
-import { useEffect } from 'react';
-import { motion } from 'motion/react';
+import { useEffect, useRef } from 'react';
 
 interface SplashScreenProps {
   onFinish: () => void;
 }
 
 export function SplashScreen({ onFinish }: SplashScreenProps) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   useEffect(() => {
+    // Auto-dismiss after 5 seconds if user doesn't interact
     const timer = setTimeout(() => {
       onFinish();
-    }, 2500);
+    }, 5000);
 
-    return () => clearTimeout(timer);
+    // Listen for messages from the iframe (for button clicks)
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data === 'splashFinish') {
+        onFinish();
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('message', handleMessage);
+    };
   }, [onFinish]);
 
   return (
-    <div className="fixed inset-0 bg-white flex items-center justify-center">
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="flex flex-col items-center gap-4"
+    <div className="fixed inset-0 z-50">
+      <iframe
+        ref={iframeRef}
+        src="/generated-page (2).html"
+        className="w-full h-full border-0"
+        title="Solpay Splash Screen"
+      />
+      {/* Invisible overlay to capture clicks and dismiss splash */}
+      <button
+        onClick={onFinish}
+        className="absolute top-4 right-4 z-50 bg-white text-black px-4 py-2 rounded-full text-sm font-medium hover:bg-zinc-200 transition-all shadow-lg"
+        style={{ boxShadow: '0 0 20px -5px rgba(255,255,255,0.3)' }}
       >
-        <motion.img
-          src="/SOLPAY.png"
-          alt="SolPay"
-          className="w-24 h-24"
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.h1
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="text-gray-900 text-center font-bold text-3xl"
-        >
-          SolPay
-        </motion.h1>
-        <motion.p
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="text-gray-600 text-center"
-        >
-          Off-ramp crypto to Naira
-        </motion.p>
-      </motion.div>
+        Enter App →
+      </button>
     </div>
   );
 }
