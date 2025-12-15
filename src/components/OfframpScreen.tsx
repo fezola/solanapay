@@ -415,9 +415,9 @@ export function OfframpScreen({
                   setAmount('');
                   setQuoteLockTime(120);
                 }}>
-                  <SelectTrigger className="h-16 px-4 bg-gray-50 border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center justify-between w-full gap-4">
-                      <div className="flex items-center gap-4">
+                  <SelectTrigger size="lg" className="px-4 bg-gray-50 border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center justify-between w-full gap-4 py-1">
+                      <div className="flex items-center gap-3">
                         <div className="relative flex-shrink-0 w-10 h-10">
                           <img
                             src={currentAsset.logo}
@@ -427,7 +427,7 @@ export function OfframpScreen({
                           <img
                             src={currentAsset.networkLogo}
                             alt={currentAsset.network}
-                            className="w-5 h-5 rounded-full border-2 border-white shadow-sm absolute -bottom-0.5 -right-0.5"
+                            className="w-4 h-4 rounded-full border border-white shadow-sm absolute bottom-0 right-0"
                           />
                         </div>
                         <div className="text-left">
@@ -441,7 +441,7 @@ export function OfframpScreen({
                       </div>
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-gray-200 shadow-lg p-2 max-h-80 min-w-[320px]">
+                  <SelectContent className="rounded-xl border-gray-200 shadow-lg p-4 max-h-80 min-w-[340px]">
                     {assets.map((asset) => (
                       <SelectItem
                         key={asset.id}
@@ -561,8 +561,9 @@ export function OfframpScreen({
                     <SelectContent>
                       {bankAccounts.map((account) => (
                         <SelectItem key={account.id} value={account.id}>
-                          <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
                             <span className="font-semibold">{account.bankName}</span>
+                            <span className="text-gray-400">•</span>
                             <span className="text-sm text-gray-500">
                               {account.accountNumber} - {account.accountName}
                             </span>
