@@ -7,6 +7,31 @@ import { env } from '../../config/env.js';
 import { encrypt, decrypt } from '../../utils/encryption.js';
 import { logger } from '../../utils/logger.js';
 
+// Helper function to retry RPC calls with exponential backoff
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      const isRateLimit = error?.message?.includes('429') || error?.message?.includes('Too Many Requests');
+      if (isRateLimit && attempt < maxRetries - 1) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        logger.warn(`Rate limit hit, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else if (!isRateLimit) {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
+}
+
 export class SolanaWalletService {
   private connection: Connection;
   private usdcMint: PublicKey;
@@ -73,22 +98,22 @@ export class SolanaWalletService {
   }
 
   /**
-   * Get SOL balance
+   * Get SOL balance with retry logic for rate limiting
    */
   async getSOLBalance(address: string): Promise<number> {
     const publicKey = new PublicKey(address);
-    const balance = await this.connection.getBalance(publicKey);
+    const balance = await withRetry(() => this.connection.getBalance(publicKey));
     return balance / 1e9; // Convert lamports to SOL
   }
 
   /**
-   * Get SPL token balance (USDC, USDT)
+   * Get SPL token balance (USDC, USDT) with retry logic for rate limiting
    */
   async getTokenBalance(address: string, mint: PublicKey): Promise<number> {
     try {
       const publicKey = new PublicKey(address);
       const tokenAccount = await getAssociatedTokenAddress(mint, publicKey);
-      const accountInfo = await getAccount(this.connection, tokenAccount);
+      const accountInfo = await withRetry(() => getAccount(this.connection, tokenAccount));
       return Number(accountInfo.amount) / 1e6; // USDC/USDT have 6 decimals
     } catch (error) {
       // Token account doesn't exist yet

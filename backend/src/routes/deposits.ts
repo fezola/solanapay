@@ -15,6 +15,14 @@ const breadService = new BreadService({
   baseUrl: env.BREAD_API_URL,
 });
 
+// Balance cache to prevent rate limiting
+interface BalanceCacheEntry {
+  balances: any;
+  timestamp: number;
+}
+const balanceCache = new Map<string, BalanceCacheEntry>();
+const BALANCE_CACHE_TTL = 30000; // 30 seconds cache
+
 export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   // Apply auth middleware to all routes
   fastify.addHook('onRequest', authMiddleware);
@@ -98,11 +106,20 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
    * 2. Queries Solana/Base blockchain for actual token balances
    * 3. ALSO checks Bread wallet balances (where funds go after deposit)
    * 4. Returns COMBINED balances (deposit address + Bread wallet)
+   *
+   * NOTE: Results are cached for 30 seconds to prevent RPC rate limiting
    */
   fastify.get('/balances', async (request, reply) => {
     const userId = request.userId!;
 
     try {
+      // Check cache first to prevent rate limiting
+      const cached = balanceCache.get(userId);
+      if (cached && Date.now() - cached.timestamp < BALANCE_CACHE_TTL) {
+        logger.debug({ userId }, 'Returning cached balances');
+        return { balances: cached.balances };
+      }
+
       // Get user's deposit addresses (need bread_wallet_address too)
       const { data: addresses, error } = await supabaseAdmin
         .from('deposit_addresses')
@@ -226,6 +243,12 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
           // Continue with other assets even if one fails
         }
       }
+
+      // Cache the balances to prevent rate limiting
+      balanceCache.set(userId, {
+        balances,
+        timestamp: Date.now(),
+      });
 
       return { balances };
 
