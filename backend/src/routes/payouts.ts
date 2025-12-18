@@ -249,6 +249,10 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
+    // Declare outside try block so they're accessible in catch
+    let beneficiaryData: any = null;
+    let depositAddressData: any = null;
+
     try {
       // Step 1: Get beneficiary (bank account)
       const { data: beneficiary } = await supabaseAdmin
@@ -261,6 +265,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       if (!beneficiary) {
         return reply.status(404).send({ error: 'Bank account not found' });
       }
+      beneficiaryData = beneficiary; // Store for catch block
 
       if (!beneficiary.bread_beneficiary_id) {
         return reply.status(400).send({
@@ -294,6 +299,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
           message: `No deposit address found for ${body.asset} on ${body.chain}`,
         });
       }
+      depositAddressData = depositAddress; // Store for catch block
 
       if (!depositAddress.bread_wallet_id) {
         return reply.status(400).send({
@@ -379,7 +385,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       // Calculate how much more to transfer (if any)
       const amountToTransfer = Math.max(0, feeCollection.amountToBread - existingBreadBalance);
 
-      let transferResult = { txHash: null, amount: 0 };
+      let transferResult: { txHash: string | null; amount: number } = { txHash: null, amount: 0 };
 
       if (amountToTransfer > 0.001) { // Only transfer if significant amount needed
         request.log.info({
@@ -598,9 +604,9 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         asset: body.asset,
         chain: body.chain,
         amount: body.amount,
-        breadWalletAddress: depositAddress?.bread_wallet_address,
-        breadWalletId: depositAddress?.bread_wallet_id,
-        beneficiaryId: beneficiary?.bread_beneficiary_id,
+        breadWalletAddress: depositAddressData?.bread_wallet_address,
+        breadWalletId: depositAddressData?.bread_wallet_id,
+        beneficiaryId: beneficiaryData?.bread_beneficiary_id,
         error: error.message,
         breadError: error.response?.data,
       }, 'CRITICAL: Offramp failed after potential transfer - funds may be stuck in Bread wallet');
@@ -610,8 +616,8 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         message: error.message,
         details: error.response?.data,
         recovery: {
-          breadWalletId: depositAddress?.bread_wallet_id,
-          breadWalletAddress: depositAddress?.bread_wallet_address,
+          breadWalletId: depositAddressData?.bread_wallet_id,
+          breadWalletAddress: depositAddressData?.bread_wallet_address,
           asset: body.asset,
           chain: body.chain,
           amount: body.amount,
