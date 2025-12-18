@@ -19,8 +19,8 @@ export const TIERED_FEES = [
   { maxAmountUSD: 20, feePercent: 0.02 },    // 2% for $0-$20
   { maxAmountUSD: 50, feePercent: 0.015 },   // 1.5% for $20-$50
   { maxAmountUSD: 100, feePercent: 0.01 },   // 1% for $50-$100
-  { maxAmountUSD: 500, feePercent: 0.005 },  // 0.5% for $100-$500
-  { maxAmountUSD: Infinity, feePercent: 0.003 }, // 0.3% for $500+
+  { maxAmountUSD: 500, feePercent: 0.003 },  // 0.3% for $100-$500 (~₦700 for $150)
+  { maxAmountUSD: Infinity, feePercent: 0.002 }, // 0.2% for $500+
 ];
 
 export const FeeConfig = {
