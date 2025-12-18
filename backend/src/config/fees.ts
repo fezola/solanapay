@@ -1,57 +1,78 @@
 /**
  * Platform Fee Configuration
  *
- * Defines fee structure for SolPay platform
+ * Tiered fee structure - lower fees for larger transactions
  */
 
 // ============================================================================
-// PLATFORM FEE CONSTANTS
+// TIERED FEE STRUCTURE
 // ============================================================================
 
 /**
- * Platform fee configuration
- * 2% flat fee on all transactions
+ * Tiered fee structure - lower percentage for higher amounts
+ *
+ * Examples at ₦1,500/USD:
+ * - $10 (₦15,000) → 2% = ₦300
+ * - $30 (₦45,000) → 1.5% = ₦675
+ * - $75 (₦112,500) → 1% = ₦1,125
+ * - $150 (₦225,000) → 0.5% = ₦1,125
+ * - $500 (₦750,000) → 0.3% = ₦2,250
  */
+export const TIERED_FEES = [
+  { maxAmountUSD: 20, feePercent: 0.02 },    // 2% for $0-$20
+  { maxAmountUSD: 50, feePercent: 0.015 },   // 1.5% for $20-$50
+  { maxAmountUSD: 100, feePercent: 0.01 },   // 1% for $50-$100
+  { maxAmountUSD: 500, feePercent: 0.005 },  // 0.5% for $100-$500
+  { maxAmountUSD: Infinity, feePercent: 0.003 }, // 0.3% for $500+
+];
+
 export const FEE_CONFIG = {
-  /** Fee percentage (2% = 0.02) */
+  /** Default fee for backwards compatibility */
   FEE_PERCENT: 0.02,
-  /** Minimum fee in NGN (none - just flat 2%) */
+  /** Minimum fee in NGN */
   MIN_FEE_NGN: 0,
   /** Minimum offramp amount in USD */
   MIN_OFFRAMP_USD: 1,
 };
 
 /**
- * Legacy tiered fees (kept for backwards compatibility)
- * @deprecated Use FEE_CONFIG instead
+ * Get fee percentage based on USD amount (tiered)
  */
-export const TIERED_FEES = [
-  { maxAmountUSD: Infinity, feePercent: FEE_CONFIG.FEE_PERCENT, minFeeNGN: FEE_CONFIG.MIN_FEE_NGN },
-];
+export function getFeePercentForAmount(amountUSD: number): number {
+  for (const tier of TIERED_FEES) {
+    if (amountUSD <= tier.maxAmountUSD) {
+      return tier.feePercent;
+    }
+  }
+  return TIERED_FEES[TIERED_FEES.length - 1].feePercent;
+}
 
 /**
- * Calculate platform fee for an offramp transaction
- *
- * Fee: 1.5% flat fee on all transactions
+ * Calculate platform fee for an offramp transaction using tiered structure
  *
  * @param grossAmountNaira - Gross NGN amount before fee
  * @param exchangeRate - Current NGN/USD exchange rate (e.g., 1500 for ₦1,500 per USD)
  * @returns Platform fee in Naira
  *
  * @example
- * // $5 at ₦1,500 = ₦7,500 → 1.5% = ₦112.50 fee
- * calculatePlatformFee(7500, 1500) // Returns: 112.50
+ * // $10 at ₦1,500 = ₦15,000 → 2% = ₦300 fee
+ * calculatePlatformFee(15000, 1500) // Returns: 300
  *
  * @example
- * // $100 at ₦1,500 = ₦150,000 → 1.5% = ₦2,250 fee
- * calculatePlatformFee(150000, 1500) // Returns: 2250
+ * // $150 at ₦1,500 = ₦225,000 → 0.5% = ₦1,125 fee
+ * calculatePlatformFee(225000, 1500) // Returns: 1125
  */
 export function calculatePlatformFee(grossAmountNaira: number, exchangeRate: number = 1500): number {
-  // Calculate 1% fee
-  const percentageFee = grossAmountNaira * FEE_CONFIG.FEE_PERCENT;
+  // Calculate USD amount for tier lookup
+  const amountUSD = grossAmountNaira / exchangeRate;
 
-  // Apply minimum fee
-  return Math.max(percentageFee, FEE_CONFIG.MIN_FEE_NGN);
+  // Get tiered fee percentage
+  const feePercent = getFeePercentForAmount(amountUSD);
+
+  // Calculate fee
+  const fee = grossAmountNaira * feePercent;
+
+  return Math.max(fee, FEE_CONFIG.MIN_FEE_NGN);
 }
 
 /**
