@@ -21,7 +21,7 @@ interface BalanceCacheEntry {
   timestamp: number;
 }
 const balanceCache = new Map<string, BalanceCacheEntry>();
-const BALANCE_CACHE_TTL = 30000; // 30 seconds cache
+const BALANCE_CACHE_TTL = 60000; // 60 seconds cache (increased to reduce RPC calls)
 
 export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   // Apply auth middleware to all routes
@@ -149,7 +149,10 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         return { balances };
       }
 
-      // Fetch real-time balances from blockchain
+      // Helper to add delay between RPC calls to avoid rate limiting
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+      // Fetch real-time balances from blockchain with delays between calls
       for (const addr of addresses) {
         const { network, asset_symbol, address, bread_wallet_address } = addr;
 
@@ -160,10 +163,13 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
           if (network === 'solana') {
             if (asset_symbol === 'SOL') {
               depositBalance = await solanaWalletService.getSOLBalance(address);
+              await delay(300); // Small delay between Solana RPC calls
             } else if (asset_symbol === 'USDC') {
               depositBalance = await solanaWalletService.getUSDCBalance(address);
+              await delay(300);
             } else if (asset_symbol === 'USDT') {
               depositBalance = await solanaWalletService.getUSDTBalance(address);
+              await delay(300);
             }
           } else if (network === 'base') {
             if (asset_symbol === 'USDC') {

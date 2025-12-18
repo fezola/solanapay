@@ -357,38 +357,67 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         walletAddress: depositAddress.bread_wallet_address,
       });
 
-      // ALWAYS transfer from SolPay wallet to Bread wallet at offramp time
-      // Bread basic wallets don't auto-recognize on-chain deposits, so we must
-      // transfer fresh funds each time and let Bread process immediately
-      const amountToTransfer = feeCollection.amountToBread;
+      // Check if there are already funds in Bread wallet (from previous failed offramp)
+      let existingBreadBalance = 0;
+      try {
+        existingBreadBalance = await checkBreadWalletBalance({
+          chain: body.chain,
+          asset: body.asset,
+          walletAddress: depositAddress.bread_wallet_address!,
+        });
 
-      request.log.info({
-        from: depositAddress.address,
-        to: depositAddress.bread_wallet_address,
-        amountToTransfer,
-        asset: body.asset,
-      }, '🔄 Transferring crypto from SolPay wallet to Bread for offramp');
+        if (existingBreadBalance > 0) {
+          request.log.info({
+            existingBalance: existingBreadBalance,
+            asset: body.asset,
+          }, '💡 Found existing balance in Bread wallet from previous attempt');
+        }
+      } catch (e: any) {
+        request.log.warn({ error: e.message }, 'Could not check existing Bread wallet balance');
+      }
 
-      const transferResult = await transferToBreadWallet({
-        chain: body.chain,
-        asset: body.asset,
-        amount: amountToTransfer,
-        fromAddress: depositAddress.address,
-        toAddress: depositAddress.bread_wallet_address!,
-        userId,
-      });
+      // Calculate how much more to transfer (if any)
+      const amountToTransfer = Math.max(0, feeCollection.amountToBread - existingBreadBalance);
 
-      request.log.info({
-        txHash: transferResult.txHash,
-        amount: transferResult.amount,
-      }, '✅ Transfer to Bread wallet completed');
+      let transferResult = { txHash: null, amount: 0 };
 
-      // Wait for Bread to detect the incoming transfer (basic wallets need time to sync)
-      request.log.info({ msg: '⏳ Waiting for Bread to detect incoming transfer...' });
-      await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
+      if (amountToTransfer > 0.001) { // Only transfer if significant amount needed
+        request.log.info({
+          from: depositAddress.address,
+          to: depositAddress.bread_wallet_address,
+          amountToTransfer,
+          existingBalance: existingBreadBalance,
+          asset: body.asset,
+        }, '🔄 Transferring crypto from SolPay wallet to Bread for offramp');
 
-      // Use the amount we just transferred
-      const breadBalance = amountToTransfer;
+        transferResult = await transferToBreadWallet({
+          chain: body.chain,
+          asset: body.asset,
+          amount: amountToTransfer,
+          fromAddress: depositAddress.address,
+          toAddress: depositAddress.bread_wallet_address!,
+          userId,
+        });
+      } else {
+        request.log.info({
+          existingBalance: existingBreadBalance,
+          requiredAmount: feeCollection.amountToBread,
+        }, '✅ Using existing Bread wallet balance - no transfer needed');
+      }
+
+      if (transferResult.txHash) {
+        request.log.info({
+          txHash: transferResult.txHash,
+          amount: transferResult.amount,
+        }, '✅ Transfer to Bread wallet completed');
+
+        // Wait for Bread to detect the incoming transfer (basic wallets need time to sync)
+        request.log.info({ msg: '⏳ Waiting for Bread to detect incoming transfer...' });
+        await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
+      }
+
+      // Total available = existing balance + newly transferred amount
+      const breadBalance = existingBreadBalance + amountToTransfer;
 
       // Use minimum of amount after fee and available balance
       // IMPORTANT: Use feeCollection.amountToBread (after platform fee), not body.amount
@@ -561,10 +590,33 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
       };
     } catch (error: any) {
       request.log.error({ error: error.message, stack: error.stack }, 'Offramp execution failed');
+
+      // Log detailed error for debugging stuck funds issues
+      request.log.error({
+        msg: '❌ OFFRAMP FAILED - FUNDS MAY BE STUCK',
+        userId,
+        asset: body.asset,
+        chain: body.chain,
+        amount: body.amount,
+        breadWalletAddress: depositAddress?.bread_wallet_address,
+        breadWalletId: depositAddress?.bread_wallet_id,
+        beneficiaryId: beneficiary?.bread_beneficiary_id,
+        error: error.message,
+        breadError: error.response?.data,
+      }, 'CRITICAL: Offramp failed after potential transfer - funds may be stuck in Bread wallet');
+
       return reply.status(500).send({
         error: 'Offramp failed',
         message: error.message,
         details: error.response?.data,
+        recovery: {
+          breadWalletId: depositAddress?.bread_wallet_id,
+          breadWalletAddress: depositAddress?.bread_wallet_address,
+          asset: body.asset,
+          chain: body.chain,
+          amount: body.amount,
+          note: 'If funds were transferred to Bread wallet, manual recovery may be needed. Contact support with this information.',
+        },
       });
     }
   });

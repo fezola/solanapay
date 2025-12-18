@@ -1071,6 +1071,225 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * Check user's Bread wallet balances (stuck funds)
+   * GET /api/admin/users/:email/bread-balance
+   */
+  fastify.get('/users/:email/bread-balance', async (request, reply) => {
+    const { email } = request.params as { email: string };
+
+    try {
+      // Get user
+      const { data: user, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('id, email, full_name')
+        .eq('email', email)
+        .single();
+
+      if (userError || !user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+
+      // Get all deposit addresses with Bread wallet info
+      const { data: deposits, error: depositsError } = await supabaseAdmin
+        .from('deposit_addresses')
+        .select('network, asset_symbol, bread_wallet_id, bread_wallet_address')
+        .eq('user_id', user.id);
+
+      if (depositsError || !deposits) {
+        return reply.status(500).send({ error: 'Failed to fetch deposit addresses' });
+      }
+
+      // Get unique Bread wallets
+      const wallets = [...new Map(deposits.map(d => [
+        d.bread_wallet_address,
+        { network: d.network, address: d.bread_wallet_address, id: d.bread_wallet_id }
+      ])).values()];
+
+      // Get beneficiary
+      const { data: beneficiary } = await supabaseAdmin
+        .from('beneficiaries')
+        .select('bank_name, account_number, account_name, bread_beneficiary_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
+
+      return {
+        user: { id: user.id, email: user.email, name: user.full_name },
+        wallets,
+        beneficiary: beneficiary || null,
+        note: 'Use GET /admin/check-onchain-balance/:address to check actual on-chain balance',
+      };
+    } catch (error: any) {
+      logger.error({ error }, 'Failed to get user Bread balance');
+      return reply.status(500).send({ error: error.message });
+    }
+  });
+
+  /**
+   * Manual offramp for stuck funds
+   * POST /api/admin/manual-offramp
+   */
+  fastify.post('/manual-offramp', async (request, reply) => {
+    const {
+      user_email,
+      asset,
+      chain,
+      amount,
+      reason,
+    } = request.body as {
+      user_email: string;
+      asset: string; // 'USDT', 'USDC', 'SOL'
+      chain: string; // 'solana', 'base', 'polygon'
+      amount: number;
+      reason: string;
+    };
+
+    const adminEmail = request.adminEmail!;
+
+    logger.info({
+      msg: 'Admin manual offramp',
+      adminEmail,
+      user_email,
+      asset,
+      chain,
+      amount,
+      reason,
+    });
+
+    // Validate inputs
+    if (!user_email || !asset || !chain || !amount || !reason) {
+      return reply.status(400).send({
+        error: 'Missing required fields: user_email, asset, chain, amount, reason',
+      });
+    }
+
+    const BREAD_API_KEY = process.env.BREAD_API_KEY!;
+    const BREAD_API_URL = 'https://processor-prod.up.railway.app';
+
+    try {
+      // Step 1: Find user
+      const { data: user, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('id, email')
+        .eq('email', user_email)
+        .single();
+
+      if (userError || !user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+
+      // Step 2: Get deposit address with Bread wallet info
+      const { data: depositAddress, error: depositError } = await supabaseAdmin
+        .from('deposit_addresses')
+        .select('bread_wallet_id, bread_wallet_address')
+        .eq('user_id', user.id)
+        .eq('network', chain)
+        .limit(1)
+        .single();
+
+      if (depositError || !depositAddress?.bread_wallet_id) {
+        return reply.status(404).send({
+          error: 'No Bread wallet found for this user/chain',
+          chain,
+        });
+      }
+
+      // Step 3: Get beneficiary
+      const { data: beneficiary, error: benError } = await supabaseAdmin
+        .from('beneficiaries')
+        .select('bread_beneficiary_id, bank_name, account_number, account_name')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
+
+      if (benError || !beneficiary?.bread_beneficiary_id) {
+        return reply.status(404).send({ error: 'No beneficiary found for user' });
+      }
+
+      // Step 4: Execute offramp via Bread API
+      const breadAsset = `${chain}:${asset.toLowerCase()}`;
+
+      logger.info({
+        msg: 'Executing manual offramp via Bread API',
+        walletId: depositAddress.bread_wallet_id,
+        beneficiaryId: beneficiary.bread_beneficiary_id,
+        asset: breadAsset,
+        amount,
+      });
+
+      const offrampResponse = await axios.post(
+        `${BREAD_API_URL}/offramp`,
+        {
+          wallet_id: depositAddress.bread_wallet_id,
+          beneficiary_id: beneficiary.bread_beneficiary_id,
+          asset: breadAsset,
+          amount,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-service-key': BREAD_API_KEY,
+          },
+        }
+      );
+
+      const result = offrampResponse.data;
+
+      logger.info({
+        msg: 'Manual offramp executed',
+        result,
+        adminEmail,
+        user_email,
+      });
+
+      // Step 5: Create a payout record for tracking
+      await supabaseAdmin
+        .from('payouts')
+        .insert({
+          user_id: user.id,
+          fiat_amount: '0', // Will be updated by webhook
+          currency: 'NGN',
+          provider: 'bread',
+          provider_reference: result.data?.reference || `MANUAL-${Date.now()}`,
+          status: 'processing',
+          metadata: {
+            manual_offramp: true,
+            admin_email: adminEmail,
+            reason,
+            asset,
+            chain,
+            amount,
+          },
+        });
+
+      return {
+        success: true,
+        message: `Manual offramp initiated for ${user_email}`,
+        offramp: {
+          reference: result.data?.reference,
+          asset: breadAsset,
+          amount,
+          bank: `${beneficiary.bank_name} - ${beneficiary.account_number}`,
+        },
+        admin: adminEmail,
+        reason,
+      };
+
+    } catch (error: any) {
+      logger.error({
+        error: error.message,
+        response: error.response?.data,
+      }, 'Manual offramp failed');
+
+      return reply.status(500).send({
+        error: 'Offramp failed',
+        message: error.response?.data?.message || error.message,
+        details: error.response?.data,
+      });
+    }
+  });
+
+  /**
    * Get all bonuses
    * GET /api/admin/bonuses
    */

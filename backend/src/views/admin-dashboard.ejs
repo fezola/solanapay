@@ -205,6 +205,66 @@
                 </div>
             </div>
 
+            <!-- Manual Offramp Section (for stuck funds) -->
+            <div class="section">
+                <div class="section-title">🔧 Manual Offramp (Stuck Funds Recovery)</div>
+                <div class="bonus-form-card" style="background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%); border-color: #fcd34d;">
+                    <p style="margin-bottom: 15px; color: #92400e; font-size: 14px;">
+                        ⚠️ Use this to recover funds stuck in a user's Bread wallet after a failed offramp.
+                    </p>
+                    <form id="manualOfframpForm" style="display: grid; gap: 15px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #374151;">User Email</label>
+                                <input type="email" id="offrampUserEmail" required placeholder="user@example.com"
+                                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #374151;">Amount</label>
+                                <input type="number" id="offrampAmount" required min="1" step="0.01" placeholder="49.00"
+                                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #374151;">Asset</label>
+                                <select id="offrampAsset" required
+                                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                                    <option value="USDT">USDT</option>
+                                    <option value="USDC">USDC</option>
+                                    <option value="SOL">SOL</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #374151;">Chain</label>
+                                <select id="offrampChain" required
+                                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                                    <option value="solana">Solana</option>
+                                    <option value="base">Base</option>
+                                    <option value="polygon">Polygon</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #374151;">Reason</label>
+                            <input type="text" id="offrampReason" required placeholder="Stuck funds recovery - failed offramp on Dec 17"
+                                style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="button" id="checkBalanceBtn"
+                                style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                                Check Balance 🔍
+                            </button>
+                            <button type="submit" id="executeOfframpBtn"
+                                style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                                Execute Offramp 🚀
+                            </button>
+                        </div>
+                        <div id="offrampResult" style="display: none; padding: 12px; border-radius: 8px; font-size: 14px;"></div>
+                    </form>
+                </div>
+            </div>
+
             <!-- Recent Transactions -->
             <div class="section">
                 <div class="section-title">Recent Transactions</div>
@@ -480,19 +540,17 @@
         document.getElementById('bonusForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const userEmail = document.getElementById('userEmail').value;
+            const bonusUserEmail = document.getElementById('userEmail').value;
             const amount = parseFloat(document.getElementById('bonusAmount').value);
             const reason = document.getElementById('bonusReason').value;
             const resultDiv = document.getElementById('bonusResult');
             const submitBtn = document.getElementById('sendBonusBtn');
 
-            // Disable button and show loading
             submitBtn.disabled = true;
             submitBtn.textContent = 'Sending...';
             resultDiv.style.display = 'none';
 
             try {
-                const token = localStorage.getItem('adminToken');
                 const response = await fetch('/api/admin/send-bonus', {
                     method: 'POST',
                     headers: {
@@ -500,7 +558,7 @@
                         'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
-                        user_email: userEmail,
+                        user_email: bonusUserEmail,
                         amount: amount,
                         asset: 'USDC',
                         chain: 'solana',
@@ -511,24 +569,18 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Success
                     resultDiv.style.display = 'block';
                     resultDiv.style.background = '#d1fae5';
                     resultDiv.style.color = '#065f46';
                     resultDiv.style.border = '1px solid #6ee7b7';
                     resultDiv.innerHTML = `
                         <strong>✅ Success!</strong><br>
-                        Sent $${amount} USDC to ${data.bonus.user.name || userEmail}<br>
-                        <a href="${data.bonus.explorer_url}" target="_blank" style="color: #059669; text-decoration: underline;">View on Solscan</a>
+                        Sent $${amount} USDC to ${data.bonus.user.name || bonusUserEmail}<br>
+                        <a href="${data.bonus.explorer_url}" target="_blank" style="color: #059669;">View on Solscan</a>
                     `;
-
-                    // Clear form
                     document.getElementById('bonusForm').reset();
-
-                    // Refresh dashboard data
                     setTimeout(fetchDashboardData, 2000);
                 } else {
-                    // Error
                     resultDiv.style.display = 'block';
                     resultDiv.style.background = '#fee2e2';
                     resultDiv.style.color = '#991b1b';
@@ -536,16 +588,135 @@
                     resultDiv.innerHTML = `<strong>❌ Error:</strong> ${data.error || 'Failed to send bonus'}`;
                 }
             } catch (error) {
-                console.error('Bonus send error:', error);
                 resultDiv.style.display = 'block';
                 resultDiv.style.background = '#fee2e2';
                 resultDiv.style.color = '#991b1b';
                 resultDiv.style.border = '1px solid #fca5a5';
                 resultDiv.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
             } finally {
-                // Re-enable button
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Send Bonus 🎁';
+            }
+        });
+
+        // Check Balance button
+        document.getElementById('checkBalanceBtn').addEventListener('click', async () => {
+            const email = document.getElementById('offrampUserEmail').value;
+            const resultDiv = document.getElementById('offrampResult');
+            const btn = document.getElementById('checkBalanceBtn');
+
+            if (!email) {
+                alert('Please enter a user email');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Checking...';
+
+            try {
+                const response = await fetch(`/api/admin/users/${encodeURIComponent(email)}/bread-balance`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                resultDiv.style.display = 'block';
+                if (response.ok) {
+                    resultDiv.style.background = '#dbeafe';
+                    resultDiv.style.color = '#1e40af';
+                    resultDiv.style.border = '1px solid #93c5fd';
+                    let walletsHtml = data.wallets.map(w =>
+                        `<div>• ${w.network.toUpperCase()}: ${w.address.substring(0,8)}...${w.address.slice(-6)}</div>`
+                    ).join('');
+                    let bankHtml = data.beneficiary
+                        ? `<div>🏦 Bank: ${data.beneficiary.bank_name} - ${data.beneficiary.account_number}</div>`
+                        : '<div>⚠️ No bank account linked</div>';
+                    resultDiv.innerHTML = `
+                        <strong>📍 User: ${data.user.email}</strong><br>
+                        <div style="margin: 8px 0;">${walletsHtml}</div>
+                        ${bankHtml}
+                    `;
+                } else {
+                    resultDiv.style.background = '#fee2e2';
+                    resultDiv.style.color = '#991b1b';
+                    resultDiv.style.border = '1px solid #fca5a5';
+                    resultDiv.innerHTML = `<strong>❌ Error:</strong> ${data.error}`;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.style.background = '#fee2e2';
+                resultDiv.style.color = '#991b1b';
+                resultDiv.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Check Balance 🔍';
+            }
+        });
+
+        // Manual Offramp form submission
+        document.getElementById('manualOfframpForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('offrampUserEmail').value;
+            const amount = parseFloat(document.getElementById('offrampAmount').value);
+            const asset = document.getElementById('offrampAsset').value;
+            const chain = document.getElementById('offrampChain').value;
+            const reason = document.getElementById('offrampReason').value;
+            const resultDiv = document.getElementById('offrampResult');
+            const submitBtn = document.getElementById('executeOfframpBtn');
+
+            if (!confirm(`Are you sure you want to offramp ${amount} ${asset} for ${email}?`)) {
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+            resultDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/admin/manual-offramp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        user_email: email,
+                        amount: amount,
+                        asset: asset,
+                        chain: chain,
+                        reason: reason
+                    })
+                });
+
+                const data = await response.json();
+
+                resultDiv.style.display = 'block';
+                if (response.ok) {
+                    resultDiv.style.background = '#d1fae5';
+                    resultDiv.style.color = '#065f46';
+                    resultDiv.style.border = '1px solid #6ee7b7';
+                    resultDiv.innerHTML = `
+                        <strong>✅ Offramp Initiated!</strong><br>
+                        Reference: ${data.offramp.reference}<br>
+                        Amount: ${data.offramp.amount} ${asset}<br>
+                        Bank: ${data.offramp.bank}
+                    `;
+                    document.getElementById('manualOfframpForm').reset();
+                    setTimeout(fetchDashboardData, 2000);
+                } else {
+                    resultDiv.style.background = '#fee2e2';
+                    resultDiv.style.color = '#991b1b';
+                    resultDiv.style.border = '1px solid #fca5a5';
+                    resultDiv.innerHTML = `<strong>❌ Error:</strong> ${data.error || data.message}`;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.style.background = '#fee2e2';
+                resultDiv.style.color = '#991b1b';
+                resultDiv.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Execute Offramp 🚀';
             }
         });
     </script>
