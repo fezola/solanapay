@@ -1105,9 +1105,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         { network: d.network, address: d.bread_wallet_address, id: d.bread_wallet_id }
       ])).values()];
 
-      // Get beneficiary
+      // Get beneficiary (bank account)
       const { data: beneficiary } = await supabaseAdmin
-        .from('beneficiaries')
+        .from('bank_accounts')
         .select('bank_name, account_number, account_name, bread_beneficiary_id')
         .eq('user_id', user.id)
         .limit(1)
@@ -1194,9 +1194,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Step 3: Get beneficiary
+      // Step 3: Get beneficiary (bank account)
       const { data: beneficiary, error: benError } = await supabaseAdmin
-        .from('beneficiaries')
+        .from('bank_accounts')
         .select('bread_beneficiary_id, bank_name, account_number, account_name')
         .eq('user_id', user.id)
         .limit(1)
