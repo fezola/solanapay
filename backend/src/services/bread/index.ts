@@ -21,7 +21,7 @@ export class BreadService {
   constructor(config: BreadConfig) {
     logger.info({
       msg: 'Initializing Bread service',
-      baseUrl: config.baseUrl || 'https://api.bread.africa',
+      baseUrl: config.baseUrl || 'https://processor-prod.up.railway.app',
     });
 
     this.client = new BreadClient(config);

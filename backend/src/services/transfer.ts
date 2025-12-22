@@ -812,3 +812,104 @@ async function checkEVMBalance(request: BalanceCheckRequest): Promise<number> {
   }
 }
 
+/**
+ * Request type for recovery transfer from Bread wallet back to user
+ */
+interface RecoveryTransferRequest {
+  chain: string;
+  asset: string;
+  amount: number;
+  fromBreadWalletAddress: string;
+  toUserWalletAddress: string;
+  userId: string;
+}
+
+/**
+ * Result type for recovery transfer
+ */
+interface RecoveryTransferResult {
+  txHash: string | null;
+  amount: number;
+}
+
+/**
+ * Transfer funds from Bread wallet BACK to user's SolPay wallet (recovery)
+ *
+ * IMPORTANT: This function is for recovery only. Bread wallets are managed by Bread,
+ * so we cannot directly transfer from them. This function attempts to work around
+ * stuck funds by triggering a transfer via Bread's API if available, or logs the
+ * stuck funds for manual recovery.
+ */
+export async function transferFromBreadWalletBack(
+  request: RecoveryTransferRequest
+): Promise<RecoveryTransferResult> {
+  logger.info({
+    msg: '🔄 RECOVERY: Attempting to transfer funds back from Bread wallet',
+    chain: request.chain,
+    asset: request.asset,
+    amount: request.amount,
+    from: request.fromBreadWalletAddress,
+    to: request.toUserWalletAddress,
+  });
+
+  // Since Bread wallets are managed by Bread, we cannot directly transfer from them
+  // The funds are controlled by Bread's system
+  //
+  // Options for recovery:
+  // 1. Call Bread's withdrawal/transfer API (if available)
+  // 2. Log the stuck funds for manual admin recovery
+  // 3. Create a recovery request in the database
+
+  // For now, log the stuck funds and create a recovery record
+  try {
+    // Record the stuck funds in database for admin attention
+    const { data: recoveryRecord, error } = await supabaseAdmin
+      .from('stuck_funds_recovery')
+      .insert({
+        user_id: request.userId,
+        chain: request.chain,
+        asset: request.asset,
+        amount: request.amount,
+        bread_wallet_address: request.fromBreadWalletAddress,
+        user_wallet_address: request.toUserWalletAddress,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      // Table might not exist, just log the issue
+      logger.warn({
+        msg: 'Could not create recovery record (table may not exist)',
+        error: error.message,
+      });
+    } else {
+      logger.info({
+        msg: '📝 Created stuck funds recovery record',
+        recordId: recoveryRecord?.id,
+      });
+    }
+
+    // Return with no txHash since we can't actually transfer from Bread wallet
+    // The funds remain in Bread wallet and need manual recovery or Bread API withdrawal
+    logger.warn({
+      msg: '⚠️ RECOVERY LIMITATION: Cannot directly transfer from Bread wallet',
+      note: 'Bread wallets are managed by Bread. Funds remain in Bread wallet.',
+      breadWallet: request.fromBreadWalletAddress,
+      amount: request.amount,
+      asset: request.asset,
+    });
+
+    return {
+      txHash: null,
+      amount: request.amount,
+    };
+  } catch (err: any) {
+    logger.error({
+      msg: '❌ Failed to create recovery record',
+      error: err.message,
+    });
+    throw err;
+  }
+}

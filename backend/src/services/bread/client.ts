@@ -14,7 +14,7 @@ export class BreadClient {
   constructor(config: BreadConfig) {
     this.config = {
       apiKey: config.apiKey,
-      baseUrl: config.baseUrl || 'https://api.bread.africa',
+      baseUrl: config.baseUrl || 'https://processor-prod.up.railway.app',
       timeout: config.timeout || 30000,
       retries: config.retries || 3,
     };

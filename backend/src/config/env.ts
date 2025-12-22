@@ -71,7 +71,7 @@ const envSchema = z.object({
 
   // Bread Africa API
   BREAD_API_KEY: z.string().optional(),
-  BREAD_API_URL: z.string().url().default('https://api.bread.africa'),
+  BREAD_API_URL: z.string().url().default('https://processor-prod.up.railway.app'),
   BREAD_WEBHOOK_SECRET: z.string().optional(),
   BREAD_ENABLED: z.string().transform(v => v === 'true').default('false'),
 

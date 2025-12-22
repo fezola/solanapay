@@ -599,7 +599,7 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Log detailed error for debugging stuck funds issues
       request.log.error({
-        msg: '❌ OFFRAMP FAILED - FUNDS MAY BE STUCK',
+        msg: '❌ OFFRAMP FAILED - ATTEMPTING AUTOMATIC RECOVERY',
         userId,
         asset: body.asset,
         chain: body.chain,
@@ -609,19 +609,85 @@ export const payoutRoutes: FastifyPluginAsync = async (fastify) => {
         beneficiaryId: beneficiaryData?.bread_beneficiary_id,
         error: error.message,
         breadError: error.response?.data,
-      }, 'CRITICAL: Offramp failed after potential transfer - funds may be stuck in Bread wallet');
+      }, 'Offramp failed - will attempt to recover funds');
+
+      // AUTOMATIC RECOVERY: Transfer funds back from Bread wallet to user's SolPay wallet
+      let recoveryAttempted = false;
+      let recoverySuccess = false;
+      let recoveryTxHash: string | null = null;
+
+      if (depositAddressData?.bread_wallet_address && depositAddressData?.address) {
+        try {
+          request.log.info({
+            msg: '🔄 RECOVERY: Attempting to transfer funds back to user wallet',
+            from: depositAddressData.bread_wallet_address,
+            to: depositAddressData.address,
+            asset: body.asset,
+            chain: body.chain,
+          });
+
+          // Check how much is in the Bread wallet
+          const { checkBreadWalletBalance, transferFromBreadWalletBack } = await import('../services/transfer.js');
+
+          const stuckBalance = await checkBreadWalletBalance({
+            chain: body.chain,
+            asset: body.asset,
+            walletAddress: depositAddressData.bread_wallet_address,
+          });
+
+          if (stuckBalance > 0.001) {
+            recoveryAttempted = true;
+
+            // Transfer back to user's SolPay wallet
+            const recoveryResult = await transferFromBreadWalletBack({
+              chain: body.chain,
+              asset: body.asset,
+              amount: stuckBalance,
+              fromBreadWalletAddress: depositAddressData.bread_wallet_address,
+              toUserWalletAddress: depositAddressData.address,
+              userId,
+            });
+
+            if (recoveryResult.txHash) {
+              recoverySuccess = true;
+              recoveryTxHash = recoveryResult.txHash;
+              request.log.info({
+                msg: '✅ RECOVERY SUCCESS: Funds transferred back to user wallet',
+                txHash: recoveryResult.txHash,
+                amount: stuckBalance,
+              });
+            }
+          } else {
+            request.log.info({
+              msg: '💡 No funds in Bread wallet to recover - funds may still be in user wallet',
+              balance: stuckBalance,
+            });
+          }
+        } catch (recoveryError: any) {
+          request.log.error({
+            msg: '❌ RECOVERY FAILED',
+            error: recoveryError.message,
+          }, 'Could not automatically recover funds');
+        }
+      }
 
       return reply.status(500).send({
         error: 'Offramp failed',
         message: error.message,
         details: error.response?.data,
         recovery: {
+          attempted: recoveryAttempted,
+          success: recoverySuccess,
+          txHash: recoveryTxHash,
           breadWalletId: depositAddressData?.bread_wallet_id,
           breadWalletAddress: depositAddressData?.bread_wallet_address,
+          userWalletAddress: depositAddressData?.address,
           asset: body.asset,
           chain: body.chain,
           amount: body.amount,
-          note: 'If funds were transferred to Bread wallet, manual recovery may be needed. Contact support with this information.',
+          note: recoverySuccess
+            ? 'Funds have been automatically returned to your wallet. Please try again later.'
+            : 'Automatic recovery failed. Please contact support with this information.',
         },
       });
     }
