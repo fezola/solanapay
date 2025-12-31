@@ -6,6 +6,7 @@ import {
   sendAndConfirmTransaction,
   Keypair,
   LAMPORTS_PER_SOL,
+  ComputeBudgetProgram,
 } from '@solana/web3.js';
 import {
   getAssociatedTokenAddress,
@@ -285,6 +286,14 @@ async function transferSolana(request: TransferRequest): Promise<TransferResult>
   // Create transaction
   const transaction = new Transaction();
 
+  // Add priority fee to avoid transaction expiration during network congestion
+  // 50,000 microlamports = 0.00005 SOL priority fee (reasonable for fast confirmation)
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: 50000,
+    })
+  );
+
   // Add instruction to create destination token account if it doesn't exist
   if (!destinationAccountExists) {
     logger.info({
@@ -419,7 +428,16 @@ async function transferSolNative(
     );
   }
 
-  const transaction = new Transaction().add(
+  const transaction = new Transaction();
+
+  // Add priority fee to avoid transaction expiration during network congestion
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: 50000,
+    })
+  );
+
+  transaction.add(
     SystemProgram.transfer({
       fromPubkey: fromWallet.publicKey,
       toPubkey,
